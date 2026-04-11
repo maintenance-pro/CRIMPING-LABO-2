@@ -1412,26 +1412,162 @@
 
     /* ========== USERS (admin) ========== */
     users: {
+      _allUsers: {},
+
       init() {
-        $('#btn-user-add').addEventListener('click', () => this.openModal());
+        $('#btn-user-add').addEventListener('click', () => this.openCreateModal());
       },
+
       async render() {
-        if (!auth.can('user.read') && state.role !== 'super_admin' && state.role !== 'admin') return;
+        if (state.role !== 'admin' && state.role !== 'super_admin' && !auth.can('user.read')) return;
         const snap = await fbDb.ref('users').once('value');
-        const users = snap.val() || {};
-        $('#users-body').innerHTML = Object.values(users).map(u => `
+        this._allUsers = snap.val() || {};
+        const list = Object.values(this._allUsers);
+
+        $('#users-body').innerHTML = list.length ? list.map(u => `
           <tr>
             <td><strong>${ui.escape(u.displayName || '—')}</strong></td>
-            <td>${ui.escape(u.matricule || '—')}</td>
+            <td style="font-family:var(--font-mono);font-size:.8rem">${ui.escape(u.matricule || '—')}</td>
             <td>${ui.escape(u.email || '—')}</td>
             <td><span class="badge badge--auto">${auth.roleLabel(u.role)}</span></td>
-            <td>${u.active ? '✅' : '⛔'}</td>
-            <td>${fmt.dateTime(u.lastLoginAt)}</td>
-            <td><button class="btn btn--ghost" data-action="edit" data-uid="${u.uid}">Modifier</button></td>
+            <td>
+              <span style="font-size:.8rem;padding:.2rem .5rem;border-radius:5px;
+                background:${u.active!==false?'rgba(16,185,129,.12)':'rgba(239,68,68,.12)'};
+                color:${u.active!==false?'var(--success-500)':'var(--danger-500)'}">
+                ${u.active!==false ? '✅ Actif' : '⛔ Inactif'}
+              </span>
+            </td>
+            <td style="font-size:.82rem;color:var(--text-muted)">${fmt.dateTime(u.lastLoginAt)}</td>
+            <td>
+              <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+                <button class="btn btn--ghost" style="font-size:.78rem;padding:.3rem .65rem"
+                  onclick="views.users.openEditModal('${ui.escape(u.uid)}')">✏️ Modifier</button>
+                <button class="btn btn--ghost" style="font-size:.78rem;padding:.3rem .65rem;color:var(--warn-500)"
+                  onclick="views.users.sendPasswordReset('${ui.escape(u.email)}')">🔑 MDP</button>
+                <button class="btn btn--ghost" style="font-size:.78rem;padding:.3rem .65rem;color:${u.active!==false?'var(--danger-500)':'var(--success-500)'}"
+                  onclick="views.users.toggleActive('${ui.escape(u.uid)}', ${u.active!==false})">
+                  ${u.active!==false ? '⛔ Désactiver' : '✅ Activer'}
+                </button>
+              </div>
+            </td>
           </tr>
-        `).join('');
+        `).join('') : '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Aucun utilisateur</td></tr>';
       },
-      openModal() {
+
+      /* Envoyer email de réinitialisation du mot de passe */
+      async sendPasswordReset(email) {
+        const ok = await ui.confirm('Réinitialiser le mot de passe', `Envoyer un email de réinitialisation à ${email} ?`);
+        if (!ok) return;
+        try {
+          await fbAuth.sendPasswordResetEmail(email);
+          ui.toast(`Email de réinitialisation envoyé à ${email} ✅`, 'success');
+        } catch (err) {
+          ui.toast('Erreur : ' + err.message, 'danger');
+        }
+      },
+
+      /* Activer / Désactiver un compte */
+      async toggleActive(uid, isCurrentlyActive) {
+        const action = isCurrentlyActive ? 'Désactiver' : 'Activer';
+        const ok = await ui.confirm(action + ' le compte', `${action} cet utilisateur ?`);
+        if (!ok) return;
+        try {
+          await fbDb.ref(`users/${uid}/active`).set(!isCurrentlyActive);
+          ui.toast('Compte ' + (isCurrentlyActive ? 'désactivé' : 'activé'), 'success');
+          this.render();
+        } catch (err) {
+          ui.toast('Erreur : ' + err.message, 'danger');
+        }
+      },
+
+      /* Modal MODIFIER un utilisateur existant */
+      openEditModal(uid) {
+        const u = this._allUsers[uid];
+        if (!u) return;
+
+        // Injecter le contenu dans la modal existante ou créer une inline
+        const existing = document.getElementById('modal-user-edit');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'modal-user-edit';
+        modal.className = 'modal';
+        modal.setAttribute('role', 'dialog');
+        modal.innerHTML = `
+          <div class="modal__backdrop" data-close></div>
+          <div class="modal__panel">
+            <header class="modal__header">
+              <h2 class="modal__title">Modifier — ${ui.escape(u.displayName || u.email)}</h2>
+              <button class="modal__close" data-close>×</button>
+            </header>
+            <div class="modal__body" style="display:flex;flex-direction:column;gap:.9rem">
+              <div class="field"><label class="field__label">Nom complet</label>
+                <input class="field__input" id="edit-name" value="${ui.escape(u.displayName || '')}" /></div>
+              <div class="field"><label class="field__label">Matricule</label>
+                <input class="field__input" id="edit-mat" value="${ui.escape(u.matricule || '')}" /></div>
+              <div class="field"><label class="field__label">Rôle</label>
+                <select class="field__input" id="edit-role">
+                  <option value="admin"       ${u.role==='admin'       ?'selected':''}>Administrateur</option>
+                  <option value="responsable" ${u.role==='responsable' ?'selected':''}>Responsable Maintenance</option>
+                  <option value="labo"        ${u.role==='labo'        ?'selected':''}>Technicien Labo</option>
+                  <option value="crimp"       ${u.role==='crimp'       ?'selected':''}>Technicien Crimping</option>
+                  <option value="crimping"    ${u.role==='crimping'    ?'selected':''}>Technicien Crimping (legacy)</option>
+                </select>
+              </div>
+              <div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:1rem;font-size:.85rem;color:var(--warn-500)">
+                🔑 <strong>Changer le mot de passe :</strong><br/>
+                <span style="color:var(--text-secondary);font-size:.82rem">Un email de réinitialisation sera envoyé à <strong>${ui.escape(u.email)}</strong>.</span>
+                <button id="btn-send-reset" class="btn btn--ghost" style="margin-top:.6rem;width:100%;font-size:.85rem;color:var(--warn-500);border-color:rgba(245,158,11,.3)">
+                  📧 Envoyer email de réinitialisation
+                </button>
+              </div>
+            </div>
+            <footer class="modal__footer">
+              <button class="btn btn--ghost" data-close>Annuler</button>
+              <button class="btn btn--primary" id="btn-edit-save">💾 Enregistrer</button>
+            </footer>
+          </div>`;
+
+        document.body.appendChild(modal);
+        modal.hidden = false;
+
+        modal.querySelectorAll('[data-close]').forEach(el => {
+          el.addEventListener('click', () => { modal.hidden = true; modal.remove(); });
+        });
+
+        document.getElementById('btn-send-reset').addEventListener('click', async () => {
+          try {
+            await fbAuth.sendPasswordResetEmail(u.email);
+            ui.toast(`Email envoyé à ${u.email} ✅`, 'success');
+          } catch (err) {
+            ui.toast('Erreur : ' + err.message, 'danger');
+          }
+        });
+
+        document.getElementById('btn-edit-save').addEventListener('click', async () => {
+          const newName = document.getElementById('edit-name').value.trim();
+          const newMat  = document.getElementById('edit-mat').value.trim();
+          const newRole = document.getElementById('edit-role').value;
+          if (!newName) return ui.toast('Le nom est obligatoire', 'warn');
+          try {
+            await fbDb.ref(`users/${uid}`).update({
+              displayName : newName,
+              matricule   : newMat,
+              role        : newRole,
+              updatedAt   : Date.now()
+            });
+            ui.toast('Utilisateur mis à jour ✅', 'success');
+            modal.hidden = true;
+            modal.remove();
+            this.render();
+          } catch (err) {
+            ui.toast('Erreur : ' + err.message, 'danger');
+          }
+        });
+      },
+
+      /* Modal CRÉER un nouvel utilisateur */
+      openCreateModal() {
         const modal = $('#modal-user');
         modal.hidden = false;
         modal.querySelectorAll('[data-close]').forEach(el => {
@@ -1441,19 +1577,24 @@
           const form = $('#form-user');
           const data = {};
           new FormData(form).forEach((v, k) => { data[k] = v; });
+          if (!data.email || !data.password || !data.displayName) {
+            return ui.toast('Tous les champs sont obligatoires', 'warn');
+          }
           try {
             const cred = await fbAuth.createUserWithEmailAndPassword(data.email, data.password);
             await fbDb.ref(`users/${cred.user.uid}`).set({
-              uid: cred.user.uid,
-              displayName: data.displayName,
-              matricule: data.matricule,
-              email: data.email,
-              role: data.role,
-              active: true,
-              createdAt: Date.now()
+              uid         : cred.user.uid,
+              displayName : data.displayName,
+              matricule   : data.matricule || '',
+              email       : data.email,
+              role        : data.role,
+              active      : true,
+              createdAt   : Date.now(),
+              lastLoginAt : null
             });
-            ui.toast('Utilisateur créé', 'success');
+            ui.toast(`Utilisateur ${data.displayName} créé ✅`, 'success');
             modal.hidden = true;
+            form.reset();
             this.render();
           } catch (err) {
             ui.toast('Erreur : ' + err.message, 'danger');

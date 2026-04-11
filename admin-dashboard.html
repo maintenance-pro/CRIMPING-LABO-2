@@ -894,19 +894,19 @@
         <button class="modal__close" data-close>×</button>
       </header>
       <form class="modal__body" id="form-user">
-        <div class="field"><label>Nom complet</label><input name="displayName" required /></div>
-        <div class="field"><label>Matricule</label><input name="matricule" required /></div>
-        <div class="field"><label>Email</label><input name="email" type="email" required /></div>
+        <div class="field"><label class="field__label">Nom complet</label><input class="field__input" name="displayName" required placeholder="Ex: Ahmed Benali" /></div>
+        <div class="field"><label class="field__label">Matricule</label><input class="field__input" name="matricule" placeholder="Ex: LN-C-003" /></div>
+        <div class="field"><label class="field__label">Email</label><input class="field__input" name="email" type="email" required placeholder="Ex: ahmed@leoni.com" /></div>
         <div class="field">
-          <label>Rôle</label>
-          <select name="role" required>
-            <option value="crimping">Technicien Crimping</option>
-            <option value="labo">Technicien Labo</option>
+          <label class="field__label">Rôle</label>
+          <select class="field__input" name="role" required>
+            <option value="crimp">Technicien Crimping</option>
+            <option value="labo">Technicien Laboratoire</option>
             <option value="responsable">Responsable Maintenance</option>
-            <option value="super_admin">Super Admin</option>
+            <option value="admin">Administrateur</option>
           </select>
         </div>
-        <div class="field"><label>Mot de passe initial</label><input name="password" type="password" required /></div>
+        <div class="field"><label class="field__label">Mot de passe initial</label><input class="field__input" name="password" type="text" required placeholder="Min. 8 caractères" /></div>
       </form>
       <footer class="modal__footer">
         <button class="btn btn--ghost" data-close>Annuler</button>
