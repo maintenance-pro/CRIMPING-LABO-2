@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LEONI · Master Admin Setup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0b0f1a;
+      color: #f1f5f9;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .card {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 25px 60px rgba(0,0,0,.5);
+    }
+
+    .logo {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #f59e0b;
+      letter-spacing: -1px;
+      margin-bottom: .4rem;
+    }
+    .subtitle {
+      font-size: .875rem;
+      color: #64748b;
+      margin-bottom: 2rem;
+    }
+
+    .info-row {
+      background: rgba(255,255,255,.04);
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin-bottom: .75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: .9rem;
+    }
+    .info-row span:first-child { color: #64748b; }
+    .info-row span:last-child  { font-family: monospace; color: #f1f5f9; }
+
+    .divider { border: none; border-top: 1px solid #1e293b; margin: 1.5rem 0; }
+
+    .field { margin-bottom: 1.25rem; }
+    label  { display: block; font-size: .78rem; color: #64748b; font-weight: 600;
+             text-transform: uppercase; letter-spacing: .05em; margin-bottom: .4rem; }
+    input  {
+      width: 100%;
+      background: rgba(255,255,255,.05);
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: .7rem 1rem;
+      color: #f1f5f9;
+      font-size: .95rem;
+      font-family: monospace;
+      transition: border-color .2s;
+    }
+    input:focus { outline: none; border-color: #f59e0b; }
+
+    .btn {
+      width: 100%;
+      padding: .85rem;
+      background: #f59e0b;
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+      margin-top: .5rem;
+    }
+    .btn:hover:not(:disabled) { background: #fbbf24; transform: translateY(-1px); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    /* Log terminal */
+    .log {
+      margin-top: 1.5rem;
+      background: #060a13;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: .8rem;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+    }
+    .log.visible { display: block; }
+    .line         { padding: .15rem 0; line-height: 1.6; }
+    .line.success { color: #10b981; }
+    .line.error   { color: #ef4444; }
+    .line.info    { color: #64748b; }
+    .line.warn    { color: #f59e0b; }
+
+    /* Result banner */
+    .result {
+      display: none;
+      margin-top: 1.25rem;
+      padding: 1.1rem 1.25rem;
+      border-radius: 10px;
+      font-size: .88rem;
+      line-height: 1.7;
+      text-align: center;
+    }
+    .result.success {
+      display: block;
+      background: rgba(16,185,129,.1);
+      border: 1px solid rgba(16,185,129,.3);
+      color: #6ee7b7;
+    }
+    .result.error {
+      display: block;
+      background: rgba(239,68,68,.1);
+      border: 1px solid rgba(239,68,68,.3);
+      color: #fca5a5;
+    }
+    .result strong { display: block; font-size: 1rem; margin-bottom: .3rem; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+
+  <div class="logo">LEONI</div>
+  <div class="subtitle">Master Admin Setup · Initialisation unique</div>
+
+  <!-- Compte qui sera créé -->
+  <div class="info-row">
+    <span>Email</span>
+    <span>admin@leoni.com</span>
+  </div>
+  <div class="info-row">
+    <span>Rôle</span>
+    <span>admin</span>
+  </div>
+  <div class="info-row">
+    <span>Base de données</span>
+    <span>users/{uid}</span>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- Champ mot de passe -->
+  <div class="field">
+    <label>Mot de passe Admin</label>
+    <input
+      type="text"
+      id="input-password"
+      value="Leoni@Admin2025!"
+      placeholder="Min. 8 caractères"
+    />
+  </div>
+
+  <button class="btn" id="btn-run">⚡ Créer le compte Master Admin</button>
+
+  <!-- Log -->
+  <div class="log" id="log"></div>
+
+  <!-- Résultat final -->
+  <div class="result" id="result"></div>
+
+</div>
+
+
+<!-- Firebase SDK v9 compat -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+  // ── 1. Firebase Init ────────────────────────────────────────────────────
+  const firebaseConfig = {
+    apiKey:            "AIzaSyBIW4I1DRqyqcmNEdajXbptQ5-RWFIG1V4",
+    authDomain:        "leoni-sertissage-labo.firebaseapp.com",
+    databaseURL:       "https://leoni-sertissage-labo-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId:         "leoni-sertissage-labo",
+    storageBucket:     "leoni-sertissage-labo.firebasestorage.app",
+    messagingSenderId: "432527114405",
+    appId:             "1:432527114405:web:b141f6ae74f11b1cbb0d4c"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+
+  const auth = firebase.auth();
+  const rtdb = firebase.database();
+
+  // ── 2. Logger UI + console ──────────────────────────────────────────────
+  const logEl = document.getElementById("log");
+
+  function log(msg, type = "info") {
+    // UI
+    logEl.classList.add("visible");
+    const line      = document.createElement("div");
+    line.className  = `line ${type}`;
+    const ts        = new Date().toLocaleTimeString("fr-FR");
+    line.textContent = `[${ts}]  ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+
+    // Console
+    const fn = type === "error" ? console.error
+             : type === "warn"  ? console.warn
+             : type === "success" ? console.log
+             : console.info;
+    fn(`[LEONI Setup] ${msg}`);
+  }
+
+  function showResult(ok, uid) {
+    const el = document.getElementById("result");
+    el.className = `result ${ok ? "success" : "error"}`;
+    el.innerHTML = ok
+      ? `<strong>✅ Master Admin créé avec succès !</strong>
+         Firebase Auth UID : <code>${uid}</code><br/>
+         Realtime DB : <code>users/${uid}</code><br/><br/>
+         <span style="color:#f59e0b;font-size:.8rem">
+           ⚠️ Supprime cette page après utilisation.
+         </span>`
+      : `<strong>❌ Erreur lors du setup</strong>
+         Consulte le log ci-dessus et la console du navigateur.`;
+  }
+
+  // ── 3. Logique principale ───────────────────────────────────────────────
+  document.getElementById("btn-run").addEventListener("click", async () => {
+    const password = document.getElementById("input-password").value.trim();
+
+    // Validation mot de passe
+    if (password.length < 8) {
+      log("Le mot de passe doit contenir au moins 8 caractères.", "error");
+      return;
+    }
+
+    const btn    = document.getElementById("btn-run");
+    btn.disabled = true;
+    btn.textContent = "Création en cours…";
+
+    log("Démarrage du setup Master Admin…", "warn");
+
+    try {
+
+      // ── ÉTAPE 1 : Firebase Authentication ──────────────────────────────
+      log("Étape 1/3 — Création du compte Firebase Auth…", "info");
+
+      const credential = await auth.createUserWithEmailAndPassword(
+        "admin@leoni.com",
+        password
+      );
+
+      const uid = credential.user.uid;
+      console.log("[LEONI Setup] ✔ Auth user created — UID:", uid);
+      log(`Auth OK → UID : ${uid}`, "success");
+
+      // ── ÉTAPE 2 : Realtime Database ─────────────────────────────────────
+      log("Étape 2/3 — Écriture dans Realtime Database…", "info");
+
+      const userRecord = {
+        uid,
+        email       : "admin@leoni.com",
+        displayName : "Master Admin",
+        matricule   : "LN-ADMIN-001",
+        role        : "admin",
+        active      : true,
+        createdAt   : Date.now()
+      };
+
+      await rtdb.ref("users/" + uid).set(userRecord);
+
+      console.log("[LEONI Setup] ✔ Realtime DB record written at users/" + uid);
+      log(`Realtime DB OK → users/${uid} écrit`, "success");
+
+      // ── ÉTAPE 3 : Déconnexion immédiate ─────────────────────────────────
+      log("Étape 3/3 — Fermeture de la session de setup…", "info");
+      await auth.signOut();
+      console.log("[LEONI Setup] ✔ Session closed after setup.");
+      log("Session fermée. Setup terminé ✅", "success");
+
+      // Résumé final
+      log("══════════════════════════════════", "warn");
+      log("Email    : admin@leoni.com",         "success");
+      log("Password : " + password,             "success");
+      log("Role     : admin",                   "success");
+      log("UID      : " + uid,                  "success");
+      log("DB Path  : users/" + uid,            "success");
+      log("══════════════════════════════════", "warn");
+
+      showResult(true, uid);
+      btn.textContent = "✅ Terminé";
+
+    } catch (err) {
+      const messages = {
+        "auth/email-already-in-use" : "Ce compte existe déjà dans Firebase Auth.",
+        "auth/weak-password"        : "Mot de passe trop faible (min. 8 caractères).",
+        "auth/invalid-email"        : "Adresse email invalide.",
+        "auth/network-request-failed": "Erreur réseau. Vérifie ta connexion."
+      };
+      const msg = messages[err.code] || `${err.code} — ${err.message}`;
+      console.error("[LEONI Setup] ✖ Error:", err.code, err.message);
+      log(`ERREUR : ${msg}`, "error");
+      showResult(false);
+      btn.disabled    = false;
+      btn.textContent = "🔄 Réessayer";
+    }
+  });
+</script>
+
+</body>
+</html>
