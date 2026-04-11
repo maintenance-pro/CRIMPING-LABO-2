@@ -1360,6 +1360,108 @@
       init() {
         $('#catalog-search').addEventListener('input', debounce(() => this.render(), 200));
         $('#btn-catalog-add').addEventListener('click', () => this.openModal());
+
+        // ── Import Excel ──
+        const btnImport = $('#btn-catalog-import');
+        if (btnImport) {
+          btnImport.addEventListener('click', () => this.importExcel());
+        }
+      },
+
+      /* ── Import Excel avec SheetJS ── */
+      importExcel() {
+        // Charger SheetJS si pas encore chargé
+        const loadXLSX = () => new Promise((resolve, reject) => {
+          if (window.XLSX) return resolve();
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s.onload = resolve;
+          s.onerror = () => reject(new Error('Impossible de charger SheetJS'));
+          document.head.appendChild(s);
+        });
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.xlsx,.xls,.csv';
+        input.style.display = 'none';
+        document.body.appendChild(input);
+
+        input.addEventListener('change', async () => {
+          const file = input.files[0];
+          input.remove();
+          if (!file) return;
+
+          ui.showLoader('Lecture du fichier Excel…');
+          try {
+            await loadXLSX();
+
+            const buffer = await file.arrayBuffer();
+            const wb = XLSX.read(buffer, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+            if (!rows.length) {
+              ui.hideLoader();
+              return ui.toast('Fichier vide ou format non reconnu', 'warn');
+            }
+
+            // Mapping colonnes → champs (insensible à la casse)
+            const MAP = {
+              'ref outil'        : 'refOutil',   'réf outil'       : 'refOutil',
+              'ref'              : 'refOutil',   'reference'       : 'refOutil',
+              'outil id'         : 'outilId',    'outilid'         : 'outilId',
+              'id'               : 'outilId',    'outil'           : 'outilId',
+              'fabricant'        : 'fabricant',  'manufacturer'    : 'fabricant',
+              'ref fabricant'    : 'refFabricant','réf fabricant'  : 'refFabricant',
+              'p-ar'             : 'pAr',        'par'             : 'pAr',
+              'p-av'             : 'pAv',        'pav'             : 'pAv',
+              'e-ar'             : 'eAr',        'ear'             : 'eAr',
+              'e-av'             : 'eAv',        'eav'             : 'eAv',
+              'frequence cycle'  : 'frequenceCycle', 'fréquence cycle': 'frequenceCycle',
+              'cycles'           : 'frequenceCycle', 'frequence'    : 'frequenceCycle',
+            };
+
+            const normalize = (k) => (k || '').toString().toLowerCase().trim();
+
+            let imported = 0, skipped = 0;
+            for (const row of rows) {
+              const tool = {};
+              for (const [col, val] of Object.entries(row)) {
+                const field = MAP[normalize(col)];
+                if (field) tool[field] = val;
+              }
+
+              // Fallback: si colonnes non reconnues, essayer par position
+              const vals = Object.values(row);
+              if (!tool.refOutil && vals[0]) tool.refOutil = String(vals[0]).trim();
+              if (!tool.outilId  && vals[1]) tool.outilId  = String(vals[1]).trim();
+              if (!tool.fabricant&& vals[2]) tool.fabricant= String(vals[2]).trim();
+
+              if (!tool.refOutil && !tool.outilId) { skipped++; continue; }
+
+              const id = (tool.outilId || tool.refOutil || '')
+                .toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+              tool.id = id || ('tool-' + Date.now() + '-' + imported);
+              tool.frequenceCycle = parseInt(tool.frequenceCycle) || 0;
+              tool.createdAt = Date.now();
+              tool.updatedAt = Date.now();
+
+              await fbDb.ref('tools/' + tool.id).set(tool);
+              imported++;
+            }
+
+            ui.hideLoader();
+            ui.toast(imported + ' outil(s) importé(s) ✅' + (skipped ? ' (' + skipped + ' ignoré(s))' : ''), 'success');
+            this.render();
+
+          } catch (err) {
+            ui.hideLoader();
+            ui.toast('Erreur import : ' + err.message, 'danger');
+            console.error('[Import Excel]', err);
+          }
+        });
+
+        input.click();
       },
       render() {
         const q = $('#catalog-search').value.trim().toLowerCase();
@@ -1416,129 +1518,174 @@
 
       init() {
         $('#btn-user-add').addEventListener('click', () => this.openCreateModal());
+
+        // ── Event delegation pour les boutons du tableau ──
+        document.getElementById('users-body').addEventListener('click', (e) => {
+          const btn = e.target.closest('button[data-action]');
+          if (!btn) return;
+          const action = btn.dataset.action;
+          const uid    = btn.dataset.uid;
+          const email  = btn.dataset.email;
+          const active = btn.dataset.active === 'true';
+          if (action === 'edit')          this.openEditModal(uid);
+          if (action === 'reset-pass')    this.sendPasswordReset(email);
+          if (action === 'toggle-active') this.toggleActive(uid, active);
+        });
       },
 
       async render() {
         if (state.role !== 'admin' && state.role !== 'super_admin' && !auth.can('user.read')) return;
-        const snap = await fbDb.ref('users').once('value');
-        this._allUsers = snap.val() || {};
+        try {
+          const snap = await fbDb.ref('users').once('value');
+          this._allUsers = snap.val() || {};
+        } catch (e) {
+          ui.toast('Erreur chargement utilisateurs : ' + e.message, 'danger');
+          return;
+        }
         const list = Object.values(this._allUsers);
 
-        $('#users-body').innerHTML = list.length ? list.map(u => `
-          <tr>
+        if (!list.length) {
+          document.getElementById('users-body').innerHTML =
+            '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Aucun utilisateur</td></tr>';
+          return;
+        }
+
+        document.getElementById('users-body').innerHTML = list.map(u => {
+          const isActive = u.active !== false;
+          return `<tr>
             <td><strong>${ui.escape(u.displayName || '—')}</strong></td>
             <td style="font-family:var(--font-mono);font-size:.8rem">${ui.escape(u.matricule || '—')}</td>
             <td>${ui.escape(u.email || '—')}</td>
             <td><span class="badge badge--auto">${auth.roleLabel(u.role)}</span></td>
             <td>
-              <span style="font-size:.8rem;padding:.2rem .5rem;border-radius:5px;
-                background:${u.active!==false?'rgba(16,185,129,.12)':'rgba(239,68,68,.12)'};
-                color:${u.active!==false?'var(--success-500)':'var(--danger-500)'}">
-                ${u.active!==false ? '✅ Actif' : '⛔ Inactif'}
+              <span style="font-size:.78rem;padding:.2rem .55rem;border-radius:5px;font-weight:600;
+                background:${isActive ? 'rgba(16,185,129,.12)' : 'rgba(239,68,68,.12)'};
+                color:${isActive ? 'var(--success-500)' : 'var(--danger-500)'}">
+                ${isActive ? '✅ Actif' : '⛔ Inactif'}
               </span>
             </td>
-            <td style="font-size:.82rem;color:var(--text-muted)">${fmt.dateTime(u.lastLoginAt)}</td>
+            <td style="font-size:.78rem;color:var(--text-muted)">${fmt.dateTime(u.lastLoginAt)}</td>
             <td>
-              <div style="display:flex;gap:.4rem;flex-wrap:wrap">
-                <button class="btn btn--ghost" style="font-size:.78rem;padding:.3rem .65rem"
-                  onclick="views.users.openEditModal('${ui.escape(u.uid)}')">✏️ Modifier</button>
-                <button class="btn btn--ghost" style="font-size:.78rem;padding:.3rem .65rem;color:var(--warn-500)"
-                  onclick="views.users.sendPasswordReset('${ui.escape(u.email)}')">🔑 MDP</button>
-                <button class="btn btn--ghost" style="font-size:.78rem;padding:.3rem .65rem;color:${u.active!==false?'var(--danger-500)':'var(--success-500)'}"
-                  onclick="views.users.toggleActive('${ui.escape(u.uid)}', ${u.active!==false})">
-                  ${u.active!==false ? '⛔ Désactiver' : '✅ Activer'}
+              <div style="display:flex;gap:.35rem;flex-wrap:wrap">
+                <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem"
+                  data-action="edit" data-uid="${ui.escape(u.uid || '')}">✏️ Modifier</button>
+                <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem;color:var(--warn-500)"
+                  data-action="reset-pass" data-email="${ui.escape(u.email || '')}">🔑 Mot de passe</button>
+                <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem;color:${isActive ? 'var(--danger-500)' : 'var(--success-500)'}"
+                  data-action="toggle-active" data-uid="${ui.escape(u.uid || '')}" data-active="${isActive}">
+                  ${isActive ? '⛔ Désactiver' : '✅ Activer'}
                 </button>
               </div>
             </td>
-          </tr>
-        `).join('') : '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Aucun utilisateur</td></tr>';
+          </tr>`;
+        }).join('');
       },
 
-      /* Envoyer email de réinitialisation du mot de passe */
+      /* ── Réinitialisation mot de passe ── */
       async sendPasswordReset(email) {
-        const ok = await ui.confirm('Réinitialiser le mot de passe', `Envoyer un email de réinitialisation à ${email} ?`);
+        if (!email) return;
+        const ok = await ui.confirm('Réinitialiser le mot de passe',
+          'Envoyer un email de réinitialisation à ' + email + ' ?');
         if (!ok) return;
         try {
           await fbAuth.sendPasswordResetEmail(email);
-          ui.toast(`Email de réinitialisation envoyé à ${email} ✅`, 'success');
+          ui.toast('Email envoyé à ' + email + ' ✅', 'success');
         } catch (err) {
           ui.toast('Erreur : ' + err.message, 'danger');
         }
       },
 
-      /* Activer / Désactiver un compte */
+      /* ── Activer / Désactiver ── */
       async toggleActive(uid, isCurrentlyActive) {
+        if (!uid) return;
         const action = isCurrentlyActive ? 'Désactiver' : 'Activer';
-        const ok = await ui.confirm(action + ' le compte', `${action} cet utilisateur ?`);
+        const ok = await ui.confirm(action + ' le compte', action + ' cet utilisateur ?');
         if (!ok) return;
         try {
-          await fbDb.ref(`users/${uid}/active`).set(!isCurrentlyActive);
-          ui.toast('Compte ' + (isCurrentlyActive ? 'désactivé' : 'activé'), 'success');
+          await fbDb.ref('users/' + uid + '/active').set(!isCurrentlyActive);
+          ui.toast('Compte ' + (isCurrentlyActive ? 'désactivé ⛔' : 'activé ✅'), 'success');
           this.render();
         } catch (err) {
           ui.toast('Erreur : ' + err.message, 'danger');
         }
       },
 
-      /* Modal MODIFIER un utilisateur existant */
+      /* ── Modal Modifier ── */
       openEditModal(uid) {
+        if (!uid) return;
         const u = this._allUsers[uid];
-        if (!u) return;
+        if (!u) { ui.toast('Utilisateur introuvable', 'warn'); return; }
 
-        // Injecter le contenu dans la modal existante ou créer une inline
         const existing = document.getElementById('modal-user-edit');
         if (existing) existing.remove();
 
-        const modal = document.createElement('div');
-        modal.id = 'modal-user-edit';
-        modal.className = 'modal';
-        modal.setAttribute('role', 'dialog');
-        modal.innerHTML = `
-          <div class="modal__backdrop" data-close></div>
+        const div = document.createElement('div');
+        div.id = 'modal-user-edit';
+        div.className = 'modal';
+        div.setAttribute('role', 'dialog');
+        div.setAttribute('aria-modal', 'true');
+        div.innerHTML = `
+          <div class="modal__backdrop"></div>
           <div class="modal__panel">
             <header class="modal__header">
-              <h2 class="modal__title">Modifier — ${ui.escape(u.displayName || u.email)}</h2>
-              <button class="modal__close" data-close>×</button>
+              <h2 class="modal__title">✏️ Modifier — ${ui.escape(u.displayName || u.email)}</h2>
+              <button class="modal__close" id="btn-edit-close" aria-label="Fermer">×</button>
             </header>
-            <div class="modal__body" style="display:flex;flex-direction:column;gap:.9rem">
-              <div class="field"><label class="field__label">Nom complet</label>
-                <input class="field__input" id="edit-name" value="${ui.escape(u.displayName || '')}" /></div>
-              <div class="field"><label class="field__label">Matricule</label>
-                <input class="field__input" id="edit-mat" value="${ui.escape(u.matricule || '')}" /></div>
-              <div class="field"><label class="field__label">Rôle</label>
+            <div class="modal__body" style="display:flex;flex-direction:column;gap:.85rem;padding:1.25rem">
+              <div class="field">
+                <label class="field__label">Nom complet</label>
+                <input class="field__input" id="edit-name" value="${ui.escape(u.displayName || '')}" />
+              </div>
+              <div class="field">
+                <label class="field__label">Matricule</label>
+                <input class="field__input" id="edit-mat" value="${ui.escape(u.matricule || '')}" />
+              </div>
+              <div class="field">
+                <label class="field__label">Email (lecture seule)</label>
+                <input class="field__input" value="${ui.escape(u.email || '')}" disabled
+                  style="opacity:.5;cursor:not-allowed" />
+              </div>
+              <div class="field">
+                <label class="field__label">Rôle</label>
                 <select class="field__input" id="edit-role">
-                  <option value="admin"       ${u.role==='admin'       ?'selected':''}>Administrateur</option>
-                  <option value="responsable" ${u.role==='responsable' ?'selected':''}>Responsable Maintenance</option>
-                  <option value="labo"        ${u.role==='labo'        ?'selected':''}>Technicien Labo</option>
-                  <option value="crimp"       ${u.role==='crimp'       ?'selected':''}>Technicien Crimping</option>
-                  <option value="crimping"    ${u.role==='crimping'    ?'selected':''}>Technicien Crimping (legacy)</option>
+                  <option value="admin"      ${u.role === 'admin'      ? 'selected' : ''}>🔴 Administrateur</option>
+                  <option value="labo"       ${u.role === 'labo'       ? 'selected' : ''}>🔵 Technicien Labo</option>
+                  <option value="crimp"      ${u.role === 'crimp'      ? 'selected' : ''}>🟢 Technicien Crimping</option>
+                  <option value="responsable"${u.role === 'responsable'? 'selected' : ''}>🟡 Responsable Maintenance</option>
                 </select>
               </div>
-              <div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:1rem;font-size:.85rem;color:var(--warn-500)">
-                🔑 <strong>Changer le mot de passe :</strong><br/>
-                <span style="color:var(--text-secondary);font-size:.82rem">Un email de réinitialisation sera envoyé à <strong>${ui.escape(u.email)}</strong>.</span>
-                <button id="btn-send-reset" class="btn btn--ghost" style="margin-top:.6rem;width:100%;font-size:.85rem;color:var(--warn-500);border-color:rgba(245,158,11,.3)">
-                  📧 Envoyer email de réinitialisation
+              <div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);
+                border-radius:10px;padding:1rem 1.1rem">
+                <div style="font-size:.82rem;color:var(--warn-500);font-weight:600;margin-bottom:.4rem">
+                  🔑 Réinitialiser le mot de passe
+                </div>
+                <div style="font-size:.8rem;color:var(--text-secondary);margin-bottom:.75rem">
+                  Un email sera envoyé à <strong>${ui.escape(u.email)}</strong> pour choisir un nouveau mot de passe.
+                </div>
+                <button id="btn-send-reset" class="btn btn--ghost"
+                  style="width:100%;font-size:.85rem;color:var(--warn-500);border-color:rgba(245,158,11,.3)">
+                  📧 Envoyer l'email de réinitialisation
                 </button>
               </div>
             </div>
             <footer class="modal__footer">
-              <button class="btn btn--ghost" data-close>Annuler</button>
+              <button class="btn btn--ghost" id="btn-edit-cancel">Annuler</button>
               <button class="btn btn--primary" id="btn-edit-save">💾 Enregistrer</button>
             </footer>
           </div>`;
 
-        document.body.appendChild(modal);
-        modal.hidden = false;
+        document.body.appendChild(div);
+        div.hidden = false;
 
-        modal.querySelectorAll('[data-close]').forEach(el => {
-          el.addEventListener('click', () => { modal.hidden = true; modal.remove(); });
-        });
+        const close = () => { div.hidden = true; div.remove(); };
+        document.getElementById('btn-edit-close').addEventListener('click', close);
+        document.getElementById('btn-edit-cancel').addEventListener('click', close);
+        div.querySelector('.modal__backdrop').addEventListener('click', close);
 
         document.getElementById('btn-send-reset').addEventListener('click', async () => {
           try {
             await fbAuth.sendPasswordResetEmail(u.email);
-            ui.toast(`Email envoyé à ${u.email} ✅`, 'success');
+            ui.toast('Email envoyé à ' + u.email + ' ✅', 'success');
           } catch (err) {
             ui.toast('Erreur : ' + err.message, 'danger');
           }
@@ -1550,15 +1697,14 @@
           const newRole = document.getElementById('edit-role').value;
           if (!newName) return ui.toast('Le nom est obligatoire', 'warn');
           try {
-            await fbDb.ref(`users/${uid}`).update({
+            await fbDb.ref('users/' + uid).update({
               displayName : newName,
               matricule   : newMat,
               role        : newRole,
               updatedAt   : Date.now()
             });
             ui.toast('Utilisateur mis à jour ✅', 'success');
-            modal.hidden = true;
-            modal.remove();
+            close();
             this.render();
           } catch (err) {
             ui.toast('Erreur : ' + err.message, 'danger');
@@ -1566,7 +1712,7 @@
         });
       },
 
-      /* Modal CRÉER un nouvel utilisateur */
+      /* ── Modal Créer ── */
       openCreateModal() {
         const modal = $('#modal-user');
         modal.hidden = false;
@@ -1577,12 +1723,11 @@
           const form = $('#form-user');
           const data = {};
           new FormData(form).forEach((v, k) => { data[k] = v; });
-          if (!data.email || !data.password || !data.displayName) {
+          if (!data.email || !data.password || !data.displayName)
             return ui.toast('Tous les champs sont obligatoires', 'warn');
-          }
           try {
             const cred = await fbAuth.createUserWithEmailAndPassword(data.email, data.password);
-            await fbDb.ref(`users/${cred.user.uid}`).set({
+            await fbDb.ref('users/' + cred.user.uid).set({
               uid         : cred.user.uid,
               displayName : data.displayName,
               matricule   : data.matricule || '',
@@ -1592,7 +1737,7 @@
               createdAt   : Date.now(),
               lastLoginAt : null
             });
-            ui.toast(`Utilisateur ${data.displayName} créé ✅`, 'success');
+            ui.toast('Utilisateur ' + data.displayName + ' créé ✅', 'success');
             modal.hidden = true;
             form.reset();
             this.render();
