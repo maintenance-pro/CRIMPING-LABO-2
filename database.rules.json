@@ -1,0 +1,33 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      "$uid": {
+        ".read":  "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "$uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
+    "interventions": {
+      ".read":  "auth != null",
+      ".write": "auth != null"
+    },
+    "counters": {
+      ".read":  "auth != null",
+      ".write": "auth != null"
+    },
+    "tools": {
+      ".read":  "auth != null",
+      ".write": "root.child('users').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "notifications": {
+      "$uid": {
+        ".read":  "$uid === auth.uid",
+        ".write": "auth != null"
+      }
+    },
+    "auditLog": {
+      ".read":  "root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null"
+    }
+  }
+}

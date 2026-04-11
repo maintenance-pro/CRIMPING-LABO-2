@@ -1407,7 +1407,7 @@
         $('#btn-user-add').addEventListener('click', () => this.openModal());
       },
       async render() {
-        if (!auth.can('user.read') && state.role !== 'super_admin') return;
+        if (!auth.can('user.read') && state.role !== 'super_admin' && state.role !== 'admin') return;
         const snap = await fbDb.ref('users').once('value');
         const users = snap.val() || {};
         $('#users-body').innerHTML = Object.values(users).map(u => `
