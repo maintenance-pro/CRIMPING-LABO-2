@@ -143,6 +143,11 @@
               <span class="sidebar__icon">📊</span><span class="sidebar__label">Statistiques & SLA</span>
             </button>
           </li>
+          <li class="sidebar__item sidebar__item--admin" data-requires-role="admin,super_admin">
+            <button class="sidebar__link" data-nav="auditlog">
+              <span class="sidebar__icon">📜</span><span class="sidebar__label">Journal d'audit</span>
+            </button>
+          </li>
         </ul>
       </nav>
 
@@ -162,8 +167,13 @@
       <!-- ================================================================= -->
       <section class="hub" id="view-hub" data-view="hub">
         <header class="hub__header">
-          <h1 class="hub__title">Tableau de bord</h1>
-          <p class="hub__greeting" id="hub-greeting">Bienvenue —</p>
+          <div>
+            <h1 class="hub__title">Tableau de bord</h1>
+            <p class="hub__greeting" id="hub-greeting">Bienvenue —</p>
+          </div>
+          <div id="hub-health-score" style="min-width:220px;background:var(--bg-2);border:1px solid var(--border-soft);border-radius:12px;padding:.9rem 1.1rem;display:flex;align-items:center;gap:.75rem">
+            <span style="color:var(--text-muted);font-size:.82rem">Calcul du score…</span>
+          </div>
         </header>
 
         <div class="hub__kpis" id="hub-kpis">
@@ -738,6 +748,7 @@
           <div class="catalog__actions">
             <input class="catalog__search" id="catalog-search" type="search" placeholder="Rechercher un outil…" />
             <button class="btn btn--secondary" id="btn-catalog-import">📥 Importer Excel</button>
+            <button class="btn btn--secondary" id="btn-catalog-export">📤 Exporter Excel</button>
             <button class="btn btn--primary" id="btn-catalog-add" data-requires-role="responsable,super_admin,admin">＋ Nouvel outil</button>
           </div>
         </header>
@@ -764,6 +775,7 @@
               <th>Matricule</th>
               <th>Email</th>
               <th>Rôle</th>
+              <th>🔑 Mot de passe</th>
               <th>Statut</th>
               <th>Dernière connexion</th>
               <th>Actions</th>
@@ -795,6 +807,33 @@
           <article class="card"><canvas id="chart-sla-trend"></canvas></article>
           <article class="card"><canvas id="chart-tools-ranking"></canvas></article>
           <article class="card"><canvas id="chart-tech-performance"></canvas></article>
+        </div>
+      </section>
+
+
+      <!-- ================================================================= -->
+      <!-- VIEW AUDIT LOG                                                     -->
+      <!-- ================================================================= -->
+      <section class="history" id="view-auditlog" data-view="auditlog" hidden>
+        <header class="history__header">
+          <h1 class="history__title">Journal d'audit</h1>
+          <p style="color:var(--text-secondary);font-size:.875rem">100 dernières actions administrateur</p>
+        </header>
+        <div class="history__tablewrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date & heure</th>
+                <th>Utilisateur</th>
+                <th>Action</th>
+                <th>Entité</th>
+                <th>UID</th>
+              </tr>
+            </thead>
+            <tbody id="audit-body">
+              <tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted)">Chargement…</td></tr>
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -915,6 +954,24 @@
     </div>
   </div>
 
+
+  <!-- ===================================================================== -->
+  <!-- SESSION WARNING MODAL                                                  -->
+  <!-- ===================================================================== -->
+  <div class="modal" id="modal-session-warn" role="dialog" aria-modal="true" hidden>
+    <div class="modal__backdrop"></div>
+    <div class="modal__panel" style="max-width:380px;text-align:center">
+      <div style="font-size:2.5rem;margin-bottom:.5rem">⏰</div>
+      <h2 class="modal__title" style="margin-bottom:.5rem">Session sur le point d'expirer</h2>
+      <p style="color:var(--text-secondary);font-size:.875rem;margin-bottom:1.25rem">
+        Votre session va expirer dans <strong id="session-countdown">120</strong> secondes.<br/>
+        Cliquez pour rester connecté.
+      </p>
+      <button class="btn btn--primary" id="btn-session-extend" style="width:100%">
+        ✅ Rester connecté
+      </button>
+    </div>
+  </div>
 
   <!-- ===================================================================== -->
   <!-- TOAST NOTIFICATIONS                                                    -->

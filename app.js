@@ -58,6 +58,44 @@
   };
 
   /* ==========================================================================
+     SESSION TIMEOUT — déconnexion auto après 30 min d'inactivité
+     ========================================================================== */
+  const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+  const SESSION_WARN_MS    = 28 * 60 * 1000;
+  let _sessionTimer, _sessionWarnTimer;
+
+  function resetSessionTimer() {
+    clearTimeout(_sessionTimer);
+    clearTimeout(_sessionWarnTimer);
+    const warnModal = document.getElementById('modal-session-warn');
+    if (warnModal) warnModal.hidden = true;
+    _sessionWarnTimer = setTimeout(() => {
+      const m = document.getElementById('modal-session-warn');
+      if (m) { m.hidden = false; let s = 120; const el = document.getElementById('session-countdown');
+        const iv = setInterval(() => { s--; if (el) el.textContent = s; if (s <= 0) clearInterval(iv); }, 1000); }
+    }, SESSION_WARN_MS);
+    _sessionTimer = setTimeout(async () => {
+      const m = document.getElementById('modal-session-warn');
+      if (m) m.hidden = true;
+      if (typeof fbAuth !== 'undefined' && state.user) {
+        await fbAuth.signOut(); ui.toast('Session expirée. Reconnectez-vous.', 'warn');
+      }
+    }, SESSION_TIMEOUT_MS);
+  }
+
+  function initSessionTimeout() {
+    if (!state.user) return;
+    ['click','keydown','mousemove','touchstart'].forEach(e =>
+      document.addEventListener(e, resetSessionTimer, { passive: true }));
+    resetSessionTimer();
+  }
+
+  function clearSessionTimeout() {
+    clearTimeout(_sessionTimer); clearTimeout(_sessionWarnTimer);
+  }
+
+
+  /* ==========================================================================
      3. UTILS
      ========================================================================== */
   const $  = (sel, root = document) => root.querySelector(sel);
@@ -249,6 +287,7 @@
         router.handleHash();
         ui.hideLoader();
         ui.toast(`Bienvenue ${profile.displayName}`, 'success');
+        initSessionTimeout();
       } else {
         state.user = null;
         state.profile = null;
@@ -584,7 +623,7 @@
     },
     handleHash() {
       const hash = window.location.hash.replace('#', '') || 'hub';
-      const valid = ['hub','intervention','history','queue','catalog','users','stats'];
+      const valid = ['hub','intervention','history','queue','catalog','users','stats','auditlog'];
       const view = valid.includes(hash) ? hash : 'hub';
       ui.showView(view);
       if (views[view] && views[view].render) views[view].render();
@@ -766,6 +805,96 @@
             <span style="margin-left:auto;color:var(--text-muted);font-size:var(--fs-xs)">${fmt.dateTime(i.updatedAt)}</span>
           </li>
         `).join('') || '<li style="color:var(--text-muted)">Aucune activité</li>';
+
+        // ── Health Score ──
+        this.renderHealthScore(list);
+
+        // ── Chart Hub ──
+        this.renderWeeklyChart(list);
+      },
+
+      renderHealthScore(list) {
+        const hsEl = document.getElementById('hub-health-score');
+        if (!hsEl) return;
+        const total = list.length;
+        if (!total) { hsEl.innerHTML = '<span style="color:var(--text-muted);font-size:.85rem">Pas de données</span>'; return; }
+
+        const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+        const monthList = list.filter(i => (i.createdAt||0) >= monthStart.getTime());
+        const validated = monthList.filter(i => i.status === 'validated').length;
+        const rejected  = monthList.filter(i => i.status === 'rejected').length;
+        const pending   = list.filter(i => i.status === 'submitted').length;
+        const now = Date.now();
+        const overdue = list.filter(i => i.status === 'submitted' && i.sla && i.sla.submittedAt && (now - i.sla.submittedAt) > 48*3600000).length;
+
+        const mTotal = monthList.length || 1;
+        const validRate  = validated / mTotal;
+        const rejectRate = rejected / mTotal;
+        const overdueScore = Math.max(0, 1 - (overdue / Math.max(pending, 1)));
+
+        const score = Math.round((validRate * 40) + ((1 - rejectRate) * 30) + (overdueScore * 30));
+        const color = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444';
+        const label = score >= 80 ? 'Excellent' : score >= 50 ? 'Correct' : 'Attention';
+
+        const dash = Math.round(score * 2.51);
+        hsEl.innerHTML = `
+          <div style="display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap">
+            <div style="position:relative;width:80px;height:80px;flex-shrink:0">
+              <svg viewBox="0 0 36 36" width="80" height="80" style="transform:rotate(-90deg)">
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--border-base)" stroke-width="3"/>
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="${color}" stroke-width="3"
+                  stroke-dasharray="${dash} ${251 - dash}" stroke-linecap="round" style="transition:stroke-dasharray .8s ease"/>
+              </svg>
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                <span style="font-size:1.1rem;font-weight:800;color:${color};line-height:1">${score}</span>
+                <span style="font-size:.55rem;color:var(--text-muted)">/ 100</span>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:1rem;font-weight:700;color:${color}">${label}</div>
+              <div style="font-size:.78rem;color:var(--text-secondary);margin-top:.2rem">
+                Taux validation : ${Math.round(validRate*100)}%<br>
+                Bons en retard : ${overdue}<br>
+                Refus ce mois : ${rejected}
+              </div>
+            </div>
+          </div>
+          ${overdue > 3 ? '<div style="margin-top:.75rem;padding:.5rem .75rem;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:7px;font-size:.8rem;color:#fca5a5">⚠️ ' + overdue + ' bon(s) en attente depuis plus de 48h</div>' : ''}
+        `;
+      },
+
+      renderWeeklyChart(list) {
+        const canvas = document.getElementById('chart-weekly');
+        if (!canvas) return;
+        const loadChart = () => new Promise((res, rej) => {
+          if (window.Chart) return res();
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js';
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+        loadChart().then(() => {
+          const weeks = 12;
+          const labels = [], counts = [];
+          for (let w = weeks - 1; w >= 0; w--) {
+            const end = new Date(); end.setDate(end.getDate() - w * 7);
+            const start = new Date(end); start.setDate(start.getDate() - 7);
+            const label = start.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit' });
+            labels.push(label);
+            counts.push(list.filter(i => i.createdAt >= start.getTime() && i.createdAt < end.getTime()).length);
+          }
+          if (canvas._chart) canvas._chart.destroy();
+          canvas._chart = new Chart(canvas, {
+            type: 'bar',
+            data: { labels, datasets: [{ label: 'Bons', data: counts,
+              backgroundColor: 'rgba(59,130,246,.5)', borderColor: '#3b82f6',
+              borderWidth: 1, borderRadius: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: { x: { ticks: { color: '#8895b3', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,.04)' } },
+                y: { ticks: { color: '#8895b3', font: { size: 11 }, stepSize: 1 }, grid: { color: 'rgba(255,255,255,.04)' }, beginAtZero: true } } }
+          });
+        }).catch(() => {});
       }
     },
 
@@ -804,12 +933,126 @@
         $('#btn-int-back').addEventListener('click', () => router.go('history'));
         $('#btn-int-print').addEventListener('click', () => window.print());
 
+        // PDF Export
+        const btnPdf = document.getElementById('btn-int-export');
+        if (btnPdf) btnPdf.addEventListener('click', () => this.exportPDF());
+
         // Photo cycles
         $('#upload-cycles .upload__btn').addEventListener('click', () => $('#file-cycles').click());
         $('#upload-coupe .upload__btn').addEventListener('click', () => $('#file-coupe').click());
 
         // Quick new
         $('#btn-quick-new').addEventListener('click', () => this.newBlank());
+      },
+
+      async exportPDF() {
+        const reg = state.currentInterventionId;
+        if (!reg) return ui.toast('Ouvrez un bon d\'intervention pour l\'exporter', 'warn');
+        const data = state.interventions[reg];
+        if (!data) return;
+
+        const loadjsPDF = () => new Promise((res,rej) => {
+          if (window.jspdf) return res();
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+          s.onload = res; s.onerror = rej; document.head.appendChild(s);
+        });
+
+        ui.showLoader('Génération du PDF…');
+        try {
+          await loadjsPDF();
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+          const W = 210; const margin = 18;
+
+          // Header LEONI
+          doc.setFillColor(10, 14, 26);
+          doc.rect(0, 0, W, 28, 'F');
+          doc.setTextColor(255,255,255);
+          doc.setFont('helvetica','bold');
+          doc.setFontSize(18); doc.text('LEONI', margin, 12);
+          doc.setFontSize(10); doc.setFont('helvetica','normal');
+          doc.text('Wiring Systems — Bon d\'Intervention Sertissage', margin, 20);
+          doc.setFontSize(9); doc.text('N° ' + data.numBon, W - margin, 12, {align:'right'});
+          doc.text(new Date(data.createdAt).toLocaleDateString('fr-FR'), W - margin, 20, {align:'right'});
+
+          let y = 38;
+          const drawSection = (title, color) => {
+            doc.setFillColor(...color); doc.rect(margin, y, W - margin*2, 7, 'F');
+            doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+            doc.text(title, margin + 2, y + 5);
+            doc.setTextColor(30,30,30); doc.setFont('helvetica','normal');
+            y += 10;
+          };
+          const drawRow = (label, value, x2) => {
+            doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(80,80,80);
+            doc.text(label, margin + 2, y + 4);
+            doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+            doc.text(String(value || '—'), (x2 || margin + 50), y + 4);
+            y += 7;
+          };
+
+          // Statut badge
+          const statusColors = { validated:[16,185,129], submitted:[245,158,11], rejected:[239,68,68], draft:[107,115,136] };
+          const sc = statusColors[data.status] || statusColors.draft;
+          doc.setFillColor(...sc); doc.roundedRect(margin, y, 40, 7, 2, 2, 'F');
+          doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+          doc.text(fmt.statusLabel(data.status).toUpperCase(), margin + 20, y + 5, {align:'center'});
+          y += 13;
+
+          // Section outil
+          drawSection('IDENTIFICATION DE L\'OUTIL', [30, 58, 138]);
+          if (data.tool) {
+            drawRow('Réf. outil:', data.tool.refOutil); drawRow('Outil ID:', data.tool.outilId);
+            drawRow('Fabricant:', data.tool.fabricant); drawRow('Réf. fabricant:', data.tool.refFabricant);
+          }
+          y += 3;
+
+          // Section crimping
+          drawSection('PARTIE CRIMPING — TECHNICIEN MAINTENANCE', [15, 118, 110]);
+          if (data.crimping) {
+            drawRow('Technicien:', data.crimping.filledBy && data.crimping.filledBy.name);
+            drawRow('Matricule:', data.crimping.filledBy && data.crimping.filledBy.matricule);
+            drawRow('Date:', data.crimping.date ? new Date(data.crimping.date).toLocaleDateString('fr-FR') : '—');
+            drawRow('Cycles compteur:', data.crimping.cycles);
+            drawRow('Type:', data.crimping.type ? {preventive:'Préventive',curative:'Curative',requalification:'Requalification'}[data.crimping.type] : '—');
+            const pieces = Object.entries(data.crimping.piecesChanged||{}).filter(([,v])=>v).map(([k])=>k).join(', ') || 'Aucune';
+            drawRow('Pièces changées:', pieces);
+            if (data.crimping.observation) drawRow('Observation:', data.crimping.observation.slice(0,60));
+          }
+          y += 3;
+
+          // Section labo
+          if (data.lab) {
+            drawSection('PARTIE LABORATOIRE — VALIDATION', [59, 130, 246]);
+            drawRow('Technicien labo:', data.lab.filledBy && data.lab.filledBy.name);
+            drawRow('Réf. connexion:', data.lab.connexion && data.lab.connexion.refConnexion);
+            drawRow('Section câble:', data.lab.connexion && data.lab.connexion.sectionCable);
+            if (data.lab.capabilite) {
+              const c = data.lab.capabilite;
+              drawRow('Cm âme:', c.cmAme ? c.cmAme.toFixed(2) : '—');
+              drawRow('Cmk âme:', c.cmkAme ? c.cmkAme.toFixed(2) : '—');
+              drawRow('Cm effort:', c.cmEffort ? c.cmEffort.toFixed(2) : '—');
+            }
+            const decLabel = data.lab.decision === 'validated' ? '✓ VALIDÉ' : '✗ REFUSÉ';
+            const decColor = data.lab.decision === 'validated' ? [16,185,129] : [239,68,68];
+            doc.setFillColor(...decColor); doc.roundedRect(margin, y, 45, 8, 2, 2, 'F');
+            doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+            doc.text(decLabel, margin + 22, y + 6, {align:'center'});
+            y += 14;
+          }
+
+          // Footer
+          doc.setDrawColor(200,200,200); doc.setLineWidth(0.3);
+          doc.line(margin, 282, W - margin, 282);
+          doc.setTextColor(150,150,150); doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+          doc.text('LEONI Wiring Systems · Document généré le ' + new Date().toLocaleString('fr-FR'), W/2, 287, {align:'center'});
+
+          doc.save('BON-LEONI-N' + reg + '-' + new Date().toISOString().slice(0,10) + '.pdf');
+          ui.toast('PDF généré ✅', 'success');
+        } catch(err) {
+          console.error(err); ui.toast('Erreur PDF: ' + err.message, 'danger');
+        } finally { ui.hideLoader(); }
       },
 
       newBlank() {
@@ -1366,6 +1609,64 @@
         if (btnImport) {
           btnImport.addEventListener('click', () => this.importExcel());
         }
+
+        // ── Export Excel ──
+        const btnExport = $('#btn-catalog-export');
+        if (btnExport) {
+          btnExport.addEventListener('click', () => this.exportExcel());
+        }
+      },
+
+      /* ── Export Catalogue vers Excel ── */
+      async exportExcel() {
+        const list = Object.values(state.tools);
+        if (!list.length) return ui.toast('Catalogue vide — rien à exporter', 'warn');
+
+        const loadXLSX = () => new Promise((resolve, reject) => {
+          if (window.XLSX) return resolve();
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s.onload = resolve;
+          s.onerror = () => reject(new Error('Impossible de charger SheetJS'));
+          document.head.appendChild(s);
+        });
+
+        ui.showLoader('Export Excel en cours…');
+        try {
+          await loadXLSX();
+
+          const rows = list.map(t => ({
+            'Réf Outil'       : t.refOutil        || '',
+            'Outil ID'        : t.outilId         || '',
+            'Fabricant'       : t.fabricant       || '',
+            'Réf Fabricant'   : t.refFabricant    || '',
+            'P-AR'            : t.pAr             || '',
+            'P-AV'            : t.pAv             || '',
+            'E-AR'            : t.eAr             || '',
+            'E-AV'            : t.eAv             || '',
+            'Fréquence Cycle' : t.frequenceCycle  || 0,
+          }));
+
+          const wb = XLSX.utils.book_new();
+          const ws = XLSX.utils.json_to_sheet(rows);
+
+          // Style colonnes largeur auto
+          ws['!cols'] = [
+            {wch:12},{wch:16},{wch:14},{wch:16},
+            {wch:8},{wch:8},{wch:8},{wch:8},{wch:16}
+          ];
+
+          XLSX.utils.book_append_sheet(wb, ws, 'Catalogue Outils');
+
+          const date = new Date().toLocaleDateString('fr-FR').replace(/\//g, '-');
+          XLSX.writeFile(wb, 'LEONI_Catalogue_Outils_' + date + '.xlsx');
+
+          ui.hideLoader();
+          ui.toast(list.length + ' outil(s) exporté(s) ✅', 'success');
+        } catch (err) {
+          ui.hideLoader();
+          ui.toast('Erreur export : ' + err.message, 'danger');
+        }
       },
 
       /* ── Import Excel avec SheetJS ── */
@@ -1530,6 +1831,15 @@
           if (action === 'edit')          this.openEditModal(uid);
           if (action === 'reset-pass')    this.sendPasswordReset(email);
           if (action === 'toggle-active') this.toggleActive(uid, active);
+          if (action === 'toggle-pass') {
+            const spanId  = btn.dataset.id;
+            const passVal = btn.dataset.pass;
+            const span    = document.getElementById(spanId);
+            if (!span) return;
+            const isHidden = span.textContent.includes('•');
+            span.textContent = isHidden ? passVal : '••••••••';
+            btn.textContent  = isHidden ? '🙈' : '👁';
+          }
         });
       },
 
@@ -1546,17 +1856,30 @@
 
         if (!list.length) {
           document.getElementById('users-body').innerHTML =
-            '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Aucun utilisateur</td></tr>';
+            '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-muted)">Aucun utilisateur</td></tr>';
           return;
         }
 
         document.getElementById('users-body').innerHTML = list.map(u => {
           const isActive = u.active !== false;
+          const passVal  = u.password ? ui.escape(u.password) : '—';
+          const passId   = 'pw-' + (u.uid || '').slice(0, 8);
           return `<tr>
             <td><strong>${ui.escape(u.displayName || '—')}</strong></td>
             <td style="font-family:var(--font-mono);font-size:.8rem">${ui.escape(u.matricule || '—')}</td>
-            <td>${ui.escape(u.email || '—')}</td>
+            <td style="font-size:.82rem">${ui.escape(u.email || '—')}</td>
             <td><span class="badge badge--auto">${auth.roleLabel(u.role)}</span></td>
+            <td>
+              <div style="display:flex;align-items:center;gap:.4rem">
+                <span id="${passId}" style="font-family:var(--font-mono);font-size:.78rem;
+                  letter-spacing:.06em;background:rgba(255,255,255,.05);padding:.15rem .5rem;
+                  border-radius:5px;border:1px solid var(--border-soft)">
+                  ••••••••
+                </span>
+                <button class="btn btn--ghost" style="font-size:.7rem;padding:.18rem .45rem"
+                  data-action="toggle-pass" data-pass="${passVal}" data-id="${passId}">👁</button>
+              </div>
+            </td>
             <td>
               <span style="font-size:.78rem;padding:.2rem .55rem;border-radius:5px;font-weight:600;
                 background:${isActive ? 'rgba(16,185,129,.12)' : 'rgba(239,68,68,.12)'};
@@ -1570,7 +1893,7 @@
                 <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem"
                   data-action="edit" data-uid="${ui.escape(u.uid || '')}">✏️ Modifier</button>
                 <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem;color:var(--warn-500)"
-                  data-action="reset-pass" data-email="${ui.escape(u.email || '')}">🔑 Mot de passe</button>
+                  data-action="reset-pass" data-email="${ui.escape(u.email || '')}">🔑 Reset MDP</button>
                 <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem;color:${isActive ? 'var(--danger-500)' : 'var(--success-500)'}"
                   data-action="toggle-active" data-uid="${ui.escape(u.uid || '')}" data-active="${isActive}">
                   ${isActive ? '⛔ Désactiver' : '✅ Activer'}
@@ -1734,6 +2057,7 @@
               email       : data.email,
               role        : data.role,
               active      : true,
+              password    : data.password,
               createdAt   : Date.now(),
               lastLoginAt : null
             });
@@ -1748,11 +2072,146 @@
       }
     },
 
+    /* ========== AUDIT LOG ========== */
+    auditLog: {
+      async render() {
+        if (state.role !== 'admin' && state.role !== 'super_admin') return;
+        const tbody = document.getElementById('audit-body');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:1.5rem;color:var(--text-muted)">Chargement…</td></tr>';
+        try {
+          const snap = await fbDb.ref('auditLog').orderByChild('timestamp').limitToLast(100).once('value');
+          const logs = [];
+          snap.forEach(c => logs.unshift({ id: c.key, ...c.val() }));
+          if (!logs.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:1.5rem;color:var(--text-muted)">Aucune action enregistrée</td></tr>';
+            return;
+          }
+          tbody.innerHTML = logs.map(l => {
+            const actionLabels = {
+              'intervention.create':'Création bon','intervention.update':'Modification bon',
+              'intervention.submit':'Soumission labo','intervention.validate':'Validation',
+              'intervention.reject':'Refus','intervention.delete':'Suppression bon'
+            };
+            const actionColors = {
+              'intervention.create':'var(--accent-500)','intervention.validate':'var(--success-500)',
+              'intervention.reject':'var(--danger-500)','intervention.delete':'var(--danger-500)',
+              'intervention.submit':'var(--warn-500)','intervention.update':'var(--text-secondary)'
+            };
+            const label = actionLabels[l.action] || l.action;
+            const color = actionColors[l.action] || 'var(--text-secondary)';
+            return `<tr>
+              <td style="color:var(--text-muted);font-size:.78rem;font-family:var(--font-mono)">${fmt.dateTime(l.timestamp)}</td>
+              <td style="font-weight:500">${ui.escape(l.userName||'—')}</td>
+              <td><span style="color:${color};font-size:.8rem;font-weight:600">${label}</span></td>
+              <td style="font-family:var(--font-mono);font-size:.78rem">${ui.escape(l.entity||'—')}</td>
+              <td style="font-size:.78rem;color:var(--text-muted)">${ui.escape(l.uid||'—').slice(0,12)}…</td>
+            </tr>`;
+          }).join('');
+        } catch(e) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:1.5rem;color:var(--danger-500)">Erreur: ${e.message}</td></tr>`; }
+      },
+      init() {}
+    },
+
     /* ========== STATS ========== */
     stats: {
       render() {
-        // Placeholder — à étendre avec Chart.js si tu veux des graphiques détaillés
-        console.log('Stats view rendered');
+        const loadChart = () => new Promise((res,rej) => {
+          if (window.Chart) return res();
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js';
+          s.onload = res; s.onerror = rej; document.head.appendChild(s);
+        });
+
+        loadChart().then(() => {
+          const days = parseInt(document.getElementById('stats-period')?.value || 30);
+          const since = Date.now() - days * 86400000;
+          const list = Object.values(state.interventions).filter(i => (i.createdAt||0) >= since);
+
+          const neutral = 'rgba(255,255,255,.06)';
+          const textColor = '#8895b3';
+          const gridColor = 'rgba(255,255,255,.04)';
+
+          // Chart 1: Répartition statuts
+          const c1 = document.getElementById('chart-status-distribution');
+          if (c1) {
+            if (c1._chart) c1._chart.destroy();
+            const statuses = { validated:0, submitted:0, rejected:0, draft:0 };
+            list.forEach(i => { if (statuses[i.status] !== undefined) statuses[i.status]++; });
+            c1._chart = new Chart(c1, {
+              type: 'doughnut',
+              data: { labels: ['Validés','En attente','Refusés','Brouillons'],
+                datasets: [{ data: Object.values(statuses),
+                  backgroundColor: ['#10b981','#f59e0b','#ef4444','#6b7388'],
+                  borderWidth: 0, hoverOffset: 6 }] },
+              options: { responsive: true, maintainAspectRatio: false, cutout: '65%',
+                plugins: { legend: { position: 'bottom', labels: { color: textColor, padding: 12, font: { size: 12 } } } } }
+            });
+          }
+
+          // Chart 2: SLA trend (temps moyen par semaine)
+          const c2 = document.getElementById('chart-sla-trend');
+          if (c2) {
+            if (c2._chart) c2._chart.destroy();
+            const wks = 8; const wlabels = []; const wavg = [];
+            for (let w = wks-1; w >= 0; w--) {
+              const wEnd = new Date(); wEnd.setDate(wEnd.getDate() - w*7);
+              const wStart = new Date(wEnd); wStart.setDate(wStart.getDate() - 7);
+              wlabels.push(wStart.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}));
+              const wItems = list.filter(i => i.sla && i.sla.durationMs && i.createdAt >= wStart.getTime() && i.createdAt < wEnd.getTime());
+              const avg = wItems.length ? Math.round(wItems.reduce((s,i) => s + i.sla.durationMs, 0) / wItems.length / 3600000 * 10) / 10 : 0;
+              wavg.push(avg);
+            }
+            c2._chart = new Chart(c2, {
+              type: 'line',
+              data: { labels: wlabels, datasets: [{ label: 'SLA moyen (h)', data: wavg,
+                borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)', borderWidth: 2,
+                pointBackgroundColor: '#3b82f6', fill: true, tension: 0.4 }] },
+              options: { responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: textColor, font: { size: 12 } } } },
+                scales: { x: { ticks: { color: textColor, font:{size:11} }, grid: { color: gridColor } },
+                  y: { ticks: { color: textColor, font:{size:11} }, grid: { color: gridColor }, beginAtZero: true } } }
+            });
+          }
+
+          // Chart 3: Top outils
+          const c3 = document.getElementById('chart-tools-ranking');
+          if (c3) {
+            if (c3._chart) c3._chart.destroy();
+            const toolCounts = {};
+            list.forEach(i => { const k = (i.tool && i.tool.outilId) || 'Inconnu'; toolCounts[k] = (toolCounts[k]||0)+1; });
+            const sorted = Object.entries(toolCounts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+            c3._chart = new Chart(c3, {
+              type: 'bar',
+              data: { labels: sorted.map(e=>e[0]), datasets: [{ label: 'Interventions', data: sorted.map(e=>e[1]),
+                backgroundColor: 'rgba(16,185,129,.5)', borderColor: '#10b981', borderWidth: 1, borderRadius: 4 }] },
+              options: { indexAxis:'y', responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { ticks: { color: textColor, font:{size:11} }, grid: { color: gridColor } },
+                  y: { ticks: { color: textColor, font:{size:11} }, grid: { color: gridColor } } } }
+            });
+          }
+
+          // Chart 4: Performance techniciens
+          const c4 = document.getElementById('chart-tech-performance');
+          if (c4) {
+            if (c4._chart) c4._chart.destroy();
+            const techCounts = {};
+            list.forEach(i => { const n = (i.crimping && i.crimping.filledBy && i.crimping.filledBy.name) || 'Inconnu'; techCounts[n] = (techCounts[n]||0)+1; });
+            const tsorted = Object.entries(techCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            c4._chart = new Chart(c4, {
+              type: 'bar',
+              data: { labels: tsorted.map(e=>e[0].split(' ')[0]), datasets: [{ label: 'Bons créés', data: tsorted.map(e=>e[1]),
+                backgroundColor: ['rgba(245,158,11,.5)','rgba(99,102,241,.5)','rgba(16,185,129,.5)','rgba(239,68,68,.5)','rgba(59,130,246,.5)'],
+                borderWidth: 0, borderRadius: 4 }] },
+              options: { responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { ticks: { color: textColor, font:{size:11} }, grid: { color: gridColor } },
+                  y: { ticks: { color: textColor, font:{size:11}, stepSize:1 }, grid: { color: gridColor }, beginAtZero: true } } }
+            });
+          }
+
+        }).catch(err => console.error('Chart.js load error:', err));
       }
     },
 
@@ -1803,6 +2262,54 @@
     },
 
     initUI() {
+
+      // Global search
+      const searchInput = document.getElementById('global-search');
+      if (searchInput) {
+        searchInput.addEventListener('input', debounce((e) => {
+          const q = e.target.value.trim().toLowerCase();
+          if (!q) { const dd = document.getElementById('search-dropdown'); if (dd) dd.hidden = true; return; }
+          const results = [];
+          Object.values(state.interventions).forEach(i => {
+            if (String(i.numBon).includes(q) ||
+                (i.tool && (i.tool.outilId||'').toLowerCase().includes(q)) ||
+                (i.crimping && i.crimping.filledBy && (i.crimping.filledBy.name||'').toLowerCase().includes(q))) {
+              results.push({ type:'bon', label: `N°${i.numBon} · ${(i.tool&&i.tool.outilId)||'—'} · ${fmt.statusLabel(i.status)}`, id: i.numBon });
+            }
+          });
+          Object.values(state.tools).forEach(t => {
+            if ((t.outilId||'').toLowerCase().includes(q) || (t.refOutil||'').toLowerCase().includes(q) || (t.fabricant||'').toLowerCase().includes(q)) {
+              results.push({ type:'tool', label: `🛠 ${t.outilId||t.id} — ${t.fabricant||''}`, id: t.id });
+            }
+          });
+          let dd = document.getElementById('search-dropdown');
+          if (!dd) {
+            dd = document.createElement('ul');
+            dd.id = 'search-dropdown';
+            dd.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:var(--bg-3);border:1px solid var(--border-base);border-radius:8px;list-style:none;max-height:280px;overflow-y:auto;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.4);margin-top:4px;';
+            searchInput.parentElement.style.position = 'relative';
+            searchInput.parentElement.appendChild(dd);
+          }
+          dd.innerHTML = results.slice(0,8).map(r => `<li data-type="${r.type}" data-id="${r.id}" style="padding:.6rem 1rem;cursor:pointer;font-size:.85rem;color:var(--text-primary);border-bottom:1px solid var(--border-soft)">${r.label}</li>`).join('') ||
+            '<li style="padding:.6rem 1rem;color:var(--text-muted);font-size:.85rem">Aucun résultat</li>';
+          dd.hidden = false;
+          dd.querySelectorAll('li[data-id]').forEach(li => {
+            li.addEventListener('click', () => {
+              if (li.dataset.type === 'bon') { views.intervention.open(li.dataset.id); dd.hidden = true; searchInput.value = ''; }
+              if (li.dataset.type === 'tool') { router.go('catalog'); dd.hidden = true; searchInput.value = ''; }
+            });
+            li.addEventListener('mouseenter', () => li.style.background = 'var(--bg-4)');
+            li.addEventListener('mouseleave', () => li.style.background = '');
+          });
+        }, 200));
+        document.addEventListener('click', (e) => {
+          if (!searchInput.contains(e.target)) {
+            const dd = document.getElementById('search-dropdown'); if (dd) dd.hidden = true;
+          }
+        });
+      }
+
+
       // User menu dropdown
       $('#btn-user').addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1820,11 +2327,27 @@
       // Mobile menu
       $('#btn-menu').addEventListener('click', () => {
         $('#sidebar').classList.toggle('is-open');
+        document.getElementById('shell').classList.toggle('menu-open');
+      });
+      // Close on overlay click
+      document.getElementById('shell').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('shell') ||
+            e.target.classList.contains('shell')) {
+          $('#sidebar').classList.remove('is-open');
+          document.getElementById('shell').classList.remove('menu-open');
+        }
       });
 
-      // Theme toggle (placeholder — déjà en dark)
-      $('#btn-theme').addEventListener('click', () => {
-        document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+      // Theme toggle — persistent
+      const savedTheme = localStorage.getItem('leoni-theme') ||
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.body.dataset.theme = savedTheme;
+      document.getElementById('btn-theme').textContent = savedTheme === 'dark' ? '◐' : '●';
+      document.getElementById('btn-theme').addEventListener('click', () => {
+        const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.body.dataset.theme = next;
+        localStorage.setItem('leoni-theme', next);
+        document.getElementById('btn-theme').textContent = next === 'dark' ? '◐' : '●';
       });
     }
   };
@@ -1843,7 +2366,24 @@
     views.catalog.init();
     views.users.init();
     views.notifications.init();
-    console.log('✅ LEONI Sertissage Lab — App ready');
+    views.auditLog.init();
+
+    // Stats period change triggers re-render
+    const statsPeriod = document.getElementById('stats-period');
+    if (statsPeriod) statsPeriod.addEventListener('change', () => views.stats.render());
+
+    // Hub chart period change
+    const chartPeriod = document.getElementById('chart-period');
+    if (chartPeriod) chartPeriod.addEventListener('change', () => views.hub.render());
+
+    // Session warning modal button
+    const btnExtend = document.getElementById('btn-session-extend');
+    if (btnExtend) btnExtend.addEventListener('click', () => {
+      resetSessionTimer();
+      document.getElementById('modal-session-warn').hidden = true;
+    });
+
+    console.log('✅ LEONI Sertissage Lab v4.0 — App ready');
   });
 
 })();
