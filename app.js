@@ -219,15 +219,15 @@
         let profile = snap.val();
         // Si profil inexistant, créer un profil minimal (premier login)
         if (!profile) {
-          profile = {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.email.split('@')[0],
-            role: 'viewer',
-            active: true,
-            createdAt: Date.now()
-          };
-          await fbDb.ref(`users/${user.uid}`).set(profile);
+          // Aucun profil → déconnecter et afficher erreur
+          await fbAuth.signOut();
+          const errEl = document.getElementById('login-error');
+          if (errEl) {
+            errEl.textContent = 'Compte non configuré. Contactez l\'administrateur.';
+            errEl.hidden = false;
+          }
+          ui.hideLoader();
+          return;
         }
         if (!profile.active) {
           ui.toast('Compte désactivé. Contacte l\'administrateur.', 'danger');
@@ -676,10 +676,13 @@
     return {
       clear: () => ctx.clearRect(0, 0, canvas.width, canvas.height),
       isEmpty: () => {
-        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        return !data.some(v => v !== 0);
+        if (!canvas.width || !canvas.height) return true;
+        try {
+          const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+          return !data.some(v => v !== 0);
+        } catch (_) { return true; }
       },
-      toDataURL: () => canvas.toDataURL('image/png')
+      toDataURL: () => (!canvas.width || !canvas.height) ? null : canvas.toDataURL('image/png')
     };
   }
 
@@ -1036,9 +1039,12 @@
             });
           }
           // Upload signature crimping si présente
-          if (!this.crimpPad.isEmpty()) {
-            const sig = await storage.uploadSignature(reg, 'crimp', this.crimpPad.toDataURL());
-            await db.updateIntervention(reg, { 'crimping/signatureUrl': sig.url });
+          const crimpDataUrl = this.crimpPad.toDataURL();
+          if (!this.crimpPad.isEmpty() && crimpDataUrl) {
+            try {
+              const sig = await storage.uploadSignature(reg, 'crimp', crimpDataUrl);
+              await db.updateIntervention(reg, { 'crimping/signatureUrl': sig.url });
+            } catch(e) { console.warn('Signature upload skipped:', e.message); }
           }
           // Upload photo cycles si présente
           const cycleFile = $('#file-cycles').files[0];
@@ -1081,9 +1087,12 @@
             };
           }
           // Upload signature labo
-          if (!this.labPad.isEmpty()) {
-            const sig = await storage.uploadSignature(reg, 'lab', this.labPad.toDataURL());
-            labData.signatureUrl = sig.url;
+          const labDataUrl = this.labPad.toDataURL();
+          if (!this.labPad.isEmpty() && labDataUrl) {
+            try {
+              const sig = await storage.uploadSignature(reg, 'lab', labDataUrl);
+              labData.signatureUrl = sig.url;
+            } catch(e) { console.warn('Lab signature upload skipped:', e.message); }
           }
           await db.validateIntervention(reg, labData);
           ui.toast(`Bon N°${reg} validé ✅`, 'success');
