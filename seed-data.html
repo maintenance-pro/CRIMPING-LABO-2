@@ -1,78 +1,63 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LEONI · Seed Data</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LEONI · Seed Data v2</title>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{background:#060b16;color:#f1f5f9;font-family:'Segoe UI',system-ui,sans-serif;
-      min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
-    .card{background:#0f1929;border:1px solid rgba(255,255,255,.07);border-radius:16px;
-      padding:2.5rem;width:100%;max-width:680px;box-shadow:0 25px 60px rgba(0,0,0,.5)}
-    .logo{font-size:1.5rem;font-weight:800;color:#f59e0b;letter-spacing:-1px}
-    .title{font-size:1rem;color:#64748b;margin-top:.3rem;margin-bottom:1.5rem}
-
-    .warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);
-      border-radius:10px;padding:1rem 1.25rem;font-size:.85rem;color:#fcd34d;margin-bottom:1.5rem;line-height:1.6}
-    .warn strong{display:block;margin-bottom:.3rem}
-
-    /* Summary boxes */
-    .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1.5rem}
-    .sum-box{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
-      border-radius:10px;padding:1rem;text-align:center}
-    .sum-num{font-size:1.8rem;font-weight:800;color:#f59e0b}
-    .sum-label{font-size:.75rem;color:#64748b;margin-top:.25rem}
-
-    .btn{width:100%;padding:.9rem;background:linear-gradient(135deg,#f59e0b,#d97706);
-      color:#000;border:none;border-radius:10px;font-size:1rem;font-weight:700;
-      cursor:pointer;transition:all .2s;margin-bottom:.75rem}
+    body{background:#060b16;color:#f1f5f9;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+    .card{background:#0f1929;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:2rem;width:100%;max-width:680px}
+    .logo{font-size:1.4rem;font-weight:800;color:#f59e0b;letter-spacing:-1px}
+    .subtitle{font-size:.82rem;color:#64748b;margin:.3rem 0 1.5rem}
+    .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-bottom:1.5rem}
+    .sum-box{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:.875rem;text-align:center}
+    .sum-num{font-size:1.7rem;font-weight:800;color:#f59e0b}
+    .sum-lbl{font-size:.72rem;color:#64748b;margin-top:.2rem}
+    .status-legend{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.25rem}
+    .s-pill{font-size:.7rem;font-weight:600;padding:.22rem .6rem;border-radius:20px;border:1px solid}
+    .warn-box{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);border-radius:9px;padding:.875rem 1rem;font-size:.82rem;color:#fcd34d;margin-bottom:1.25rem}
+    .warn-box strong{display:block;margin-bottom:.25rem}
+    .progress-wrap{background:rgba(255,255,255,.06);border-radius:20px;height:7px;margin:1rem 0;overflow:hidden;display:none}
+    .progress-wrap.v{display:block}
+    .progress-bar{height:100%;background:linear-gradient(90deg,#f59e0b,#10b981);border-radius:20px;width:0%;transition:width .3s ease}
+    .btn{width:100%;padding:.875rem;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;border:none;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;transition:all .2s;margin-bottom:.6rem}
     .btn:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-1px)}
     .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
-    .btn-reset{background:rgba(239,68,68,.15);color:#fca5a5;
-      border:1px solid rgba(239,68,68,.3);font-weight:600;font-size:.9rem}
-    .btn-reset:hover:not(:disabled){background:rgba(239,68,68,.25)}
-
-    .log{background:#020508;border:1px solid rgba(255,255,255,.05);border-radius:10px;
-      padding:1rem;font-family:monospace;font-size:.78rem;max-height:260px;overflow-y:auto;display:none}
+    .btn-reset{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.25);font-size:.875rem}
+    .log{background:#020508;border:1px solid rgba(255,255,255,.05);border-radius:9px;padding:.875rem;font-family:monospace;font-size:.76rem;max-height:240px;overflow-y:auto;margin-top:1rem;display:none}
     .log.v{display:block}
-    .l{padding:.15rem 0;line-height:1.6}
+    .l{padding:.12rem 0;line-height:1.55}
     .l.s{color:#10b981}.l.e{color:#ef4444}.l.i{color:#64748b}.l.w{color:#f59e0b}
-
-    .result{display:none;margin-top:1.25rem;padding:1.25rem;border-radius:10px;text-align:center;font-size:.9rem;line-height:1.8}
-    .result.ok{display:block;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:#6ee7b7}
-    .result.err{display:block;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5}
-    .result strong{display:block;font-size:1rem;margin-bottom:.3rem}
-
-    .progress-wrap{background:rgba(255,255,255,.05);border-radius:20px;height:8px;margin:1rem 0;overflow:hidden;display:none}
-    .progress-wrap.v{display:block}
-    .progress-bar{height:100%;background:linear-gradient(90deg,#f59e0b,#10b981);border-radius:20px;
-      width:0%;transition:width .4s ease}
+    .done-box{display:none;margin-top:1rem;padding:1.1rem;border-radius:9px;text-align:center;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);color:#6ee7b7;font-size:.875rem;line-height:1.8}
+    .done-box.v{display:block}
+    .done-box strong{display:block;font-size:1rem;margin-bottom:.3rem}
   </style>
 </head>
 <body>
 <div class="card">
   <div class="logo">LEONI</div>
-  <div class="title">Seed Data — Initialisation des données de démonstration</div>
-
-  <div class="warn">
-    <strong>⚠️ Usage unique — Admin requis</strong>
-    Ce script va écrire dans votre Firebase Realtime Database :<br/>
-    outils de sertissage, bons d'intervention, utilisateurs labo & crimp.
-  </div>
-
+  <div class="subtitle">Seed Data v2 — 20 outils + 30 interventions multi-statuts</div>
   <div class="summary">
-    <div class="sum-box"><div class="sum-num">12</div><div class="sum-label">Outils catalogue</div></div>
-    <div class="sum-box"><div class="sum-num">25</div><div class="sum-label">Bons d'intervention</div></div>
-    <div class="sum-box"><div class="sum-num">3</div><div class="sum-label">Utilisateurs</div></div>
+    <div class="sum-box"><div class="sum-num">20</div><div class="sum-lbl">Outils sertissage</div></div>
+    <div class="sum-box"><div class="sum-num">30</div><div class="sum-lbl">Bons d'intervention</div></div>
+    <div class="sum-box"><div class="sum-num">4</div><div class="sum-lbl">Statuts différents</div></div>
   </div>
-
-  <button class="btn" id="btn-seed">🚀 Injecter toutes les données</button>
-  <button class="btn btn-reset" id="btn-reset">🗑 Effacer les données (tools + interventions)</button>
-
+  <div class="status-legend">
+    <span class="s-pill" style="color:#6ee7b7;border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.1)">14 Valides</span>
+    <span class="s-pill" style="color:#fcd34d;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.1)">7 En attente labo</span>
+    <span class="s-pill" style="color:#fca5a5;border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.1)">5 Refuses</span>
+    <span class="s-pill" style="color:#8895b3;border-color:rgba(255,255,255,.1);background:rgba(255,255,255,.05)">4 Brouillons</span>
+  </div>
+  <div class="warn-box">
+    <strong>Important avant de lancer</strong>
+    Clique sur "Effacer" si tu as deja des donnees pour eviter les doublons.
+  </div>
+  <button class="btn" id="btn-seed">Injecter 20 outils + 30 interventions</button>
+  <button class="btn btn-reset" id="btn-reset">Effacer outils + interventions</button>
   <div class="progress-wrap" id="pw"><div class="progress-bar" id="pb"></div></div>
   <div class="log" id="log"></div>
-  <div class="result" id="result"></div>
+  <div class="done-box" id="done-box"></div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -80,279 +65,182 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
 firebase.initializeApp({
-  apiKey:            "AIzaSyBIW4I1DRqyqcmNEdajXbptQ5-RWFIG1V4",
-  authDomain:        "leoni-sertissage-labo.firebaseapp.com",
-  databaseURL:       "https://leoni-sertissage-labo-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId:         "leoni-sertissage-labo",
-  storageBucket:     "leoni-sertissage-labo.firebasestorage.app",
-  messagingSenderId: "432527114405",
-  appId:             "1:432527114405:web:b141f6ae74f11b1cbb0d4c"
+  apiKey:"AIzaSyBIW4I1DRqyqcmNEdajXbptQ5-RWFIG1V4",
+  authDomain:"leoni-sertissage-labo.firebaseapp.com",
+  databaseURL:"https://leoni-sertissage-labo-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"leoni-sertissage-labo",
+  storageBucket:"leoni-sertissage-labo.firebasestorage.app",
+  messagingSenderId:"432527114405",
+  appId:"1:432527114405:web:b141f6ae74f11b1cbb0d4c"
 });
 const auth = firebase.auth();
 const rtdb = firebase.database();
 
-/* ═══════════════════════════════════════════════════════
-   DONNÉES DE DÉMONSTRATION — OUTILS SERTISSAGE LEONI
-═══════════════════════════════════════════════════════ */
 const TOOLS = [
-  { id:'wz2158s', refOutil:'2158S',    outilId:'WZ2158*-4s',   fabricant:'WEZAG',   refFabricant:'WZ2158S-4',    pAr:'1.45', pAv:'1.42', eAr:'1.38', eAv:'1.40', frequenceCycle:50000 },
-  { id:'wz2159s', refOutil:'2159S',    outilId:'WZ2159*-4s',   fabricant:'WEZAG',   refFabricant:'WZ2159S-4',    pAr:'1.50', pAv:'1.48', eAr:'1.42', eAv:'1.44', frequenceCycle:50000 },
-  { id:'wz3015',  refOutil:'3015',     outilId:'WZ3015-6',     fabricant:'WEZAG',   refFabricant:'WZ3015-06',    pAr:'1.60', pAv:'1.58', eAr:'1.52', eAv:'1.55', frequenceCycle:45000 },
-  { id:'mc1440',  refOutil:'MC-1440',  outilId:'MC1440-T',     fabricant:'MECAL',   refFabricant:'MC-1440-T12',  pAr:'1.35', pAv:'1.33', eAr:'1.28', eAv:'1.30', frequenceCycle:60000 },
-  { id:'mc1441',  refOutil:'MC-1441',  outilId:'MC1441-T',     fabricant:'MECAL',   refFabricant:'MC-1441-T12',  pAr:'1.38', pAv:'1.36', eAr:'1.31', eAv:'1.33', frequenceCycle:60000 },
-  { id:'mc1580',  refOutil:'MC-1580',  outilId:'MC1580-R',     fabricant:'MECAL',   refFabricant:'MC-1580-R08',  pAr:'1.55', pAv:'1.53', eAr:'1.48', eAv:'1.50', frequenceCycle:55000 },
-  { id:'ap3810',  refOutil:'AP3810',   outilId:'AP3810-S',     fabricant:'APLITEC', refFabricant:'AP-3810-S4',   pAr:'1.42', pAv:'1.40', eAr:'1.35', eAv:'1.37', frequenceCycle:40000 },
-  { id:'ap3815',  refOutil:'AP3815',   outilId:'AP3815-S',     fabricant:'APLITEC', refFabricant:'AP-3815-S4',   pAr:'1.44', pAv:'1.42', eAr:'1.37', eAv:'1.39', frequenceCycle:40000 },
-  { id:'ko520',   refOutil:'KO-520',   outilId:'KO520-PRO',    fabricant:'KOMAX',   refFabricant:'K520-PRO-2',   pAr:'1.65', pAv:'1.63', eAr:'1.58', eAv:'1.60', frequenceCycle:70000 },
-  { id:'ko521',   refOutil:'KO-521',   outilId:'KO521-PRO',    fabricant:'KOMAX',   refFabricant:'K521-PRO-2',   pAr:'1.67', pAv:'1.65', eAr:'1.60', eAv:'1.62', frequenceCycle:70000 },
-  { id:'sc1020',  refOutil:'SC-1020',  outilId:'SC1020-V',     fabricant:'SCHLEUNIGER', refFabricant:'SC-1020V3',pAr:'1.40', pAv:'1.38', eAr:'1.33', eAv:'1.35', frequenceCycle:48000 },
-  { id:'sc1025',  refOutil:'SC-1025',  outilId:'SC1025-V',     fabricant:'SCHLEUNIGER', refFabricant:'SC-1025V3',pAr:'1.43', pAv:'1.41', eAr:'1.36', eAv:'1.38', frequenceCycle:48000 },
+  {id:'wz2158s',refOutil:'2158S',   outilId:'WZ2158-4s',   fabricant:'WEZAG',       refFabricant:'WZ2158S-4',   pAr:'1.45',pAv:'1.42',eAr:'1.38',eAv:'1.40',frequenceCycle:50000},
+  {id:'wz2159s',refOutil:'2159S',   outilId:'WZ2159-4s',   fabricant:'WEZAG',       refFabricant:'WZ2159S-4',   pAr:'1.50',pAv:'1.48',eAr:'1.42',eAv:'1.44',frequenceCycle:50000},
+  {id:'wz3015', refOutil:'3015',    outilId:'WZ3015-6',    fabricant:'WEZAG',       refFabricant:'WZ3015-06',   pAr:'1.60',pAv:'1.58',eAr:'1.52',eAv:'1.55',frequenceCycle:45000},
+  {id:'wz4220', refOutil:'4220',    outilId:'WZ4220-PRO',  fabricant:'WEZAG',       refFabricant:'WZ4220-PR2',  pAr:'1.68',pAv:'1.65',eAr:'1.58',eAv:'1.61',frequenceCycle:55000},
+  {id:'wz5130', refOutil:'5130',    outilId:'WZ5130-S',    fabricant:'WEZAG',       refFabricant:'WZ5130-S4',   pAr:'1.35',pAv:'1.33',eAr:'1.29',eAv:'1.31',frequenceCycle:48000},
+  {id:'mc1440', refOutil:'MC-1440', outilId:'MC1440-T',    fabricant:'MECAL',       refFabricant:'MC-1440-T12', pAr:'1.35',pAv:'1.33',eAr:'1.28',eAv:'1.30',frequenceCycle:60000},
+  {id:'mc1441', refOutil:'MC-1441', outilId:'MC1441-T',    fabricant:'MECAL',       refFabricant:'MC-1441-T12', pAr:'1.38',pAv:'1.36',eAr:'1.31',eAv:'1.33',frequenceCycle:60000},
+  {id:'mc1580', refOutil:'MC-1580', outilId:'MC1580-R',    fabricant:'MECAL',       refFabricant:'MC-1580-R08', pAr:'1.55',pAv:'1.53',eAr:'1.48',eAv:'1.50',frequenceCycle:55000},
+  {id:'mc2210', refOutil:'MC-2210', outilId:'MC2210-XL',   fabricant:'MECAL',       refFabricant:'MC-2210-XL3', pAr:'1.72',pAv:'1.69',eAr:'1.63',eAv:'1.65',frequenceCycle:40000},
+  {id:'ap3810', refOutil:'AP3810',  outilId:'AP3810-S',    fabricant:'APLITEC',     refFabricant:'AP-3810-S4',  pAr:'1.42',pAv:'1.40',eAr:'1.35',eAv:'1.37',frequenceCycle:40000},
+  {id:'ap3815', refOutil:'AP3815',  outilId:'AP3815-S',    fabricant:'APLITEC',     refFabricant:'AP-3815-S4',  pAr:'1.44',pAv:'1.42',eAr:'1.37',eAv:'1.39',frequenceCycle:40000},
+  {id:'ap4010', refOutil:'AP4010',  outilId:'AP4010-DX',   fabricant:'APLITEC',     refFabricant:'AP-4010-DX',  pAr:'1.52',pAv:'1.50',eAr:'1.45',eAv:'1.47',frequenceCycle:45000},
+  {id:'ko520',  refOutil:'KO-520',  outilId:'KO520-PRO',   fabricant:'KOMAX',       refFabricant:'K520-PRO-2',  pAr:'1.65',pAv:'1.63',eAr:'1.58',eAv:'1.60',frequenceCycle:70000},
+  {id:'ko521',  refOutil:'KO-521',  outilId:'KO521-PRO',   fabricant:'KOMAX',       refFabricant:'K521-PRO-2',  pAr:'1.67',pAv:'1.65',eAr:'1.60',eAv:'1.62',frequenceCycle:70000},
+  {id:'ko630',  refOutil:'KO-630',  outilId:'KO630-ULTRA', fabricant:'KOMAX',       refFabricant:'K630-ULTRA',  pAr:'1.80',pAv:'1.77',eAr:'1.70',eAv:'1.72',frequenceCycle:65000},
+  {id:'sc1020', refOutil:'SC-1020', outilId:'SC1020-V',    fabricant:'SCHLEUNIGER', refFabricant:'SC-1020V3',   pAr:'1.40',pAv:'1.38',eAr:'1.33',eAv:'1.35',frequenceCycle:48000},
+  {id:'sc1025', refOutil:'SC-1025', outilId:'SC1025-V',    fabricant:'SCHLEUNIGER', refFabricant:'SC-1025V3',   pAr:'1.43',pAv:'1.41',eAr:'1.36',eAv:'1.38',frequenceCycle:48000},
+  {id:'sc2040', refOutil:'SC-2040', outilId:'SC2040-HD',   fabricant:'SCHLEUNIGER', refFabricant:'SC-2040HD',   pAr:'1.58',pAv:'1.55',eAr:'1.50',eAv:'1.52',frequenceCycle:52000},
+  {id:'cr4510', refOutil:'CR-4510', outilId:'CR4510-AUTO', fabricant:'CRIMPING CO', refFabricant:'CR4510-A2',   pAr:'1.47',pAv:'1.45',eAr:'1.40',eAv:'1.42',frequenceCycle:43000},
+  {id:'cr4515', refOutil:'CR-4515', outilId:'CR4515-AUTO', fabricant:'CRIMPING CO', refFabricant:'CR4515-A2',   pAr:'1.49',pAv:'1.47',eAr:'1.42',eAv:'1.44',frequenceCycle:43000},
 ];
 
-/* ═══════════════════════════════════════════════════════
-   DONNÉES — BONS D'INTERVENTION (25 bons)
-═══════════════════════════════════════════════════════ */
-function makeDate(daysAgo, hour=9) {
-  const d = new Date(); d.setDate(d.getDate()-daysAgo); d.setHours(hour,0,0,0); return d.getTime();
-}
-
-const TECHNICIENS = [
-  { uid:'crimp-user-001', name:'Ahmed Benali',  matricule:'LN-C-001' },
-  { uid:'crimp-user-002', name:'Youssef Karimi', matricule:'LN-C-002' },
+const TECHS = [
+  {uid:'crimp-user-001',name:'Ahmed Benali',   matricule:'LN-C-001'},
+  {uid:'crimp-user-002',name:'Youssef Karimi', matricule:'LN-C-002'},
+  {uid:'crimp-user-003',name:'Omar Tahir',     matricule:'LN-C-003'},
+  {uid:'crimp-user-004',name:'Rachid Idrissi', matricule:'LN-C-004'},
 ];
-const LABO_TECH = { uid:'labo-user-001', name:'Fatima Zahra', matricule:'LN-L-001' };
+const LABO  = {uid:'labo-user-001',name:'Fatima Zahra',   matricule:'LN-L-001'};
+const LABO2 = {uid:'labo-user-002',name:'Nadia Bensouda', matricule:'LN-L-002'};
 
-const INTERVENTIONS_DATA = [
-  // Validés
-  { n:1,  toolId:'wz2158s', tech:0, type:'preventive',      cycles:48250, daysAgo:30, obs:'Maintenance préventive cyclique. RAS.',  status:'validated', piecesChanged:{pAr:true,pAv:true} },
-  { n:2,  toolId:'mc1440',  tech:1, type:'curative',         cycles:61200, daysAgo:28, obs:'Remplacement poinçon suite usure.',      status:'validated', piecesChanged:{pAr:true} },
-  { n:3,  toolId:'ko520',   tech:0, type:'requalification',  cycles:69800, daysAgo:25, obs:'Requalification complète OK.',           status:'validated', piecesChanged:{pAr:true,pAv:true,eAr:true,eAv:true} },
-  { n:4,  toolId:'sc1020',  tech:1, type:'preventive',       cycles:47500, daysAgo:22, obs:'Contrôle périodique.',                   status:'validated', piecesChanged:{} },
-  { n:5,  toolId:'wz3015',  tech:0, type:'curative',         cycles:44800, daysAgo:20, obs:'Ejector bloqué — remplacé.',             status:'validated', piecesChanged:{ejector:true} },
-  { n:6,  toolId:'ap3810',  tech:1, type:'preventive',       cycles:39500, daysAgo:18, obs:'Maintenance planifiée OK.',              status:'validated', piecesChanged:{pAr:true,pAv:true} },
-  { n:7,  toolId:'mc1580',  tech:0, type:'requalification',  cycles:54900, daysAgo:15, obs:'Requalification post-réparation.',       status:'validated', piecesChanged:{eAr:true,eAv:true} },
-  { n:8,  toolId:'wz2159s', tech:1, type:'preventive',       cycles:49700, daysAgo:14, obs:'Maintenance périodique.',                status:'validated', piecesChanged:{pAr:true} },
-  { n:9,  toolId:'ko521',   tech:0, type:'curative',         cycles:69100, daysAgo:12, obs:'Couteau usé — remplacé.',                status:'validated', piecesChanged:{couteauBanda:true} },
-  { n:10, toolId:'sc1025',  tech:1, type:'preventive',       cycles:47200, daysAgo:10, obs:'Contrôle cyclique OK.',                  status:'validated', piecesChanged:{} },
-  // Refusés
-  { n:11, toolId:'wz2158s', tech:0, type:'curative',         cycles:48900, daysAgo:9,  obs:'Tentative réparation enclume.',         status:'rejected',  piecesChanged:{eAr:true}, rejectReason:'Coupe métallo non conforme — refaire le remplacement.' },
-  { n:12, toolId:'ap3815',  tech:1, type:'preventive',       cycles:39800, daysAgo:8,  obs:'Changement poinçons avants.',           status:'rejected',  piecesChanged:{pAv:true}, rejectReason:'Hauteur âme hors tolérance. Vérifier réglage.' },
-  // Soumis (en attente labo)
-  { n:13, toolId:'mc1441',  tech:0, type:'preventive',       cycles:59800, daysAgo:3,  obs:'Maintenance 60k cycles.',               status:'submitted', piecesChanged:{pAr:true,pAv:true} },
-  { n:14, toolId:'wz3015',  tech:1, type:'curative',         cycles:45100, daysAgo:2,  obs:'Remplacement bande entraînement.',      status:'submitted', piecesChanged:{couteauBanda:true} },
-  { n:15, toolId:'ko520',   tech:0, type:'requalification',  cycles:70200, daysAgo:2,  obs:'Requalification 70k cycles.',           status:'submitted', piecesChanged:{pAr:true,pAv:true,eAr:true,eAv:true} },
-  { n:16, toolId:'sc1020',  tech:1, type:'preventive',       cycles:48000, daysAgo:1,  obs:'Contrôle mensuel.',                     status:'submitted', piecesChanged:{} },
-  { n:17, toolId:'ap3810',  tech:0, type:'curative',         cycles:40100, daysAgo:1,  obs:'Blocage mécanique résolu.',             status:'submitted', piecesChanged:{ejector:true} },
-  // Brouillons
-  { n:18, toolId:'wz2159s', tech:0, type:'preventive',       cycles:50100, daysAgo:0,  obs:'En cours de saisie.',                   status:'draft',     piecesChanged:{} },
-  { n:19, toolId:'mc1580',  tech:1, type:'curative',         cycles:55400, daysAgo:0,  obs:'Poinçon AR cassé.',                     status:'draft',     piecesChanged:{pAr:true} },
-  { n:20, toolId:'ko521',   tech:0, type:'preventive',       cycles:70000, daysAgo:0,  obs:'',                                      status:'draft',     piecesChanged:{} },
-  // Données supplémentaires (mois précédents)
-  { n:21, toolId:'sc1025',  tech:1, type:'preventive',       cycles:46000, daysAgo:45, obs:'Maintenance trimestrielle.',            status:'validated', piecesChanged:{pAr:true,pAv:true} },
-  { n:22, toolId:'wz2158s', tech:0, type:'requalification',  cycles:47500, daysAgo:42, obs:'Requalification 50k.',                  status:'validated', piecesChanged:{pAr:true,pAv:true,eAr:true,eAv:true} },
-  { n:23, toolId:'mc1440',  tech:1, type:'preventive',       cycles:59500, daysAgo:38, obs:'Maintenance planifiée.',                status:'validated', piecesChanged:{pAr:true} },
-  { n:24, toolId:'ap3815',  tech:0, type:'curative',         cycles:38900, daysAgo:35, obs:'Usure anormale détectée.',              status:'validated', piecesChanged:{eAr:true,eAv:true} },
-  { n:25, toolId:'ko520',   tech:1, type:'preventive',       cycles:68000, daysAgo:32, obs:'Contrôle planifié 68k cycles.',         status:'validated', piecesChanged:{} },
-];
+function dAgo(d,h){const t=new Date();t.setDate(t.getDate()-d);t.setHours(h||9,0,0,0);return t.getTime();}
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const mean = a => a.reduce((s,v)=>s+v,0)/a.length;
+const std  = a => {const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/(a.length-1));};
+const cm_  = (a,mn,mx) => {const s=std(a);return s>0?(mx-mn)/(6*s):null;};
+const cmk_ = (a,mn,mx) => {const m=mean(a),s=std(a);return s>0?Math.min(m-mn,mx-m)/(3*s):null;};
 
-/* Lab data pour les bons validés */
-const LAB_TEMPLATE = {
-  refConnexion:'1-963231-1', sectionCable:'0.35 IR', indiceParametrique:'B',
-  largeurAme:1.45, largeurIsolant:1.62,
-  measures:{ hauteurIsolant:[1.55,1.57,1.56,1.54,1.56], effort:[52,54,53,51,55] },
-  conformites:{ chanfrein:true, temoinCoupe:true, flexion:true }, chuteTension:2.1
-};
-
-/* ═══════════════════════════════════════════════════════
-   UTILISATEURS SUPPLÉMENTAIRES (labo + crimp)
-═══════════════════════════════════════════════════════ */
-const EXTRA_USERS = [
-  {
-    uid:'labo-user-001', email:'labo@leoni.com',  displayName:'Fatima Zahra',
-    matricule:'LN-L-001', role:'labo',  active:true, createdAt: Date.now() - 86400000*2
-  },
-  {
-    uid:'crimp-user-001', email:'crimp@leoni.com', displayName:'Ahmed Benali',
-    matricule:'LN-C-001', role:'crimp', active:true, createdAt: Date.now() - 86400000*2
-  },
-  {
-    uid:'crimp-user-002', email:'crimp2@leoni.com', displayName:'Youssef Karimi',
-    matricule:'LN-C-002', role:'crimp', active:true, createdAt: Date.now() - 86400000*5
-  },
+const BONS = [
+  {n:1, tid:'wz2158s',ti:0,li:0,type:'preventive',    cycles:48250,da:45,h:8, obs:'Maintenance preventive 50k. Remplacement poincons AR/AV.', pc:{pAr:1,pAv:1},st:'validated',hi:[1.55,1.56,1.55,1.54,1.56],ef:[52,53,52,51,54],ref:'963231-1',sec:'0.35 IR',ind:'B',cht:2.1},
+  {n:2, tid:'mc1440', ti:1,li:0,type:'curative',      cycles:61200,da:42,h:10,obs:'Remplacement poincon AR casse.', pc:{pAr:1},st:'validated',hi:[1.61,1.62,1.60,1.63,1.61],ef:[55,56,54,55,57],ref:'963120-1',sec:'0.50 IR',ind:'A',cht:2.3},
+  {n:3, tid:'ko520',  ti:0,li:1,type:'requalification',cycles:69800,da:38,h:14,obs:'Requalification complete 70k.', pc:{pAr:1,pAv:1,eAr:1,eAv:1},st:'validated',hi:[1.58,1.59,1.57,1.58,1.60],ef:[53,55,52,54,56],ref:'2158-0035',sec:'0.35 MM',ind:'C',cht:1.9},
+  {n:4, tid:'sc1020', ti:2,li:0,type:'preventive',    cycles:47500,da:35,h:9, obs:'Controle periodique. Aucune anomalie.', pc:{},st:'validated',hi:[1.54,1.55,1.53,1.55,1.54],ef:[50,51,52,50,51],ref:'963231-1',sec:'0.35 IR',ind:'B',cht:2.0},
+  {n:5, tid:'wz3015', ti:1,li:1,type:'curative',      cycles:44800,da:32,h:11,obs:'Ejector bloque - remplacement complet.', pc:{ejector:1},st:'validated',hi:[1.62,1.63,1.61,1.64,1.62],ef:[57,58,56,57,59],ref:'963122-2',sec:'0.75 IR',ind:'A',cht:2.4},
+  {n:6, tid:'ap3810', ti:3,li:0,type:'preventive',    cycles:39500,da:28,h:8, obs:'Maintenance 40k. RAS.', pc:{pAr:1,pAv:1},st:'validated',hi:[1.56,1.57,1.55,1.56,1.58],ef:[52,53,51,53,54],ref:'963230-1',sec:'0.35 IR',ind:'B',cht:2.1},
+  {n:7, tid:'mc1580', ti:0,li:1,type:'requalification',cycles:54900,da:25,h:13,obs:'Requalification post-reparation enclumes.', pc:{eAr:1,eAv:1},st:'validated',hi:[1.59,1.60,1.58,1.59,1.61],ef:[54,55,53,55,56],ref:'963221-1',sec:'0.50 IR',ind:'A',cht:2.2},
+  {n:8, tid:'wz2159s',ti:2,li:0,type:'preventive',    cycles:49700,da:22,h:9, obs:'Entretien mensuel OK.', pc:{pAr:1},st:'validated',hi:[1.54,1.56,1.55,1.53,1.55],ef:[51,52,50,51,53],ref:'963231-2',sec:'0.35 IR',ind:'B',cht:2.0},
+  {n:9, tid:'ko521',  ti:1,li:1,type:'curative',      cycles:69100,da:18,h:14,obs:'Couteau/banda use - remplacement.', pc:{couteauBanda:1},st:'validated',hi:[1.57,1.58,1.56,1.58,1.57],ef:[53,54,52,54,55],ref:'2158-0036',sec:'0.35 MM',ind:'C',cht:2.1},
+  {n:10,tid:'sc1025', ti:3,li:0,type:'preventive',    cycles:47200,da:15,h:8, obs:'Maintenance planifiee 48k.', pc:{},st:'validated',hi:[1.55,1.56,1.54,1.55,1.57],ef:[52,53,51,52,54],ref:'963122-3',sec:'0.50 IR',ind:'A',cht:2.0},
+  {n:11,tid:'wz4220', ti:0,li:1,type:'requalification',cycles:54200,da:12,h:10,obs:'Requalification suite changement serie.', pc:{pAr:1,pAv:1,eAr:1,eAv:1},st:'validated',hi:[1.60,1.61,1.59,1.60,1.62],ef:[55,56,54,55,57],ref:'963231-3',sec:'0.35 IR',ind:'B',cht:2.2},
+  {n:12,tid:'ap4010', ti:2,li:0,type:'preventive',    cycles:44100,da:10,h:9, obs:'Maintenance 45k. Nettoyage et controle.', pc:{pAr:1},st:'validated',hi:[1.54,1.55,1.53,1.54,1.56],ef:[51,52,50,52,53],ref:'963230-2',sec:'0.35 IR',ind:'B',cht:2.0},
+  {n:13,tid:'cr4510', ti:1,li:1,type:'curative',      cycles:42800,da:8, h:11,obs:'Usure poincon avant detectee. Remplacement.', pc:{pAv:1},st:'validated',hi:[1.63,1.64,1.62,1.63,1.65],ef:[57,58,56,58,59],ref:'963122-4',sec:'0.75 IR',ind:'A',cht:2.3},
+  {n:14,tid:'mc2210', ti:3,li:0,type:'preventive',    cycles:39200,da:6, h:8, obs:'Maintenance preventive 40k. RAS.', pc:{pAr:1,pAv:1},st:'validated',hi:[1.56,1.57,1.55,1.56,1.58],ef:[52,53,51,52,54],ref:'963231-4',sec:'0.35 IR',ind:'B',cht:2.1},
+  {n:15,tid:'mc1441', ti:0,type:'preventive',    cycles:59800,da:4,h:8, obs:'Maintenance 60k. Envoi labo.', pc:{pAr:1,pAv:1},st:'submitted'},
+  {n:16,tid:'wz3015', ti:1,type:'curative',      cycles:45100,da:3,h:10,obs:'Remplacement bande entrainement.', pc:{couteauBanda:1},st:'submitted'},
+  {n:17,tid:'ko520',  ti:2,type:'requalification',cycles:70200,da:3,h:14,obs:'Requalification 70k obligatoire.', pc:{pAr:1,pAv:1,eAr:1,eAv:1},st:'submitted'},
+  {n:18,tid:'sc2040', ti:3,type:'preventive',    cycles:51500,da:2,h:9, obs:'Maintenance 52k. En attente labo.', pc:{},st:'submitted'},
+  {n:19,tid:'ap3815', ti:0,type:'curative',      cycles:40100,da:2,h:11,obs:'Ejector remplace suite blocage.', pc:{ejector:1},st:'submitted'},
+  {n:20,tid:'wz5130', ti:1,type:'preventive',    cycles:47800,da:1,h:8, obs:'Entretien mensuel + poincon AR.', pc:{pAr:1},st:'submitted'},
+  {n:21,tid:'cr4515', ti:2,type:'curative',      cycles:42200,da:1,h:13,obs:'Enclume AV fissuree. Remplacement urgent.', pc:{eAv:1},st:'submitted'},
+  {n:22,tid:'wz2158s',ti:0,li:0,type:'curative',      cycles:48900,da:20,h:9, obs:'Tentative reparation enclume AR.', pc:{eAr:1},st:'rejected',rej:'Coupe metallo non conforme. Hauteur ame hors tolerance. Refaire le remplacement.'},
+  {n:23,tid:'ap3815', ti:3,li:1,type:'preventive',    cycles:39800,da:16,h:10,obs:'Changement poincons avant.', pc:{pAv:1},st:'rejected',rej:'Cmk ame = 0.98 inferieur a 1.33. Effort trop variable. Verifier le reglage presse.'},
+  {n:24,tid:'sc1020', ti:1,li:0,type:'curative',      cycles:46300,da:11,h:14,obs:'Remplacement couteau.', pc:{couteauBanda:1},st:'rejected',rej:'Chute tension 6.2 mV superieure a 4 mV max. Revoir le serrage connexion.'},
+  {n:25,tid:'mc1440', ti:2,li:1,type:'requalification',cycles:60100,da:7,h:8, obs:'Requalification apres remplacement complet.', pc:{pAr:1,pAv:1,eAr:1,eAv:1},st:'rejected',rej:'Conformite chanfrein NOK. Bavures sur le biseau. Affuter a nouveau.'},
+  {n:26,tid:'wz4220', ti:0,li:0,type:'preventive',    cycles:53400,da:5,h:11,obs:'Maintenance 55k.', pc:{pAr:1},st:'rejected',rej:'Largeur ame 1.28 mm inferieure a 1.35 min. Re-etalonner. Contacter fabricant WEZAG.'},
+  {n:27,tid:'wz2159s',ti:0,type:'preventive',    cycles:50100,da:0,h:7, obs:'En cours de saisie.', pc:{},st:'draft'},
+  {n:28,tid:'mc1580', ti:1,type:'curative',      cycles:55400,da:0,h:8, obs:'Poincon AR casse ce matin.', pc:{pAr:1},st:'draft'},
+  {n:29,tid:'ko630',  ti:2,type:'preventive',    cycles:64000,da:0,h:9, obs:'', pc:{},st:'draft'},
+  {n:30,tid:'cr4510', ti:3,type:'requalification',cycles:43100,da:0,h:10,obs:'Requalification planifiee.', pc:{pAr:1,pAv:1},st:'draft'},
 ];
 
-/* ═══════════════════════════════════════════════════════
-   HELPERS UI
-═══════════════════════════════════════════════════════ */
 const logEl = document.getElementById('log');
-function log(msg, type='i') {
+function log(msg,type){
   logEl.classList.add('v');
-  const d=document.createElement('div'); d.className='l '+type;
+  const d=document.createElement('div');d.className='l '+(type||'i');
   d.textContent='['+new Date().toLocaleTimeString('fr-FR')+']  '+msg;
-  logEl.appendChild(d); logEl.scrollTop=logEl.scrollHeight;
-  console.log('[SEED]',msg);
+  logEl.appendChild(d);logEl.scrollTop=logEl.scrollHeight;
 }
-function progress(pct) {
-  document.getElementById('pw').classList.add('v');
-  document.getElementById('pb').style.width=pct+'%';
-}
+function progress(p){document.getElementById('pw').classList.add('v');document.getElementById('pb').style.width=p+'%';}
 
-/* ═══════════════════════════════════════════════════════
-   SEED PRINCIPAL
-═══════════════════════════════════════════════════════ */
 document.getElementById('btn-seed').addEventListener('click', async () => {
   const btn=document.getElementById('btn-seed');
-  btn.disabled=true; btn.textContent='Injection en cours…';
-  log('═══ DÉBUT SEED LEONI ═══','w');
-
-  // Vérifier connexion admin
-  const user = auth.currentUser;
-  if (!user) {
-    log('⚠ Aucune session — connexion auto avec admin@leoni.com…','w');
-    try {
-      // Essayer de se connecter silencieusement — le user doit déjà être connecté
-      // via la page admin. Sinon on continue quand même car les règles RTDB
-      // permettent l'écriture auth != null pour interventions/tools/counters
-    } catch(e) {}
-  }
-
-  let total = TOOLS.length + INTERVENTIONS_DATA.length + EXTRA_USERS.length + 1;
-  let done = 0;
-  const tick = () => { done++; progress(Math.round(done/total*100)); };
-
-  try {
-    // ── 1. OUTILS ──────────────────────────────────────────────────
-    log('Injection des outils ('+TOOLS.length+')…','i');
-    for (const tool of TOOLS) {
-      const t = { ...tool, createdAt: Date.now(), updatedAt: Date.now() };
-      await rtdb.ref('tools/'+tool.id).set(t);
-      log('  ✔ Outil '+tool.outilId+' ('+tool.fabricant+')','s');
-      tick();
-      await wait(80);
+  btn.disabled=true;btn.textContent='Injection en cours...';
+  log('SEED LEONI v2 - Debut','w');
+  const total=TOOLS.length+BONS.length+1;let done=0;
+  const tick=()=>{done++;progress(Math.round(done/total*100));};
+  try{
+    log('Injection des '+TOOLS.length+' outils...','i');
+    for(const t of TOOLS){
+      await rtdb.ref('tools/'+t.id).set({...t,createdAt:Date.now(),updatedAt:Date.now()});
+      log('  OK '+t.outilId+' ('+t.fabricant+')','s');tick();await new Promise(r=>setTimeout(r,55));
     }
-
-    // ── 2. COMPTEUR ────────────────────────────────────────────────
-    await rtdb.ref('counters/registre').set(INTERVENTIONS_DATA.length);
-    log('Compteur registre → '+INTERVENTIONS_DATA.length,'s');
-    tick();
-
-    // ── 3. INTERVENTIONS ───────────────────────────────────────────
-    log('Injection des bons d\'intervention ('+INTERVENTIONS_DATA.length+')…','i');
-    for (const iv of INTERVENTIONS_DATA) {
-      const tool   = TOOLS.find(t => t.id === iv.toolId) || TOOLS[0];
-      const tech   = TECHNICIENS[iv.tech];
-      const now    = makeDate(iv.daysAgo);
-      const subAt  = iv.status !== 'draft' ? now + 3600000 : null;
-      const decAt  = ['validated','rejected'].includes(iv.status) ? subAt + 7200000 : null;
-
-      const bon = {
-        numBon: iv.n,
-        status: iv.status,
-        createdAt: now, updatedAt: decAt || subAt || now,
-        tool: {
-          refOutil: tool.refOutil, outilId: tool.outilId,
-          fabricant: tool.fabricant, refFabricant: tool.refFabricant,
-          pieces: { pAr:tool.pAr, pAv:tool.pAv, eAr:tool.eAr, eAv:tool.eAv },
-          frequenceCycle: tool.frequenceCycle, toolId: tool.id
-        },
-        crimping: {
-          filledAt: now,
-          filledBy: { uid:tech.uid, name:tech.name, matricule:tech.matricule },
-          date: now, cycles: iv.cycles, type: iv.type,
-          piecesChanged: iv.piecesChanged || {},
-          observation: iv.obs,
-          cyclesPhotoUrl: null, signatureUrl: null
-        },
-        lab: ['validated','rejected'].includes(iv.status) ? {
-          filledAt: decAt,
-          filledBy: { uid:LABO_TECH.uid, name:LABO_TECH.name, matricule:LABO_TECH.matricule },
-          decision: iv.status,
-          rejectReason: iv.rejectReason || null,
-          refConnexion: LAB_TEMPLATE.refConnexion,
-          sectionCable: LAB_TEMPLATE.sectionCable,
-          indiceParametrique: LAB_TEMPLATE.indiceParametrique,
-          largeurAme: LAB_TEMPLATE.largeurAme,
-          largeurIsolant: LAB_TEMPLATE.largeurIsolant,
-          measures: LAB_TEMPLATE.measures,
-          conformites: iv.status==='validated' ? LAB_TEMPLATE.conformites : {chanfrein:false,temoinCoupe:true,flexion:false},
-          chuteTension: LAB_TEMPLATE.chuteTension,
-          signatureUrl: null
-        } : null,
-        sla: {
-          submittedAt: subAt,
-          decidedAt: decAt,
-          durationMs: subAt && decAt ? decAt - subAt : null
-        },
-        locked: iv.status === 'validated',
-        statusHistory: buildHistory(iv.status, now, subAt, decAt, tech, LABO_TECH),
-        _indexes: {
-          yearMonth: new Date(now).toISOString().slice(0,7),
-          toolId: tool.id, status: iv.status
-        }
-      };
-
-      await rtdb.ref('interventions/'+iv.n).set(bon);
-      log('  ✔ Bon N°'+iv.n+' — '+tool.outilId+' — '+iv.status,'s');
-      tick();
-      await wait(60);
+    await rtdb.ref('counters/registre').set(BONS.length);tick();
+    log('Compteur -> '+BONS.length,'s');
+    log('Injection des '+BONS.length+' bons...','i');
+    for(const b of BONS){
+      const tool=TOOLS.find(t=>t.id===b.tid)||TOOLS[0];
+      const tech=TECHS[b.ti];
+      const lt=b.li===1?LABO2:LABO;
+      const now=dAgo(b.da,b.h);
+      const subAt=['submitted','validated','rejected'].includes(b.st)?now+3600000:null;
+      const decAt=['validated','rejected'].includes(b.st)?now+10800000:null;
+      const hist=[{status:'draft',at:now,by:tech.uid,byName:tech.name}];
+      if(subAt)hist.push({status:'submitted',at:subAt,by:tech.uid,byName:tech.name});
+      if(decAt&&b.st==='validated')hist.push({status:'validated',at:decAt,by:lt.uid,byName:lt.name});
+      if(decAt&&b.st==='rejected') hist.push({status:'rejected', at:decAt,by:lt.uid,byName:lt.name,reason:b.rej});
+      let labData=null;
+      if(b.st==='validated'&&b.hi){
+        const HI=b.hi,EF=b.ef;
+        labData={filledAt:decAt,filledBy:{uid:lt.uid,name:lt.name,matricule:lt.matricule},decision:'validated',
+          connexion:{refConnexion:b.ref,sectionCable:b.sec,indiceParametrique:b.ind},
+          mesures:{largeurAme:1.45,hauteurIsolant:HI,effort:EF},
+          capabilite:{hauteurAmeMoyenne:mean(HI),cmAme:cm_(HI,1.40,1.70),cmkAme:cmk_(HI,1.40,1.70),cmEffort:cm_(EF,40,70),chuteTension:b.cht},
+          conformites:{chanfrein:true,temoinCoupe:true,flexion:true},signatureUrl:null};
+      }
+      if(b.st==='rejected'){
+        labData={filledAt:decAt,filledBy:{uid:lt.uid,name:lt.name,matricule:lt.matricule},decision:'rejected',rejectReason:b.rej};
+      }
+      const pieces={};if(b.pc)Object.entries(b.pc).forEach(([k,v])=>{if(v)pieces[k]=true;});
+      await rtdb.ref('interventions/'+b.n).set({
+        numBon:b.n,status:b.st,createdAt:now,updatedAt:decAt||subAt||now,
+        tool:{refOutil:tool.refOutil,outilId:tool.outilId,fabricant:tool.fabricant,refFabricant:tool.refFabricant,
+              pieces:{pAr:tool.pAr,pAv:tool.pAv,eAr:tool.eAr,eAv:tool.eAv},frequenceCycle:tool.frequenceCycle,toolId:tool.id},
+        crimping:{filledAt:now,filledBy:{uid:tech.uid,name:tech.name,matricule:tech.matricule},
+                  date:now,cycles:b.cycles,type:b.type,piecesChanged:pieces,observation:b.obs||'',cyclesPhotoUrl:null,signatureUrl:null},
+        lab:labData,
+        sla:{submittedAt:subAt,decidedAt:decAt,durationMs:subAt&&decAt?decAt-subAt:null},
+        locked:b.st==='validated',statusHistory:hist,
+        _indexes:{yearMonth:new Date(now).toISOString().slice(0,7),toolId:tool.id,status:b.st}
+      });
+      const icon={validated:'OK',submitted:'...',rejected:'X',draft:'~'}[b.st]||'?';
+      log('  ['+icon+'] Bon N'+b.n+' - '+tool.outilId+' - '+b.st,'s');
+      tick();await new Promise(r=>setTimeout(r,45));
     }
-
-    // ── 4. UTILISATEURS SUPPLÉMENTAIRES ───────────────────────────
-    log('Injection des utilisateurs ('+EXTRA_USERS.length+')…','i');
-    for (const u of EXTRA_USERS) {
-      await rtdb.ref('users/'+u.uid).set({ ...u, lastLoginAt: null });
-      log('  ✔ Utilisateur '+u.displayName+' ('+u.role+')','s');
-      tick();
-      await wait(80);
-    }
-
-    log('═══ SEED TERMINÉ ✅ ═══','w');
     progress(100);
-
-    const r=document.getElementById('result');
-    r.className='result ok';
-    r.innerHTML=`<strong>✅ Données injectées avec succès !</strong>
-      12 outils · 25 bons d'intervention · 3 utilisateurs<br/>
-      <span style="font-size:.85rem;opacity:.8">Rechargez votre admin dashboard pour voir les données.</span><br/><br/>
-      <a href="admin-dashboard.html" style="color:#6ee7b7;font-weight:600">→ Aller au dashboard Admin</a>`;
-    btn.textContent='✅ Terminé';
-
-  } catch(err) {
+    log('TERMINE : 20 outils - 14 valides - 7 attente - 5 refuses - 4 brouillons','w');
+    const doneEl=document.getElementById('done-box');
+    doneEl.classList.add('v');
+    doneEl.innerHTML='<strong>Donnees injectees avec succes !</strong>'
+      +'<b>20 outils</b> : WEZAG, MECAL, APLITEC, KOMAX, SCHLEUNIGER, CRIMPING CO<br/>'
+      +'<b>30 bons</b> : 14 valides (avec Cm/Cmk) | 7 en attente labo | 5 refuses (avec motifs) | 4 brouillons<br/><br/>'
+      +'<a href="admin-dashboard.html" style="color:#6ee7b7;font-weight:600;margin-right:1rem">Admin</a>'
+      +'<a href="labo-dashboard.html"  style="color:#a5b4fc;font-weight:600;margin-right:1rem">Labo</a>'
+      +'<a href="crimp-dashboard.html" style="color:#6ee7b7;font-weight:600">Crimp</a><br/><br/>'
+      +'<span style="color:#f59e0b;font-size:.78rem">Supprime cette page apres utilisation.</span>';
+    btn.textContent='Termine';
+  }catch(err){
     log('ERREUR : '+err.message,'e');
-    const r=document.getElementById('result');
-    r.className='result err';
-    r.innerHTML='<strong>❌ Erreur</strong>'+err.message+'<br/><small>Vérifiez que vous êtes connecté en tant qu\'admin et que les règles RTDB sont correctes.</small>';
-    btn.disabled=false; btn.textContent='🔄 Réessayer';
+    btn.disabled=false;btn.textContent='Reessayer';
   }
 });
 
-/* ── Reset ── */
 document.getElementById('btn-reset').addEventListener('click', async () => {
-  if (!confirm('Effacer tools + interventions + counters ? (Users conservés)')) return;
+  if(!confirm('Effacer outils + interventions + compteurs ?'))return;
   const btn=document.getElementById('btn-reset');
-  btn.disabled=true; btn.textContent='Effacement…';
-  try {
+  btn.disabled=true;btn.textContent='Effacement...';
+  try{
     await rtdb.ref('tools').remove();
     await rtdb.ref('interventions').remove();
     await rtdb.ref('counters').remove();
-    log('✔ tools, interventions, counters effacés.','s');
-    btn.textContent='✅ Effacé';
-  } catch(e) { log('Erreur: '+e.message,'e'); btn.disabled=false; btn.textContent='🗑 Réessayer'; }
+    log('Donnees effacees. Pret pour le seed.','s');
+    btn.textContent='Efface';btn.disabled=false;
+  }catch(e){log('Erreur: '+e.message,'e');btn.disabled=false;btn.textContent='Reessayer';}
 });
-
-/* ── Helpers ── */
-function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
-
-function buildHistory(status, now, subAt, decAt, tech, labo) {
-  const h = [{ status:'draft', at:now, by:tech.uid, byName:tech.name }];
-  if (['submitted','validated','rejected'].includes(status))
-    h.push({ status:'submitted', at:subAt, by:tech.uid, byName:tech.name });
-  if (status==='validated')
-    h.push({ status:'validated', at:decAt, by:labo.uid, byName:labo.name });
-  if (status==='rejected')
-    h.push({ status:'rejected', at:decAt, by:labo.uid, byName:labo.name });
-  return h;
-}
 </script>
 </body>
 </html>
