@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LEONI · Dashboard Crimping</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#060b16;--surface:#0f1929;--card:#111b2e;--border:rgba(255,255,255,.07);
+      --accent:#10b981;--accent-glow:rgba(16,185,129,.15);
+      --text:#f0f4ff;--text2:#8895b3;--text3:#4b5a7a;
+      --success:#10b981;--danger:#ef4444;--warn:#f59e0b;
+      --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+    }
+    [data-theme="light"]{
+      --bg:#f0f9f4;--surface:#ffffff;--card:#f8fffe;--border:rgba(0,0,0,.09);
+      --text:#0f172a;--text2:#334155;--text3:#64748b;
+    }
+    html,body{height:100%}
+    body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;visibility:hidden;transition:background .2s}
+    body.ready{visibility:visible}
+    #preloader{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem}
+    #preloader.hidden{display:none}
+    .pl-logo{font-size:1.6rem;font-weight:800;color:var(--accent)}
+    .pl-spin{width:28px;height:28px;border:3px solid rgba(16,185,129,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .shell{display:flex;min-height:100vh}
+    .sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1.5rem 0;position:fixed;top:0;left:0;bottom:0;overflow-y:auto;transition:transform .3s,background .2s;z-index:200}
+    .sb-logo{padding:0 1.5rem 1.25rem;border-bottom:1px solid var(--border)}
+    .sb-logo-txt{font-size:1.25rem;font-weight:800;color:var(--accent);letter-spacing:-1px}
+    .sb-role{font-size:.7rem;color:var(--text3);margin-top:.2rem;text-transform:uppercase;letter-spacing:.06em}
+    .sb-user{font-size:.8rem;color:var(--text2);margin-top:.25rem;font-weight:500}
+    .sb-nav{padding:1rem 0;flex:1}
+    .sb-link{display:flex;align-items:center;gap:.75rem;padding:.65rem 1.5rem;font-size:.875rem;font-weight:500;color:var(--text2);cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:all .15s;border-left:3px solid transparent}
+    .sb-link:hover{color:var(--text);background:rgba(255,255,255,.04)}
+    .sb-link.active{color:var(--accent);background:rgba(16,185,129,.07);border-left-color:var(--accent)}
+    .sb-badge{background:var(--warn);color:#000;border-radius:10px;padding:.1rem .45rem;font-size:.7rem;font-weight:700;min-width:18px;text-align:center}
+    .sb-footer{padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:.5rem}
+    .btn-logout{display:flex;align-items:center;gap:.6rem;width:100%;padding:.6rem .85rem;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;color:#fca5a5;font-size:.83rem;font-weight:600;cursor:pointer;transition:all .15s}
+    .btn-logout:hover{background:rgba(239,68,68,.15)}
+    .btn-theme{display:flex;align-items:center;gap:.6rem;width:100%;padding:.5rem .85rem;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:.8rem;cursor:pointer;transition:all .15s}
+    .btn-theme:hover{background:rgba(255,255,255,.07);color:var(--text)}
+    .main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+    .topbar{height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 1.75rem;position:sticky;top:0;z-index:100;transition:background .2s}
+    .topbar-left{display:flex;align-items:center;gap:.75rem}
+    .btn-menu{display:none;background:none;border:none;color:var(--text);font-size:1.2rem;cursor:pointer;padding:.3rem}
+    .topbar-title{font-size:.95rem;font-weight:600;color:var(--text)}
+    .user-badge{display:flex;align-items:center;gap:.6rem}
+    .avatar{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),#059669);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:.82rem}
+    .user-info{display:flex;flex-direction:column}
+    .user-name{font-weight:600;color:var(--text);font-size:.82rem}
+    .user-role-pill{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.1rem .4rem;border-radius:4px;width:fit-content;background:rgba(16,185,129,.15);color:#6ee7b7;border:1px solid rgba(16,185,129,.3)}
+    .content{padding:1.75rem;flex:1}
+    .page{display:none}.page.active{display:block}
+    .page-title{font-size:1.3rem;font-weight:700;margin-bottom:.3rem}
+    .page-sub{font-size:.85rem;color:var(--text2);margin-bottom:1.75rem}
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.875rem;margin-bottom:1.75rem}
+    .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem}
+    .kpi-label{font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem}
+    .kpi-value{font-size:1.9rem;font-weight:800;color:var(--text)}
+    .kpi-sub{font-size:.72rem;color:var(--text2);margin-top:.25rem}
+    .kpi--accent .kpi-value{color:var(--accent)}
+    .kpi--success .kpi-value{color:var(--success)}
+    .kpi--warn .kpi-value{color:var(--warn)}
+    .kpi--danger .kpi-value{color:var(--danger)}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.25rem}
+    .card-title{font-size:.875rem;font-weight:600;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+    .grid2{display:grid;grid-template-columns:1fr 1.6fr;gap:1.25rem}
+    .bon-list{display:flex;flex-direction:column;gap:.5rem}
+    .bon-item{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px;padding:.8rem 1rem;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:.8rem}
+    .bon-item:hover{border-color:var(--accent);background:rgba(16,185,129,.06)}
+    .bon-item.active-bon{border-color:var(--accent);background:rgba(16,185,129,.08)}
+    .bon-num{font-weight:700;font-size:.9rem;min-width:50px}
+    .bon-meta{font-size:.78rem;color:var(--text2);flex:1}
+    .badge{display:inline-flex;align-items:center;font-size:.67rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:.18rem .52rem;border-radius:5px;border:1px solid}
+    .badge-pending{color:#fcd34d;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.1)}
+    .badge-validated{color:#6ee7b7;border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.1)}
+    .badge-rejected{color:#fca5a5;border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.1)}
+    .badge-draft{color:var(--text2);border-color:var(--border);background:rgba(255,255,255,.05)}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.875rem}
+    .field{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.875rem}
+    .field label{font-size:.73rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+    .field input,.field select,.field textarea{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:.6rem .875rem;color:var(--text);font-size:.875rem;transition:border-color .15s;font-family:var(--font)}
+    [data-theme="light"] .field input,[data-theme="light"] .field select,[data-theme="light"] .field textarea{background:#fff;border-color:rgba(0,0,0,.15)}
+    .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+    .field textarea{resize:vertical;min-height:80px}
+    .field select option{background:var(--card)}
+    .checkbox-group{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.875rem}
+    .check-label{display:flex;align-items:center;gap:.45rem;cursor:pointer;padding:.4rem .8rem;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;font-size:.82rem;color:var(--text2);transition:all .15s;user-select:none}
+    .check-label:hover{background:rgba(255,255,255,.07);color:var(--text)}
+    .check-label input:checked + span{color:var(--accent);font-weight:600}
+    .btn-primary{padding:.8rem 1.5rem;background:var(--accent);color:#fff;border:none;border-radius:9px;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .15s}
+    .btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px)}
+    .btn-secondary{padding:.8rem 1.5rem;background:rgba(255,255,255,.07);color:var(--text2);border:1px solid var(--border);border-radius:9px;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .15s}
+    .btn-secondary:hover{background:rgba(255,255,255,.1);color:var(--text)}
+    .btn-ghost{padding:.55rem .9rem;background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:8px;font-size:.8rem;cursor:pointer;transition:all .15s}
+    .btn-ghost:hover{background:rgba(255,255,255,.05);color:var(--text)}
+    .form-actions{display:flex;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap}
+    .status-bar{display:flex;align-items:center;gap:.75rem;padding:.875rem 1rem;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px;margin-bottom:1rem;font-size:.85rem}
+    .history-table{width:100%;border-collapse:collapse;font-size:.82rem}
+    .history-table th{text-align:left;padding:.6rem .875rem;font-size:.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+    .history-table td{padding:.7rem .875rem;border-bottom:1px solid var(--border);color:var(--text2)}
+    .history-table tr:last-child td{border-bottom:none}
+    .history-table tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
+    .toast-container{position:fixed;bottom:1.5rem;right:1.5rem;z-index:9000;display:flex;flex-direction:column;gap:.6rem}
+    .toast{padding:.75rem 1.1rem;border-radius:10px;font-size:.85rem;font-weight:500;animation:toastIn .3s ease;max-width:320px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+    .toast--success{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#6ee7b7}
+    .toast--warn{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:#fcd34d}
+    .toast--danger{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#fca5a5}
+    .toast--info{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#6ee7b7}
+    @keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .reject-box{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:.875rem;margin-top:.75rem;font-size:.82rem;color:#fca5a5;display:none}
+    @media(max-width:768px){
+      .sidebar{transform:translateX(-100%);z-index:500}
+      .sidebar.is-open{transform:translateX(0)}
+      .main{margin-left:0}
+      .btn-menu{display:block}
+      .topbar{padding:0 1rem}
+      .content{padding:1rem}
+      .kpi-grid{grid-template-columns:1fr 1fr}
+      .grid2{grid-template-columns:1fr}
+      .form-grid{grid-template-columns:1fr}
+      .form-actions{flex-direction:column}
+      .form-actions button{width:100%}
+    }
+  </style>
+</head>
+<body data-theme="dark">
+<div id="preloader"><div class="pl-logo">LEONI</div><div class="pl-spin"></div></div>
+
+<div class="shell" id="shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-txt">LEONI</div>
+      <div class="sb-role">🟢 Crimping</div>
+      <div class="sb-user" id="sb-user-name">—</div>
+    </div>
+    <nav class="sb-nav">
+      <button class="sb-link active" data-page="dashboard"><span>🔧</span> Dashboard</button>
+      <button class="sb-link" data-page="nouveau"><span>➕</span> Nouveau bon</button>
+      <button class="sb-link" data-page="mes-bons">
+        <span>📋</span> Mes bons
+        <span class="sb-badge" id="badge-rejected" style="display:none">!</span>
+      </button>
+      <button class="sb-link" data-page="catalogue"><span>🛠</span> Catalogue outils</button>
+    </nav>
+    <div class="sb-footer">
+      <button class="btn-theme" id="btn-theme-crimp">◐ Changer le thème</button>
+      <button class="btn-logout" id="btn-logout">🚪 Se déconnecter</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="btn-menu" id="btn-menu">☰</button>
+        <span class="topbar-title" id="page-title">Dashboard Crimping</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:.875rem">
+        <button class="btn-ghost" id="topbar-new-bon" style="border-color:var(--accent);color:var(--accent);font-size:.8rem">➕ Nouveau bon</button>
+        <div class="user-badge">
+          <div class="avatar" id="user-avatar">C</div>
+          <div class="user-info">
+            <span class="user-name" id="user-name">—</span>
+            <span class="user-role-pill">Crimp</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-title">Dashboard Crimping</div>
+        <div class="page-sub" id="greeting">—</div>
+        <div class="kpi-grid">
+          <div class="kpi kpi--accent"><div class="kpi-label">Mes bons créés</div><div class="kpi-value" id="kpi-total">—</div><div class="kpi-sub">total</div></div>
+          <div class="kpi kpi--warn"><div class="kpi-label">En attente labo</div><div class="kpi-value" id="kpi-pending">—</div><div class="kpi-sub">à valider</div></div>
+          <div class="kpi kpi--success"><div class="kpi-label">Validés</div><div class="kpi-value" id="kpi-validated">—</div><div class="kpi-sub">✅ conformes</div></div>
+          <div class="kpi kpi--danger"><div class="kpi-label">Refusés</div><div class="kpi-value" id="kpi-rejected">—</div><div class="kpi-sub">⚠ à corriger</div></div>
+        </div>
+        <div class="grid2" style="grid-template-columns:1fr 1fr">
+          <div class="card">
+            <div class="card-title">⚠️ Bons refusés — à corriger</div>
+            <div class="bon-list" id="rejected-list">
+              <div style="color:var(--text3);font-size:.83rem;text-align:center;padding:1.5rem">Aucun bon refusé ✅</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">📋 Mes derniers bons</div>
+            <div class="bon-list" id="my-recent-list">
+              <div style="color:var(--text3);font-size:.83rem;text-align:center;padding:1.5rem">Chargement…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOUVEAU BON -->
+      <div class="page" id="page-nouveau">
+        <div class="page-title">Nouveau bon d'intervention</div>
+        <div class="page-sub">Remplir et soumettre au laboratoire pour validation</div>
+
+        <!-- Stepper -->
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1.5rem;font-size:.8rem">
+          <span style="background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.72rem;flex-shrink:0">1</span>
+          <span style="color:var(--text);font-weight:500">Identification outil</span>
+          <span style="flex:1;height:1px;background:var(--border)"></span>
+          <span style="background:var(--border);color:var(--text2);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.72rem;flex-shrink:0">2</span>
+          <span style="color:var(--text2)">Intervention</span>
+          <span style="flex:1;height:1px;background:var(--border)"></span>
+          <span style="background:var(--border);color:var(--text2);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.72rem;flex-shrink:0">3</span>
+          <span style="color:var(--text2)">Soumission</span>
+        </div>
+
+        <div class="form-grid">
+          <div class="card">
+            <div class="card-title">🛠 Identification de l'outil</div>
+            <div class="field"><label>Référence outil *</label>
+              <input id="new-tool-ref" type="text" list="tool-datalist" placeholder="Ex: 2158S" autocomplete="off"/>
+              <datalist id="tool-datalist"></datalist>
+            </div>
+            <div class="field"><label>Outil ID *</label><input id="new-tool-id" type="text" placeholder="Ex: WZ2158*-4s"/></div>
+            <div class="field"><label>Fabricant</label><input id="new-tool-fab" type="text" placeholder="Ex: WEZAG" readonly/></div>
+            <div id="tool-card" style="display:none;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:.75rem;font-size:.78rem;color:var(--text2)">
+              <div style="font-weight:600;color:var(--text);margin-bottom:.3rem" id="tc-title">—</div>
+              <div id="tc-details">—</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">🔧 Détails de l'intervention</div>
+            <div class="form-grid">
+              <div class="field"><label>Date *</label><input id="new-date" type="date"/></div>
+              <div class="field"><label>Cycles compteur *</label><input id="new-cycles" type="number" min="0" placeholder="Ex: 48250"/></div>
+            </div>
+            <div class="field"><label>Type d'intervention *</label>
+              <select id="new-type">
+                <option value="">— Choisir —</option>
+                <option value="preventive">Préventive</option>
+                <option value="curative">Curative</option>
+                <option value="requalification">Requalification</option>
+              </select>
+            </div>
+            <div style="font-size:.73rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Pièces changées</div>
+            <div class="checkbox-group">
+              <label class="check-label"><input type="checkbox" value="pAr"><span>P-AR</span></label>
+              <label class="check-label"><input type="checkbox" value="pAv"><span>P-AV</span></label>
+              <label class="check-label"><input type="checkbox" value="eAr"><span>E-AR</span></label>
+              <label class="check-label"><input type="checkbox" value="eAv"><span>E-AV</span></label>
+              <label class="check-label"><input type="checkbox" value="ejector"><span>Ejector</span></label>
+              <label class="check-label"><input type="checkbox" value="couteauBanda"><span>Couteau/Banda</span></label>
+            </div>
+            <div class="field"><label>Observation</label>
+              <textarea id="new-obs" rows="3" maxlength="1000" placeholder="Remarques, observations…"></textarea>
+              <span style="font-size:.72rem;color:var(--text3)" id="obs-cnt">0/1000</span>
+            </div>
+            <div class="form-actions">
+              <button class="btn-primary" id="btn-submit-bon">📨 Soumettre au labo</button>
+              <button class="btn-secondary" id="btn-save-draft">💾 Brouillon</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MES BONS -->
+      <div class="page" id="page-mes-bons">
+        <div class="page-title">Mes bons d'intervention</div>
+        <div class="page-sub">Historique et suivi de vos demandes</div>
+        <div class="card">
+          <div class="card-title">
+            <span>Historique</span>
+            <div style="display:flex;gap:.5rem">
+              <select id="filter-status" style="background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:7px;padding:.3rem .6rem;color:var(--text);font-size:.8rem">
+                <option value="all">Tous les statuts</option>
+                <option value="draft">Brouillon</option>
+                <option value="submitted">En attente</option>
+                <option value="validated">Validé</option>
+                <option value="rejected">Refusé</option>
+              </select>
+              <button class="btn-ghost" id="btn-export-bons" style="font-size:.78rem;padding:.28rem .65rem">📤 Excel</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="history-table">
+              <thead><tr>
+                <th>N° Bon</th><th>Outil</th><th>Date</th><th>Type</th>
+                <th>Pièces</th><th>Statut</th><th>Décision labo</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="bons-body">
+                <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Chargement…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CATALOGUE -->
+      <div class="page" id="page-catalogue">
+        <div class="page-title">Catalogue outils</div>
+        <div class="page-sub">Référentiel des outils de sertissage</div>
+        <div class="card">
+          <div style="margin-bottom:1rem">
+            <input id="cat-search" type="search" placeholder="Rechercher…"
+              style="background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:.6rem 1rem;color:var(--text);font-size:.875rem;width:100%;max-width:320px;outline:none"/>
+          </div>
+          <div id="catalog-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.875rem">
+            <div style="color:var(--text3);font-size:.83rem;text-align:center;padding:2rem;grid-column:1/-1">Chargement…</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+<div class="toast-container" id="toast-container"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+const FC = {
+  apiKey:"AIzaSyBIW4I1DRqyqcmNEdajXbptQ5-RWFIG1V4",
+  authDomain:"leoni-sertissage-labo.firebaseapp.com",
+  databaseURL:"https://leoni-sertissage-labo-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"leoni-sertissage-labo",
+  storageBucket:"leoni-sertissage-labo.firebasestorage.app",
+  messagingSenderId:"432527114405",
+  appId:"1:432527114405:web:b141f6ae74f11b1cbb0d4c"
+};
+firebase.initializeApp(FC);
+const auth = firebase.auth();
+const rtdb  = firebase.database();
+const LOGIN = "index.html";
+let userProfile = null;
+let interventions = {};
+let tools = {};
+
+function toast(msg, type="info") {
+  const c = document.getElementById("toast-container");
+  const t = document.createElement("div");
+  t.className = "toast toast--" + type;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(()=>{ t.style.opacity="0"; setTimeout(()=>t.remove(),300); }, 3500);
+}
+
+// Session timeout
+let _st, _sw;
+function resetSession() {
+  clearTimeout(_st); clearTimeout(_sw);
+  _sw = setTimeout(()=>toast("Session expire dans 2 min","warn"), 28*60*1000);
+  _st = setTimeout(async()=>{ await auth.signOut(); location.replace(LOGIN); }, 30*60*1000);
+}
+["click","keydown","mousemove"].forEach(e => document.addEventListener(e, resetSession, {passive:true}));
+
+// Theme
+const saved = localStorage.getItem("leoni-theme") || "dark";
+document.body.dataset.theme = saved;
+document.getElementById("btn-theme-crimp").textContent = saved === "dark" ? "◐ Thème clair" : "● Thème sombre";
+document.getElementById("btn-theme-crimp").addEventListener("click", () => {
+  const n = document.body.dataset.theme === "dark" ? "light" : "dark";
+  document.body.dataset.theme = n;
+  localStorage.setItem("leoni-theme", n);
+  document.getElementById("btn-theme-crimp").textContent = n === "dark" ? "◐ Thème clair" : "● Thème sombre";
+});
+
+// Auth guard
+auth.onAuthStateChanged(async user => {
+  if (!user) { location.replace(LOGIN); return; }
+  const snap = await rtdb.ref("users/" + user.uid).once("value");
+  const profile = snap.val();
+  if (!profile || profile.active === false) { await auth.signOut(); location.replace(LOGIN); return; }
+  if (profile.role !== "crimp" && profile.role !== "admin") {
+    const routes = {admin:"admin-dashboard.html", labo:"labo-dashboard.html"};
+    location.replace(routes[profile.role] || LOGIN); return;
+  }
+  userProfile = { ...profile, uid: user.uid, email: user.email };
+  document.getElementById("preloader").classList.add("hidden");
+  document.body.classList.add("ready");
+  const n = profile.displayName || user.email;
+  document.getElementById("user-name").textContent = n;
+  document.getElementById("sb-user-name").textContent = n;
+  document.getElementById("user-avatar").textContent = n.charAt(0).toUpperCase();
+  document.getElementById("greeting").textContent = "Bienvenue " + n + " — " + new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+  document.getElementById("new-date").valueAsDate = new Date();
+  resetSession();
+  loadData();
+});
+
+function loadData() {
+  rtdb.ref("tools").on("value", snap => {
+    tools = snap.val() || {};
+    const dl = document.getElementById("tool-datalist");
+    dl.innerHTML = Object.values(tools).map(t => `<option value="${t.refOutil||''}">${t.outilId||''}</option>`).join("");
+    renderCatalog();
+  });
+  rtdb.ref("interventions").on("value", snap => {
+    interventions = snap.val() || {};
+    renderDashboard();
+    renderMesBons();
+  });
+}
+
+const fmtDate = ts => ts ? new Date(ts).toLocaleDateString("fr-FR") : "—";
+const fmtDT   = ts => ts ? new Date(ts).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"}) : "—";
+const TYPE_LABELS = {preventive:"Préventive",curative:"Curative",requalification:"Requalif."};
+function statusBadge(s) {
+  const c = {submitted:"badge-pending",validated:"badge-validated",rejected:"badge-rejected",draft:"badge-draft"};
+  const l = {submitted:"En attente",validated:"Validé",rejected:"Refusé",draft:"Brouillon"};
+  return `<span class="badge ${c[s]||"badge-draft"}">${l[s]||s}</span>`;
+}
+
+function myBons() {
+  return Object.values(interventions).filter(i =>
+    i.crimping && i.crimping.filledBy && i.crimping.filledBy.uid === userProfile.uid
+  ).sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+}
+
+function renderDashboard() {
+  const mine = myBons();
+  document.getElementById("kpi-total").textContent     = mine.length;
+  document.getElementById("kpi-pending").textContent   = mine.filter(i=>i.status==="submitted").length;
+  document.getElementById("kpi-validated").textContent = mine.filter(i=>i.status==="validated").length;
+  const rejected = mine.filter(i=>i.status==="rejected");
+  document.getElementById("kpi-rejected").textContent  = rejected.length;
+
+  const badge = document.getElementById("badge-rejected");
+  badge.style.display = rejected.length ? "" : "none";
+
+  document.getElementById("rejected-list").innerHTML = rejected.slice(0,5).map(i => `
+    <div class="bon-item" onclick="prefillBon(${i.numBon})">
+      <div class="bon-num">N°${i.numBon}</div>
+      <div class="bon-meta">
+        <div style="color:var(--text);font-weight:500">${(i.tool&&i.tool.outilId)||"—"}</div>
+        <div style="color:var(--danger);font-size:.75rem">${(i.lab&&i.lab.rejectReason)||"Voir motif"}</div>
+      </div>
+      <span style="font-size:.75rem;color:var(--text3)">↺ Corriger</span>
+    </div>
+  `).join("") || `<div style="color:var(--text3);font-size:.83rem;text-align:center;padding:1.5rem">Aucun bon refusé ✅</div>`;
+
+  document.getElementById("my-recent-list").innerHTML = mine.slice(0,5).map(i => `
+    <div class="bon-item">
+      <div class="bon-num">N°${i.numBon}</div>
+      <div class="bon-meta">
+        <div style="color:var(--text);font-weight:500">${(i.tool&&i.tool.outilId)||"—"}</div>
+        <div>${fmtDT(i.updatedAt||i.createdAt)}</div>
+      </div>
+      ${statusBadge(i.status)}
+    </div>
+  `).join("") || `<div style="color:var(--text3);font-size:.83rem;text-align:center;padding:1.5rem">—</div>`;
+}
+
+function renderMesBons() {
+  const filter = document.getElementById("filter-status")?.value || "all";
+  let list = myBons();
+  if (filter !== "all") list = list.filter(i=>i.status===filter);
+  const pieces = p => p ? Object.entries(p).filter(([,v])=>v).map(([k])=>k).join(", ")||"—" : "—";
+  document.getElementById("bons-body").innerHTML = list.slice(0,100).map(i => `
+    <tr>
+      <td style="font-weight:700">N°${i.numBon}</td>
+      <td style="font-weight:500">${(i.tool&&i.tool.outilId)||"—"}</td>
+      <td style="font-size:.78rem">${fmtDate(i.crimping&&i.crimping.date)}</td>
+      <td style="font-size:.78rem">${TYPE_LABELS[i.crimping&&i.crimping.type]||"—"}</td>
+      <td style="font-size:.75rem;color:var(--text2);font-family:var(--mono)">${pieces(i.crimping&&i.crimping.piecesChanged)}</td>
+      <td>${statusBadge(i.status)}</td>
+      <td style="font-size:.78rem;color:${i.status==="rejected"?"var(--danger)":"var(--text2)"}">
+        ${i.status==="rejected" && i.lab?.rejectReason ? i.lab.rejectReason.slice(0,40)+"…" : i.status==="validated" ? "✅ Conforme" : "—"}
+      </td>
+      <td>
+        ${i.status==="rejected" ? `<button class="btn-ghost" style="font-size:.75rem;color:var(--warn)" onclick="prefillBon(${i.numBon})">↺ Corriger</button>` : "—"}
+      </td>
+    </tr>
+  `).join("") || `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Aucun bon</td></tr>`;
+}
+
+// Autocomplete outil
+document.getElementById("new-tool-ref").addEventListener("input", () => {
+  const q = document.getElementById("new-tool-ref").value.trim().toLowerCase();
+  const t = Object.values(tools).find(t => (t.refOutil||"").toLowerCase() === q || (t.outilId||"").toLowerCase() === q);
+  if (t) {
+    document.getElementById("new-tool-id").value  = t.outilId || "";
+    document.getElementById("new-tool-fab").value = t.fabricant || "";
+    document.getElementById("tc-title").textContent = t.outilId + " — " + t.fabricant;
+    document.getElementById("tc-details").textContent = "Réf fab: " + (t.refFabricant||"—") + " · Fréq: " + (t.frequenceCycle||0).toLocaleString("fr-FR") + " cycles";
+    document.getElementById("tool-card").style.display = "block";
+  } else {
+    document.getElementById("tool-card").style.display = "none";
+  }
+});
+
+// Observation counter
+document.getElementById("new-obs").addEventListener("input", function() {
+  document.getElementById("obs-cnt").textContent = this.value.length + "/1000";
+});
+
+// Prefill from rejected
+function prefillBon(numBon) {
+  const d = interventions[numBon]; if (!d) return;
+  navigate("nouveau");
+  document.getElementById("new-tool-ref").value = d.tool?.refOutil || "";
+  document.getElementById("new-tool-id").value  = d.tool?.outilId  || "";
+  document.getElementById("new-tool-fab").value = d.tool?.fabricant || "";
+  if (d.crimping) {
+    document.getElementById("new-cycles").value = d.crimping.cycles || "";
+    document.getElementById("new-type").value   = d.crimping.type || "";
+    document.getElementById("new-obs").value    = d.crimping.observation || "";
+    if (d.crimping.piecesChanged) {
+      document.querySelectorAll(".checkbox-group input").forEach(cb => {
+        cb.checked = !!d.crimping.piecesChanged[cb.value];
+      });
+    }
+  }
+  if (d.lab?.rejectReason) toast("⚠️ Motif refus : " + d.lab.rejectReason, "warn");
+}
+
+// Submit bon
+async function submitBon(status) {
+  const ref    = document.getElementById("new-tool-ref").value.trim();
+  const toolId = document.getElementById("new-tool-id").value.trim();
+  const date   = document.getElementById("new-date").value;
+  const cycles = document.getElementById("new-cycles").value;
+  const type   = document.getElementById("new-type").value;
+
+  if (!ref || !toolId) return toast("Référence outil obligatoire","warn");
+  if (status === "submitted" && (!date || !cycles || !type)) return toast("Date, cycles et type sont obligatoires pour soumettre","warn");
+
+  const pieces = {};
+  document.querySelectorAll(".checkbox-group input:checked").forEach(cb => pieces[cb.value] = true);
+
+  try {
+    const cntSnap = await rtdb.ref("counters/registre").transaction(c => (c||0)+1);
+    const numBon = cntSnap.snapshot.val();
+    const now = Date.now();
+    const bon = {
+      numBon, status,
+      createdAt: now, updatedAt: now,
+      tool: { refOutil: ref, outilId: toolId, fabricant: document.getElementById("new-tool-fab").value },
+      crimping: {
+        filledAt: now,
+        filledBy: { uid:userProfile.uid, name:userProfile.displayName||userProfile.email, matricule:userProfile.matricule||"" },
+        date: date ? new Date(date).getTime() : now,
+        cycles: parseInt(cycles)||0, type,
+        piecesChanged: pieces,
+        observation: document.getElementById("new-obs").value,
+      },
+      lab: null,
+      sla: { submittedAt: status==="submitted"?now:null, decidedAt:null, durationMs:null },
+      statusHistory: [
+        { status:"draft", at:now, by:userProfile.uid, byName:userProfile.displayName||"" },
+        ...(status==="submitted" ? [{ status:"submitted", at:now, by:userProfile.uid, byName:userProfile.displayName||"" }] : [])
+      ],
+      _indexes: { yearMonth:new Date(now).toISOString().slice(0,7), status }
+    };
+    await rtdb.ref("interventions/" + numBon).set(bon);
+    await rtdb.ref("auditLog").push({ timestamp:now, uid:userProfile.uid, userName:userProfile.displayName||"", action:"intervention.create", entity:"interventions/"+numBon });
+    toast("Bon N°" + numBon + (status==="submitted"?" soumis au labo ✅":" enregistré en brouillon"), "success");
+    // Reset form
+    ["new-tool-ref","new-tool-id","new-tool-fab","new-cycles","new-obs"].forEach(id => document.getElementById(id).value="");
+    document.getElementById("new-type").value="";
+    document.getElementById("new-date").valueAsDate = new Date();
+    document.querySelectorAll(".checkbox-group input").forEach(c=>c.checked=false);
+    document.getElementById("tool-card").style.display="none";
+    document.getElementById("obs-cnt").textContent="0/1000";
+    navigate("mes-bons");
+  } catch(e) { toast("Erreur: " + e.message, "danger"); }
+}
+
+document.getElementById("btn-submit-bon").addEventListener("click", () => submitBon("submitted"));
+document.getElementById("btn-save-draft").addEventListener("click", () => submitBon("draft"));
+["topbar-new-bon"].forEach(id => document.getElementById(id)?.addEventListener("click", () => navigate("nouveau")));
+
+// Filter mes bons
+document.getElementById("filter-status").addEventListener("change", renderMesBons);
+
+// Export Excel
+document.getElementById("btn-export-bons").addEventListener("click", async () => {
+  const rows = myBons().map(i => ({
+    "N° Bon": i.numBon, "Outil ID": i.tool?.outilId||"—",
+    "Date": fmtDate(i.crimping?.date), "Type": TYPE_LABELS[i.crimping?.type]||"—",
+    "Statut": {submitted:"En attente",validated:"Validé",rejected:"Refusé",draft:"Brouillon"}[i.status]||i.status,
+    "Observation": i.crimping?.observation||"",
+    "Motif refus": i.lab?.rejectReason||"—",
+  }));
+  if (!rows.length) { toast("Aucune donnée","warn"); return; }
+  await loadXLSX();
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Mes Bons");
+  XLSX.writeFile(wb, "LEONI_Mes_Bons_" + new Date().toISOString().slice(0,10) + ".xlsx");
+  toast("Export Excel ✅","success");
+});
+
+// Catalogue
+function renderCatalog(q="") {
+  let list = Object.values(tools);
+  if (q) list = list.filter(t => (t.outilId||"").toLowerCase().includes(q) || (t.refOutil||"").toLowerCase().includes(q) || (t.fabricant||"").toLowerCase().includes(q));
+  const g = document.getElementById("catalog-grid");
+  g.innerHTML = list.slice(0,50).map(t => `
+    <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:1rem;cursor:pointer;transition:border-color .15s"
+      onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='var(--border)'">
+      <div style="font-weight:700;font-size:.9rem;margin-bottom:.3rem">${t.outilId||t.id}</div>
+      <div style="font-size:.75rem;color:var(--text2);margin-bottom:.4rem">${t.fabricant||"—"}</div>
+      <div style="font-size:.73rem;font-family:var(--mono);color:var(--text3)">
+        Réf: ${t.refOutil||"—"} · Fréq: ${(t.frequenceCycle||0).toLocaleString("fr-FR")}
+      </div>
+    </div>
+  `).join("") || `<div style="color:var(--text3);grid-column:1/-1;text-align:center;padding:2rem">Aucun outil</div>`;
+}
+document.getElementById("cat-search").addEventListener("input", e => renderCatalog(e.target.value.toLowerCase()));
+
+function loadXLSX() {
+  return new Promise((res,rej) => {
+    if (window.XLSX) return res();
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload = res; s.onerror = rej; document.head.appendChild(s);
+  });
+}
+
+// Navigation
+function navigate(page) {
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".sb-link").forEach(b=>b.classList.remove("active"));
+  document.getElementById("page-" + page)?.classList.add("active");
+  document.querySelector(`[data-page="${page}"]`)?.classList.add("active");
+  const titles = {dashboard:"Dashboard Crimp",nouveau:"Nouveau bon","mes-bons":"Mes bons",catalogue:"Catalogue outils"};
+  document.getElementById("page-title").textContent = titles[page]||page;
+  document.getElementById("sidebar").classList.remove("is-open");
+}
+document.querySelectorAll("[data-page]").forEach(btn => btn.addEventListener("click", () => navigate(btn.dataset.page)));
+document.getElementById("btn-menu").addEventListener("click", () => document.getElementById("sidebar").classList.toggle("is-open"));
+document.getElementById("btn-logout").addEventListener("click", async () => {
+  clearTimeout(_st); clearTimeout(_sw);
+  await auth.signOut(); sessionStorage.removeItem("leoniUser"); location.replace(LOGIN);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LEONI · Dashboard Laboratoire</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#060b16;--surface:#0f1929;--card:#111b2e;--border:rgba(255,255,255,.07);
+      --accent:#6366f1;--accent-glow:rgba(99,102,241,.18);
+      --text:#f0f4ff;--text2:#8895b3;--text3:#4b5a7a;
+      --success:#10b981;--danger:#ef4444;--warn:#f59e0b;
+      --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+    }
+    [data-theme="light"]{
+      --bg:#f0f4ff;--surface:#ffffff;--card:#f8faff;--border:rgba(0,0,0,.09);
+      --text:#0f172a;--text2:#334155;--text3:#64748b;
+    }
+    html,body{height:100%}
+    body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;visibility:hidden;transition:background .2s}
+    body.ready{visibility:visible}
+    #preloader{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem}
+    #preloader.hidden{display:none}
+    .pl-logo{font-size:1.6rem;font-weight:800;color:var(--accent)}
+    .pl-spin{width:28px;height:28px;border:3px solid rgba(99,102,241,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .shell{display:flex;min-height:100vh}
+    .sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:1.5rem 0;position:fixed;top:0;left:0;bottom:0;overflow-y:auto;transition:transform .3s,background .2s;z-index:200}
+    .sb-logo{padding:0 1.5rem 1.25rem;border-bottom:1px solid var(--border)}
+    .sb-logo-txt{font-size:1.25rem;font-weight:800;color:var(--accent);letter-spacing:-1px}
+    .sb-role{font-size:.7rem;color:var(--text3);margin-top:.2rem;text-transform:uppercase;letter-spacing:.06em}
+    .sb-user{font-size:.8rem;color:var(--text2);margin-top:.25rem;font-weight:500}
+    .sb-nav{padding:1rem 0;flex:1}
+    .sb-link{display:flex;align-items:center;gap:.75rem;padding:.65rem 1.5rem;font-size:.875rem;font-weight:500;color:var(--text2);cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:all .15s;border-left:3px solid transparent}
+    .sb-link:hover{color:var(--text);background:rgba(255,255,255,.04)}
+    .sb-link.active{color:var(--accent);background:rgba(99,102,241,.08);border-left-color:var(--accent)}
+    .sb-badge{background:var(--accent);color:#fff;border-radius:10px;padding:.1rem .45rem;font-size:.7rem;font-weight:700;min-width:18px;text-align:center}
+    .sb-footer{padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:.5rem}
+    .btn-logout{display:flex;align-items:center;gap:.6rem;width:100%;padding:.6rem .85rem;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;color:#fca5a5;font-size:.83rem;font-weight:600;cursor:pointer;transition:all .15s}
+    .btn-logout:hover{background:rgba(239,68,68,.15)}
+    .btn-theme{display:flex;align-items:center;gap:.6rem;width:100%;padding:.5rem .85rem;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:.8rem;cursor:pointer;transition:all .15s}
+    .btn-theme:hover{background:rgba(255,255,255,.07);color:var(--text)}
+    .main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+    .topbar{height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 1.75rem;position:sticky;top:0;z-index:100;transition:background .2s}
+    .topbar-left{display:flex;align-items:center;gap:.75rem}
+    .btn-menu{display:none;background:none;border:none;color:var(--text);font-size:1.2rem;cursor:pointer;padding:.3rem}
+    .topbar-title{font-size:.95rem;font-weight:600;color:var(--text)}
+    .user-badge{display:flex;align-items:center;gap:.6rem}
+    .avatar{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),#4f46e5);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:.82rem}
+    .user-info{display:flex;flex-direction:column}
+    .user-name{font-weight:600;color:var(--text);font-size:.82rem}
+    .user-role-pill{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.1rem .4rem;border-radius:4px;width:fit-content;background:rgba(99,102,241,.15);color:#a5b4fc;border:1px solid rgba(99,102,241,.3)}
+    .content{padding:1.75rem;flex:1}
+    .page{display:none}.page.active{display:block}
+    .page-title{font-size:1.3rem;font-weight:700;margin-bottom:.3rem}
+    .page-sub{font-size:.85rem;color:var(--text2);margin-bottom:1.75rem}
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.875rem;margin-bottom:1.75rem}
+    .kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem}
+    .kpi-label{font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem}
+    .kpi-value{font-size:1.9rem;font-weight:800;color:var(--text)}
+    .kpi-sub{font-size:.72rem;color:var(--text2);margin-top:.25rem}
+    .kpi--accent .kpi-value{color:var(--accent)}
+    .kpi--success .kpi-value{color:var(--success)}
+    .kpi--warn .kpi-value{color:var(--warn)}
+    .kpi--danger .kpi-value{color:var(--danger)}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.25rem}
+    .card-title{font-size:.875rem;font-weight:600;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+    .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem}
+    .bon-list{display:flex;flex-direction:column;gap:.6rem}
+    .bon-item{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px;padding:.875rem 1rem;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:.875rem}
+    .bon-item:hover{border-color:var(--accent);background:rgba(99,102,241,.06)}
+    .bon-num{font-weight:700;font-size:.95rem;min-width:60px}
+    .bon-meta{font-size:.78rem;color:var(--text2);flex:1}
+    .badge{display:inline-flex;align-items:center;font-size:.67rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:.18rem .52rem;border-radius:5px;border:1px solid}
+    .badge-pending{color:#fcd34d;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.1)}
+    .badge-validated{color:#6ee7b7;border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.1)}
+    .badge-rejected{color:#fca5a5;border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.1)}
+    .badge-draft{color:var(--text2);border-color:var(--border);background:rgba(255,255,255,.05)}
+    .field{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.875rem}
+    .field label{font-size:.73rem;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+    .field input,.field select,.field textarea{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:.6rem .875rem;color:var(--text);font-size:.875rem;transition:border-color .15s;font-family:var(--font)}
+    [data-theme="light"] .field input,[data-theme="light"] .field select,[data-theme="light"] .field textarea{background:#fff;border-color:rgba(0,0,0,.15)}
+    .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+    .field textarea{resize:vertical;min-height:80px}
+    .field select option{background:var(--card)}
+    .measure-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.5rem;margin-bottom:1rem}
+    .measure-inp{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:6px;padding:.5rem .5rem;color:var(--text);font-size:.82rem;text-align:center;font-family:var(--mono);width:100%;transition:border-color .15s}
+    .measure-inp:focus{outline:none;border-color:var(--accent)}
+    .measure-label{font-size:.7rem;color:var(--text3);text-align:center;margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.04em}
+    .capa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
+    .capa-box{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:.75rem;text-align:center}
+    .capa-box-label{font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+    .capa-box-value{font-size:1.2rem;font-weight:700;margin-top:.25rem;color:var(--text)}
+    .capa-good{color:var(--success)}.capa-warn{color:var(--warn)}.capa-bad{color:var(--danger)}
+    .conformity-grid{display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.875rem}
+    .conf-check{display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.45rem .875rem;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;font-size:.83rem;color:var(--text2);transition:all .15s;user-select:none}
+    .conf-check:hover{background:rgba(255,255,255,.07);color:var(--text)}
+    .conf-check input{accent-color:var(--accent)}
+    .conf-check input:checked + span{color:var(--success);font-weight:600}
+    .decision-btns{display:flex;gap:.875rem;margin-top:1rem;flex-wrap:wrap}
+    .btn-validate{flex:1;padding:.8rem;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);border-radius:9px;color:#6ee7b7;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .15s;min-width:160px}
+    .btn-validate:hover{background:rgba(16,185,129,.22);transform:translateY(-1px)}
+    .btn-reject{flex:1;padding:.8rem;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:9px;color:#fca5a5;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .15s;min-width:160px}
+    .btn-reject:hover{background:rgba(239,68,68,.18);transform:translateY(-1px)}
+    .btn-primary{padding:.75rem 1.5rem;background:var(--accent);color:#fff;border:none;border-radius:9px;font-size:.875rem;font-weight:700;cursor:pointer;transition:all .15s}
+    .btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px)}
+    .btn-ghost{padding:.6rem 1rem;background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:8px;font-size:.82rem;cursor:pointer;transition:all .15s}
+    .btn-ghost:hover{background:rgba(255,255,255,.05);color:var(--text)}
+    .history-table{width:100%;border-collapse:collapse;font-size:.82rem}
+    .history-table th{text-align:left;padding:.6rem .875rem;font-size:.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+    .history-table td{padding:.7rem .875rem;border-bottom:1px solid var(--border);color:var(--text2)}
+    .history-table tr:last-child td{border-bottom:none}
+    .history-table tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
+    .toast-container{position:fixed;bottom:1.5rem;right:1.5rem;z-index:9000;display:flex;flex-direction:column;gap:.6rem}
+    .toast{padding:.75rem 1.1rem;border-radius:10px;font-size:.85rem;font-weight:500;animation:toastIn .3s ease;max-width:320px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+    .toast--success{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#6ee7b7}
+    .toast--warn{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:#fcd34d}
+    .toast--danger{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#fca5a5}
+    .toast--info{background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#a5b4fc}
+    @keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8000;display:flex;align-items:center;justify-content:center;padding:1rem}
+    .modal-overlay.hidden{display:none}
+    .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.75rem;width:100%;max-width:460px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+    .modal-title{font-size:1rem;font-weight:700;margin-bottom:1rem}
+    .modal-actions{display:flex;gap:.75rem;margin-top:1.25rem;justify-content:flex-end}
+    @media(max-width:768px){
+      .sidebar{transform:translateX(-100%);z-index:500}
+      .sidebar.is-open{transform:translateX(0)}
+      .main{margin-left:0}
+      .btn-menu{display:block}
+      .topbar{padding:0 1rem}
+      .content{padding:1rem}
+      .kpi-grid{grid-template-columns:1fr 1fr}
+      .measure-grid{grid-template-columns:repeat(3,1fr)}
+      .capa-grid{grid-template-columns:repeat(2,1fr)}
+      .decision-btns{flex-direction:column}
+    }
+  </style>
+</head>
+<body data-theme="dark">
+
+<div id="preloader"><div class="pl-logo">LEONI</div><div class="pl-spin"></div></div>
+
+<div class="shell" id="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-txt">LEONI</div>
+      <div class="sb-role">🔵 Laboratoire</div>
+      <div class="sb-user" id="sb-user-name">—</div>
+    </div>
+    <nav class="sb-nav">
+      <button class="sb-link active" data-page="dashboard"><span>🧪</span> Dashboard</button>
+      <button class="sb-link" data-page="validation">
+        <span>✅</span> Bons à valider
+        <span class="sb-badge" id="badge-pending" style="display:none">0</span>
+      </button>
+      <button class="sb-link" data-page="history"><span>📋</span> Historique</button>
+    </nav>
+    <div class="sb-footer">
+      <button class="btn-theme" id="btn-theme-labo">◐ Changer le thème</button>
+      <button class="btn-logout" id="btn-logout">🚪 Se déconnecter</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="btn-menu" id="btn-menu">☰</button>
+        <span class="topbar-title" id="page-title">Dashboard Labo</span>
+      </div>
+      <div class="user-badge">
+        <div class="avatar" id="user-avatar">L</div>
+        <div class="user-info">
+          <span class="user-name" id="user-name">—</span>
+          <span class="user-role-pill">Labo</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- PAGE: DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-title">Dashboard Laboratoire</div>
+        <div class="page-sub" id="greeting">—</div>
+
+        <div class="kpi-grid">
+          <div class="kpi kpi--warn">
+            <div class="kpi-label">En attente</div>
+            <div class="kpi-value" id="kpi-pending">—</div>
+            <div class="kpi-sub">à valider</div>
+          </div>
+          <div class="kpi kpi--success">
+            <div class="kpi-label">Validés ce mois</div>
+            <div class="kpi-value" id="kpi-validated">—</div>
+            <div class="kpi-sub">✅ conformes</div>
+          </div>
+          <div class="kpi kpi--danger">
+            <div class="kpi-label">Refusés ce mois</div>
+            <div class="kpi-value" id="kpi-rejected">—</div>
+            <div class="kpi-sub">à corriger</div>
+          </div>
+          <div class="kpi kpi--accent">
+            <div class="kpi-label">SLA moyen</div>
+            <div class="kpi-value" id="kpi-sla">—</div>
+            <div class="kpi-sub">délai validation</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="card-title">⏳ Bons urgents à traiter</div>
+            <div class="bon-list" id="urgent-list">
+              <div style="color:var(--text3);font-size:.83rem;text-align:center;padding:1.5rem">Aucun bon en attente 🎉</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">📈 Activité récente</div>
+            <div class="bon-list" id="recent-list">
+              <div style="color:var(--text3);font-size:.83rem;text-align:center;padding:1.5rem">Chargement…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: VALIDATION -->
+      <div class="page" id="page-validation">
+        <div class="page-title">Bons à valider</div>
+        <div class="page-sub">Sélectionnez un bon pour l'ouvrir et saisir les mesures</div>
+
+        <div class="grid2">
+          <!-- Liste des bons -->
+          <div>
+            <div class="card">
+              <div class="card-title">
+                <span>📥 File d'attente</span>
+                <span class="badge badge-pending" id="queue-count">0</span>
+              </div>
+              <div class="bon-list" id="validation-list">
+                <div style="color:var(--text3);font-size:.83rem;text-align:center;padding:2rem">Aucun bon à valider</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formulaire validation -->
+          <div id="form-container" style="display:none">
+            <div class="card">
+              <div class="card-title">
+                <span>🧪 Bon N°<span id="form-bon-num">—</span></span>
+                <span class="badge badge-pending" id="form-bon-status">—</span>
+              </div>
+
+              <!-- Info outil -->
+              <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:.875rem;margin-bottom:1rem;font-size:.82rem">
+                <div style="font-weight:600;color:var(--text);margin-bottom:.4rem" id="tool-info-line">—</div>
+                <div style="color:var(--text2)" id="tool-meta-line">—</div>
+                <div style="color:var(--text3);font-size:.78rem;margin-top:.3rem" id="crimp-info-line">—</div>
+              </div>
+
+              <!-- Connexion -->
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin-bottom:.875rem">
+                <div class="field" style="margin:0"><label>Réf. connexion</label><input id="lab-connexion" type="text" placeholder="Ex: 1-963231-1" /></div>
+                <div class="field" style="margin:0"><label>Section câble</label><input id="lab-section" type="text" placeholder="0.35 IR" /></div>
+                <div class="field" style="margin:0"><label>Indice param.</label><input id="lab-indice" type="text" placeholder="B" /></div>
+              </div>
+
+              <!-- Mesures -->
+              <div style="font-size:.73rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;font-weight:600">5 Mesures — Hauteur isolant</div>
+              <div class="measure-grid">
+                <div><div class="measure-label">M1</div><input class="measure-inp hi-inp" type="number" step="0.001" placeholder="0.000" /></div>
+                <div><div class="measure-label">M2</div><input class="measure-inp hi-inp" type="number" step="0.001" placeholder="0.000" /></div>
+                <div><div class="measure-label">M3</div><input class="measure-inp hi-inp" type="number" step="0.001" placeholder="0.000" /></div>
+                <div><div class="measure-label">M4</div><input class="measure-inp hi-inp" type="number" step="0.001" placeholder="0.000" /></div>
+                <div><div class="measure-label">M5</div><input class="measure-inp hi-inp" type="number" step="0.001" placeholder="0.000" /></div>
+              </div>
+              <div style="font-size:.73rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;margin-top:.6rem;font-weight:600">5 Mesures — Effort (N)</div>
+              <div class="measure-grid">
+                <div><div class="measure-label">E1</div><input class="measure-inp ef-inp" type="number" step="0.01" placeholder="0.00" /></div>
+                <div><div class="measure-label">E2</div><input class="measure-inp ef-inp" type="number" step="0.01" placeholder="0.00" /></div>
+                <div><div class="measure-label">E3</div><input class="measure-inp ef-inp" type="number" step="0.01" placeholder="0.00" /></div>
+                <div><div class="measure-label">E4</div><input class="measure-inp ef-inp" type="number" step="0.01" placeholder="0.00" /></div>
+                <div><div class="measure-label">E5</div><input class="measure-inp ef-inp" type="number" step="0.01" placeholder="0.00" /></div>
+              </div>
+
+              <!-- Capabilité -->
+              <div id="capa-section" style="display:none;margin-top:.75rem">
+                <div style="font-size:.73rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem;font-weight:600">Capabilité (calcul auto)</div>
+                <div class="capa-grid">
+                  <div class="capa-box"><div class="capa-box-label">Ht âme moy.</div><div class="capa-box-value" id="c-ame">—</div></div>
+                  <div class="capa-box"><div class="capa-box-label">Cm âme</div><div class="capa-box-value" id="c-cm">—</div></div>
+                  <div class="capa-box"><div class="capa-box-label">Cmk âme</div><div class="capa-box-value" id="c-cmk">—</div></div>
+                  <div class="capa-box"><div class="capa-box-label">Cm effort</div><div class="capa-box-value" id="c-effort">—</div></div>
+                </div>
+              </div>
+
+              <!-- Chute tension + conformités -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.875rem">
+                <div class="field" style="margin:0"><label>Largeur âme (mm)</label><input id="lab-l-ame" type="number" step="0.001" /></div>
+                <div class="field" style="margin:0"><label>Chute tension (mV)</label><input id="lab-chute" type="number" step="0.01" /></div>
+              </div>
+
+              <div style="font-size:.73rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem;font-weight:600">Conformités</div>
+              <div class="conformity-grid">
+                <label class="conf-check"><input type="checkbox" id="conf-chanfrein"><span>Chanfrein</span></label>
+                <label class="conf-check"><input type="checkbox" id="conf-temoin"><span>Témoin coupe</span></label>
+                <label class="conf-check"><input type="checkbox" id="conf-flexion"><span>Flexion</span></label>
+              </div>
+
+              <div class="field"><label>Commentaire laboratoire</label><textarea id="lab-comment" rows="2" placeholder="Observations, remarques…"></textarea></div>
+
+              <div class="decision-btns">
+                <button class="btn-validate" id="btn-do-validate">✅ Valider le bon</button>
+                <button class="btn-reject" id="btn-do-reject">❌ Refuser</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: HISTORIQUE -->
+      <div class="page" id="page-history">
+        <div class="page-title">Historique des validations</div>
+        <div class="page-sub">Tous les bons traités par le laboratoire</div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Bons traités</span>
+            <div style="display:flex;gap:.5rem">
+              <select id="hist-filter" style="background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:7px;padding:.3rem .6rem;color:var(--text);font-size:.8rem">
+                <option value="all">Tous</option>
+                <option value="validated">Validés</option>
+                <option value="rejected">Refusés</option>
+              </select>
+              <button class="btn-ghost" id="btn-export-hist" style="font-size:.78rem;padding:.28rem .65rem">📤 Excel</button>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="history-table">
+              <thead><tr>
+                <th>N° Bon</th><th>Outil</th><th>Technicien</th><th>Date</th>
+                <th>Décision</th><th>Cm âme</th><th>Cmk âme</th>
+              </tr></thead>
+              <tbody id="hist-body">
+                <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Chargement…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal refus -->
+<div class="modal-overlay hidden" id="modal-reject">
+  <div class="modal-box">
+    <div class="modal-title">❌ Motif du refus</div>
+    <div class="field"><label>Motif (obligatoire)</label>
+      <textarea id="reject-reason" rows="4" placeholder="Expliquez ce qui doit être corrigé par le technicien crimping…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btn-reject-cancel">Annuler</button>
+      <button class="btn-primary" style="background:var(--danger)" id="btn-reject-confirm">Refuser & renvoyer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+const FC = {
+  apiKey:"AIzaSyBIW4I1DRqyqcmNEdajXbptQ5-RWFIG1V4",
+  authDomain:"leoni-sertissage-labo.firebaseapp.com",
+  databaseURL:"https://leoni-sertissage-labo-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"leoni-sertissage-labo",
+  storageBucket:"leoni-sertissage-labo.firebasestorage.app",
+  messagingSenderId:"432527114405",
+  appId:"1:432527114405:web:b141f6ae74f11b1cbb0d4c"
+};
+firebase.initializeApp(FC);
+const auth = firebase.auth();
+const rtdb = firebase.database();
+const LOGIN = "index.html";
+let currentBonId = null;
+let interventions = {};
+let userProfile = null;
+
+// ── TOAST ──
+function toast(msg, type="info") {
+  const c = document.getElementById("toast-container");
+  const t = document.createElement("div");
+  t.className = "toast toast--" + type;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity="0"; setTimeout(()=>t.remove(),300); }, 3500);
+}
+
+// ── SESSION TIMEOUT ──
+let _sTimer, _sWarn;
+function resetSession() {
+  clearTimeout(_sTimer); clearTimeout(_sWarn);
+  _sWarn = setTimeout(()=>toast("Votre session expire dans 2 min","warn"), 28*60*1000);
+  _sTimer = setTimeout(async()=>{ await auth.signOut(); location.replace(LOGIN); }, 30*60*1000);
+}
+["click","keydown","mousemove"].forEach(e => document.addEventListener(e, resetSession, {passive:true}));
+
+// ── THEME ──
+const saved = localStorage.getItem("leoni-theme") || "dark";
+document.body.dataset.theme = saved;
+document.getElementById("btn-theme-labo").textContent = saved === "dark" ? "◐ Thème clair" : "● Thème sombre";
+document.getElementById("btn-theme-labo").addEventListener("click", () => {
+  const n = document.body.dataset.theme === "dark" ? "light" : "dark";
+  document.body.dataset.theme = n;
+  localStorage.setItem("leoni-theme", n);
+  document.getElementById("btn-theme-labo").textContent = n === "dark" ? "◐ Thème clair" : "● Thème sombre";
+});
+
+// ── AUTH GUARD ──
+auth.onAuthStateChanged(async user => {
+  if (!user) { location.replace(LOGIN); return; }
+  const snap = await rtdb.ref("users/" + user.uid).once("value");
+  const profile = snap.val();
+  if (!profile || profile.active === false) { await auth.signOut(); location.replace(LOGIN); return; }
+  if (profile.role !== "labo" && profile.role !== "admin") {
+    const routes = {admin:"admin-dashboard.html", crimp:"crimp-dashboard.html"};
+    location.replace(routes[profile.role] || LOGIN); return;
+  }
+  userProfile = { ...profile, uid: user.uid, email: user.email };
+  document.getElementById("preloader").classList.add("hidden");
+  document.body.classList.add("ready");
+  const n = profile.displayName || user.email;
+  document.getElementById("user-name").textContent = n;
+  document.getElementById("sb-user-name").textContent = n;
+  document.getElementById("user-avatar").textContent = n.charAt(0).toUpperCase();
+  document.getElementById("greeting").textContent = "Bienvenue " + n + " — " + new Date().toLocaleDateString("fr-FR", {weekday:"long",day:"numeric",month:"long"});
+  resetSession();
+  loadData();
+});
+
+// ── LOAD DATA ──
+function loadData() {
+  rtdb.ref("interventions").orderByChild("status").on("value", snap => {
+    interventions = snap.val() || {};
+    renderDashboard();
+    renderValidationList();
+    renderHistory();
+  });
+}
+
+// ── FORMAT ──
+const fmtDate = ts => ts ? new Date(ts).toLocaleDateString("fr-FR") : "—";
+const fmtDateTime = ts => ts ? new Date(ts).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"}) : "—";
+const fmtDuration = ms => { if(!ms) return "—"; const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000); return h>0?h+"h "+m+"min":m+"min"; };
+
+function statusBadge(s) {
+  const c = {submitted:"badge-pending",validated:"badge-validated",rejected:"badge-rejected",draft:"badge-draft"};
+  const l = {submitted:"En attente",validated:"Validé",rejected:"Refusé",draft:"Brouillon"};
+  return `<span class="badge ${c[s]||"badge-draft"}">${l[s]||s}</span>`;
+}
+
+// ── DASHBOARD ──
+function renderDashboard() {
+  const list = Object.values(interventions);
+  const now = new Date(); const ms = new Date(now.getFullYear(),now.getMonth(),1).getTime();
+  const monthly = list.filter(i => i.createdAt >= ms);
+  const pending = list.filter(i => i.status === "submitted");
+  const validated = monthly.filter(i => i.status === "validated");
+  const rejected  = monthly.filter(i => i.status === "rejected");
+  const slas = list.filter(i=>i.sla&&i.sla.durationMs).map(i=>i.sla.durationMs);
+  const avgSla = slas.length ? slas.reduce((a,b)=>a+b,0)/slas.length : 0;
+
+  document.getElementById("kpi-pending").textContent   = pending.length;
+  document.getElementById("kpi-validated").textContent = validated.length;
+  document.getElementById("kpi-rejected").textContent  = rejected.length;
+  document.getElementById("kpi-sla").textContent       = fmtDuration(avgSla);
+
+  const badge = document.getElementById("badge-pending");
+  badge.textContent = pending.length;
+  badge.style.display = pending.length ? "" : "none";
+  document.getElementById("queue-count").textContent = pending.length;
+
+  // Urgent list (oldest pending first)
+  const urgent = pending.sort((a,b)=>(a.sla&&a.sla.submittedAt||0)-(b.sla&&b.sla.submittedAt||0)).slice(0,5);
+  document.getElementById("urgent-list").innerHTML = urgent.map(i => `
+    <div class="bon-item" onclick="openBon(${i.numBon})">
+      <div class="bon-num">N°${i.numBon}</div>
+      <div class="bon-meta">
+        <div style="color:var(--text);font-weight:500">${(i.tool&&i.tool.outilId)||"—"}</div>
+        <div>${(i.crimping&&i.crimping.filledBy&&i.crimping.filledBy.name)||"—"} · ${fmtDate(i.crimping&&i.crimping.date)}</div>
+      </div>
+      <span class="badge badge-pending">Urgent</span>
+    </div>
+  `).join("") || `<div style="color:var(--text3);font-size:.83rem;text-align:center;padding:1.5rem">Aucun bon en attente 🎉</div>`;
+
+  // Recent activity
+  const recent = list.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,5);
+  document.getElementById("recent-list").innerHTML = recent.map(i => `
+    <div class="bon-item" onclick="openBon(${i.numBon})">
+      <div class="bon-num">N°${i.numBon}</div>
+      <div class="bon-meta">
+        <div style="color:var(--text);font-weight:500">${(i.tool&&i.tool.outilId)||"—"}</div>
+        <div>${fmtDateTime(i.updatedAt)}</div>
+      </div>
+      ${statusBadge(i.status)}
+    </div>
+  `).join("") || `<div style="color:var(--text3);font-size:.83rem;text-align:center;padding:1.5rem">—</div>`;
+}
+
+// ── VALIDATION LIST ──
+function renderValidationList() {
+  const pending = Object.values(interventions).filter(i=>i.status==="submitted")
+    .sort((a,b)=>(a.sla&&a.sla.submittedAt||0)-(b.sla&&b.sla.submittedAt||0));
+  document.getElementById("validation-list").innerHTML = pending.map(i => `
+    <div class="bon-item ${currentBonId==i.numBon?'':''}${currentBonId==i.numBon?'':''}${currentBonId==i.numBon?'' : ''}" onclick="openBon(${i.numBon})"
+      style="${currentBonId==i.numBon?'border-color:var(--accent);background:rgba(99,102,241,.08)':''}">
+      <div class="bon-num">N°${i.numBon}</div>
+      <div class="bon-meta">
+        <div style="color:var(--text);font-weight:500">${(i.tool&&i.tool.outilId)||"—"}</div>
+        <div>${(i.crimping&&i.crimping.filledBy&&i.crimping.filledBy.name)||"—"} · ${fmtDate(i.crimping&&i.crimping.date)}</div>
+        <div style="color:var(--text3);font-size:.75rem">Soumis: ${fmtDateTime(i.sla&&i.sla.submittedAt)}</div>
+      </div>
+    </div>
+  `).join("") || `<div style="color:var(--text3);font-size:.83rem;text-align:center;padding:2rem">✅ Aucun bon à valider</div>`;
+}
+
+// ── OPEN BON ──
+function openBon(numBon) {
+  const d = interventions[numBon]; if (!d) return;
+  currentBonId = numBon;
+  navigate("validation");
+
+  document.getElementById("form-container").style.display = "block";
+  document.getElementById("form-bon-num").textContent = numBon;
+  document.getElementById("form-bon-status").className = "badge badge-pending";
+  document.getElementById("form-bon-status").textContent = "En attente";
+  document.getElementById("tool-info-line").textContent = (d.tool&&d.tool.outilId||"—") + " · " + (d.tool&&d.tool.fabricant||"—");
+  document.getElementById("tool-meta-line").textContent = "Réf: " + (d.tool&&d.tool.refOutil||"—") + " · Cycles: " + (d.crimping&&d.crimping.cycles||"—");
+  document.getElementById("crimp-info-line").textContent =
+    "Technicien: " + (d.crimping&&d.crimping.filledBy&&d.crimping.filledBy.name||"—") +
+    " · Type: " + ({preventive:"Préventive",curative:"Curative",requalification:"Requalification"}[d.crimping&&d.crimping.type]||"—") +
+    " · " + fmtDate(d.crimping&&d.crimping.date);
+
+  // Reset form
+  document.querySelectorAll(".hi-inp,.ef-inp").forEach(i=>i.value="");
+  document.querySelectorAll("#conf-chanfrein,#conf-temoin,#conf-flexion").forEach(c=>c.checked=false);
+  document.getElementById("lab-connexion").value=""; document.getElementById("lab-section").value="";
+  document.getElementById("lab-indice").value=""; document.getElementById("lab-chute").value="";
+  document.getElementById("lab-l-ame").value=""; document.getElementById("lab-comment").value="";
+  document.getElementById("capa-section").style.display = "none";
+  renderValidationList();
+}
+
+// ── CAPABILITÉ ──
+function calcCapa() {
+  const hi = [...document.querySelectorAll(".hi-inp")].map(i=>parseFloat(i.value)||null).filter(v=>v!==null);
+  const ef = [...document.querySelectorAll(".ef-inp")].map(i=>parseFloat(i.value)||null).filter(v=>v!==null);
+  if (hi.length < 2 && ef.length < 2) { document.getElementById("capa-section").style.display="none"; return null; }
+
+  const mean = a => a.reduce((s,v)=>s+v,0)/a.length;
+  const std  = a => { const m=mean(a); return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/(a.length-1)); };
+  const cm   = (a, min, max) => { const s=std(a); return s>0?(max-min)/(6*s):null; };
+  const cmk  = (a, min, max) => { const m=mean(a),s=std(a); return s>0?Math.min((m-min),(max-m))/(3*s):null; };
+
+  const TOL_HI = { min:1.40, max:1.70 };
+  const TOL_EF = { min:40, max:70 };
+
+  const result = {
+    ameMoy: hi.length >= 2 ? mean(hi) : null,
+    cmAme:  hi.length >= 2 ? cm(hi,TOL_HI.min,TOL_HI.max) : null,
+    cmkAme: hi.length >= 2 ? cmk(hi,TOL_HI.min,TOL_HI.max) : null,
+    cmEff:  ef.length >= 2 ? cm(ef,TOL_EF.min,TOL_EF.max) : null,
+  };
+
+  const colorFor = v => v === null ? "" : v >= 1.67 ? "capa-good" : v >= 1.33 ? "capa-warn" : "capa-bad";
+
+  document.getElementById("c-ame").textContent    = result.ameMoy !== null ? result.ameMoy.toFixed(3) : "—";
+  document.getElementById("c-ame").className      = "capa-box-value";
+  const cmEl = document.getElementById("c-cm");
+  cmEl.textContent = result.cmAme !== null ? result.cmAme.toFixed(2) : "—";
+  cmEl.className   = "capa-box-value " + colorFor(result.cmAme);
+  const cmkEl = document.getElementById("c-cmk");
+  cmkEl.textContent = result.cmkAme !== null ? result.cmkAme.toFixed(2) : "—";
+  cmkEl.className   = "capa-box-value " + colorFor(result.cmkAme);
+  const efEl = document.getElementById("c-effort");
+  efEl.textContent = result.cmEff !== null ? result.cmEff.toFixed(2) : "—";
+  efEl.className   = "capa-box-value " + colorFor(result.cmEff);
+
+  document.getElementById("capa-section").style.display = "block";
+  return result;
+}
+
+document.querySelectorAll(".hi-inp,.ef-inp").forEach(i=>i.addEventListener("input",calcCapa));
+
+// ── VALIDATE ──
+document.getElementById("btn-do-validate").addEventListener("click", async () => {
+  if (!currentBonId) return;
+  const capa = calcCapa();
+  const now = Date.now();
+  const bon = interventions[currentBonId];
+  const submittedAt = bon?.sla?.submittedAt || now;
+
+  const labData = {
+    filledAt: now,
+    filledBy: { uid: userProfile.uid, name: userProfile.displayName || userProfile.email, matricule: userProfile.matricule||"" },
+    decision: "validated",
+    connexion: {
+      refConnexion: document.getElementById("lab-connexion").value,
+      sectionCable: document.getElementById("lab-section").value,
+      indiceParametrique: document.getElementById("lab-indice").value,
+    },
+    mesures: {
+      largeurAme: parseFloat(document.getElementById("lab-l-ame").value)||null,
+      hauteurIsolant: [...document.querySelectorAll(".hi-inp")].map(i=>parseFloat(i.value)||null),
+      effort: [...document.querySelectorAll(".ef-inp")].map(i=>parseFloat(i.value)||null),
+    },
+    capabilite: capa || {},
+    chuteTension: parseFloat(document.getElementById("lab-chute").value)||null,
+    conformites: {
+      chanfrein: document.getElementById("conf-chanfrein").checked,
+      temoinCoupe: document.getElementById("conf-temoin").checked,
+      flexion: document.getElementById("conf-flexion").checked,
+    },
+    commentaire: document.getElementById("lab-comment").value,
+  };
+
+  try {
+    const history = bon.statusHistory || [];
+    history.push({ status:"validated", at:now, by:userProfile.uid, byName:userProfile.displayName||userProfile.email });
+    await rtdb.ref("interventions/" + currentBonId).update({
+      status:"validated", lab:labData, locked:true, updatedAt:now,
+      statusHistory:history,
+      "sla/decidedAt":now, "sla/durationMs":now-submittedAt,
+      "_indexes/status":"validated"
+    });
+    await rtdb.ref("auditLog").push({ timestamp:now, uid:userProfile.uid, userName:userProfile.displayName||"", action:"intervention.validate", entity:"interventions/"+currentBonId });
+    toast("Bon N°" + currentBonId + " validé ✅", "success");
+    currentBonId = null;
+    document.getElementById("form-container").style.display = "none";
+  } catch(e) { toast("Erreur: " + e.message, "danger"); }
+});
+
+// ── REJECT ──
+document.getElementById("btn-do-reject").addEventListener("click", () => {
+  if (!currentBonId) return;
+  document.getElementById("reject-reason").value = "";
+  document.getElementById("modal-reject").classList.remove("hidden");
+});
+document.getElementById("btn-reject-cancel").addEventListener("click", () => {
+  document.getElementById("modal-reject").classList.add("hidden");
+});
+document.getElementById("btn-reject-confirm").addEventListener("click", async () => {
+  const reason = document.getElementById("reject-reason").value.trim();
+  if (!reason) { toast("Le motif est obligatoire","warn"); return; }
+  const now = Date.now();
+  const bon = interventions[currentBonId];
+  const submittedAt = bon?.sla?.submittedAt || now;
+  try {
+    const history = bon.statusHistory || [];
+    history.push({ status:"rejected", at:now, by:userProfile.uid, byName:userProfile.displayName||userProfile.email, reason });
+    await rtdb.ref("interventions/" + currentBonId).update({
+      status:"rejected", "lab/decision":"rejected", "lab/rejectReason":reason,
+      "lab/filledBy":{ uid:userProfile.uid, name:userProfile.displayName||"" },
+      updatedAt:now, statusHistory:history,
+      "sla/decidedAt":now, "sla/durationMs":now-submittedAt,
+      "_indexes/status":"rejected"
+    });
+    await rtdb.ref("auditLog").push({ timestamp:now, uid:userProfile.uid, userName:userProfile.displayName||"", action:"intervention.reject", entity:"interventions/"+currentBonId });
+    toast("Bon N°" + currentBonId + " refusé", "warn");
+    document.getElementById("modal-reject").classList.add("hidden");
+    currentBonId = null;
+    document.getElementById("form-container").style.display = "none";
+  } catch(e) { toast("Erreur: " + e.message, "danger"); }
+});
+
+// ── HISTORY ──
+function renderHistory() {
+  const filter = document.getElementById("hist-filter")?.value || "all";
+  let list = Object.values(interventions).filter(i => i.lab && i.lab.decision);
+  if (filter !== "all") list = list.filter(i => i.status === filter);
+  list.sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+
+  document.getElementById("hist-body").innerHTML = list.slice(0,50).map(i => {
+    const c = i.lab?.capabilite;
+    const cmk = c?.cmkAme !== undefined && c.cmkAme !== null ? c.cmkAme.toFixed(2) : "—";
+    const cmkColor = c?.cmkAme >= 1.67 ? "var(--success)" : c?.cmkAme >= 1.33 ? "var(--warn)" : c?.cmkAme !== null && c?.cmkAme !== undefined ? "var(--danger)" : "var(--text2)";
+    return `<tr>
+      <td style="font-weight:600">N°${i.numBon}</td>
+      <td>${(i.tool&&i.tool.outilId)||"—"}</td>
+      <td style="font-size:.78rem">${(i.crimping&&i.crimping.filledBy&&i.crimping.filledBy.name)||"—"}</td>
+      <td style="font-size:.78rem">${fmtDate(i.updatedAt)}</td>
+      <td>${statusBadge(i.status)}</td>
+      <td style="font-family:var(--mono);font-size:.78rem">${c?.cmAme !== null && c?.cmAme !== undefined ? c.cmAme.toFixed(2) : "—"}</td>
+      <td style="font-family:var(--mono);font-size:.78rem;color:${cmkColor};font-weight:600">${cmk}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Aucun résultat</td></tr>`;
+}
+
+document.getElementById("hist-filter")?.addEventListener("change", renderHistory);
+
+// ── EXPORT HISTORY EXCEL ──
+document.getElementById("btn-export-hist")?.addEventListener("click", async () => {
+  const rows = Object.values(interventions).filter(i=>i.lab&&i.lab.decision)
+    .sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))
+    .map(i => ({
+      "N° Bon": i.numBon, "Outil ID": (i.tool&&i.tool.outilId)||"—",
+      "Technicien": (i.crimping&&i.crimping.filledBy&&i.crimping.filledBy.name)||"—",
+      "Date": fmtDate(i.updatedAt), "Décision": i.lab?.decision||"—",
+      "Cm âme": i.lab?.capabilite?.cmAme?.toFixed(2)||"—",
+      "Cmk âme": i.lab?.capabilite?.cmkAme?.toFixed(2)||"—",
+      "Connexion": i.lab?.connexion?.refConnexion||"—",
+    }));
+  if (!rows.length) { toast("Aucune donnée à exporter","warn"); return; }
+  await loadXLSX();
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Historique Labo");
+  XLSX.writeFile(wb, "LEONI_Historique_Labo_" + new Date().toISOString().slice(0,10) + ".xlsx");
+  toast("Export Excel ✅","success");
+});
+
+function loadXLSX() {
+  return new Promise((res,rej) => {
+    if (window.XLSX) return res();
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    s.onload = res; s.onerror = rej; document.head.appendChild(s);
+  });
+}
+
+// ── NAVIGATION ──
+function navigate(page) {
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".sb-link").forEach(b=>b.classList.remove("active"));
+  document.getElementById("page-" + page)?.classList.add("active");
+  document.querySelector(`[data-page="${page}"]`)?.classList.add("active");
+  const titles = {dashboard:"Dashboard Labo",validation:"Bons à valider",history:"Historique"};
+  document.getElementById("page-title").textContent = titles[page] || page;
+  document.getElementById("sidebar").classList.remove("is-open");
+}
+
+document.querySelectorAll("[data-page]").forEach(btn => btn.addEventListener("click", () => navigate(btn.dataset.page)));
+
+document.getElementById("btn-menu").addEventListener("click", () => {
+  document.getElementById("sidebar").classList.toggle("is-open");
+});
+
+document.getElementById("btn-logout").addEventListener("click", async () => {
+  clearTimeout(_sTimer); clearTimeout(_sWarn);
+  await auth.signOut();
+  sessionStorage.removeItem("leoniUser");
+  location.replace(LOGIN);
+});
+</script>
+</body>
+</html>
