@@ -1,0 +1,200 @@
+// =============================================================================
+// firestore.rules — LEONI Crimping-Laboratoire
+// Règles de sécurité Firestore avec RBAC complet
+//
+// Déploiement :
+//   firebase deploy --only firestore:rules
+// =============================================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // FONCTIONS HELPER
+    // =========================================================================
+
+    /** L'utilisateur est connecté */
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    /** Récupère le profil de l'utilisateur courant */
+    function userProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    /** Vérifie si l'utilisateur a un rôle spécifique */
+    function hasRole(role) {
+      return isAuthenticated() && userProfile().role == role;
+    }
+
+    /** Vérifie si l'utilisateur a l'un des rôles listés */
+    function hasAnyRole(roles) {
+      return isAuthenticated() && userProfile().role in roles;
+    }
+
+    /** Alias pratiques */
+    function isAdmin()  { return hasRole("admin"); }
+    function isCrimp()  { return hasRole("crimp"); }
+    function isLabo()   { return hasRole("labo");  }
+
+    /** Compte actif (non désactivé) */
+    function isActive() {
+      return isAuthenticated() && userProfile().active == true;
+    }
+
+    /** L'utilisateur modifie son propre document */
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    /** Champs en lecture seule (ne peuvent pas être modifiés une fois créés) */
+    function onlyAllowedFieldsChanged(allowedFields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
+    }
+
+
+    // =========================================================================
+    // COLLECTION : users
+    // Chaque document ID = UID Firebase Auth
+    // =========================================================================
+    match /users/{uid} {
+
+      // Lecture : l'utilisateur peut lire son propre profil | admin lit tout
+      allow read: if isActive() && (isOwner(uid) || isAdmin());
+
+      // Création : admin uniquement (ou auto-création lors du 1er login)
+      allow create: if isAdmin()
+                    || (isOwner(uid) && !exists(/databases/$(database)/documents/users/$(uid)));
+
+      // Mise à jour :
+      //   - Admin : peut tout modifier
+      //   - Propriétaire : peut modifier uniquement certains champs personnels
+      allow update: if isActive() && (
+        isAdmin()
+        || (isOwner(uid) && onlyAllowedFieldsChanged(["displayName", "lastLoginAt", "photoUrl"]))
+      );
+
+      // Suppression : admin uniquement
+      allow delete: if isAdmin();
+    }
+
+
+    // =========================================================================
+    // COLLECTION : interventions
+    // Bons d'intervention sertissage
+    // =========================================================================
+    match /interventions/{interventionId} {
+
+      // Lecture : tous les rôles actifs peuvent voir les bons
+      allow read: if isActive();
+
+      // Création : crimping + admin
+      allow create: if isActive() && hasAnyRole(["admin", "crimp"])
+                    && request.resource.data.createdBy == request.auth.uid;
+
+      // Mise à jour :
+      //   - Admin    : tout
+      //   - Crimp    : peut modifier seulement si statut = draft | rejected (re-soumission)
+      //   - Labo     : peut modifier seulement les champs lab (validation/refus)
+      allow update: if isActive() && (
+        isAdmin()
+        || (isCrimp() && resource.data.status in ["draft", "rejected"]
+            && onlyAllowedFieldsChanged(["crimping", "status", "statusHistory", "updatedAt", "_indexes"]))
+        || (isLabo()  && resource.data.status == "submitted"
+            && onlyAllowedFieldsChanged(["lab", "status", "statusHistory", "sla", "locked", "updatedAt", "_indexes"]))
+      );
+
+      // Suppression : admin uniquement
+      allow delete: if isAdmin();
+    }
+
+
+    // =========================================================================
+    // COLLECTION : tools (catalogue outils)
+    // =========================================================================
+    match /tools/{toolId} {
+
+      // Lecture : tous les rôles actifs
+      allow read: if isActive();
+
+      // Écriture (create/update/delete) : admin uniquement
+      allow write: if isAdmin();
+    }
+
+
+    // =========================================================================
+    // COLLECTION : notifications
+    // =========================================================================
+    match /notifications/{uid}/{notifId} {
+
+      // Lecture : l'utilisateur lit ses propres notifications | admin lit tout
+      allow read: if isActive() && (isOwner(uid) || isAdmin());
+
+      // Création : système (via admin) ou autre utilisateur actif
+      allow create: if isActive();
+
+      // Mise à jour : uniquement l'utilisateur destinataire (ex: marquer comme lu)
+      allow update: if isActive() && isOwner(uid)
+                    && onlyAllowedFieldsChanged(["read", "readAt"]);
+
+      // Suppression : admin ou propriétaire
+      allow delete: if isActive() && (isAdmin() || isOwner(uid));
+    }
+
+
+    // =========================================================================
+    // COLLECTION : auditLog
+    // Traçabilité des actions
+    // =========================================================================
+    match /auditLog/{logId} {
+
+      // Lecture : admin uniquement
+      allow read: if isAdmin();
+
+      // Création : tout utilisateur actif (le système écrit les logs)
+      allow create: if isActive();
+
+      // Modification / Suppression : JAMAIS (immuable)
+      allow update, delete: if false;
+    }
+
+
+    // =========================================================================
+    // COLLECTION : counters
+    // Compteurs de séquence (N° bon, etc.)
+    // =========================================================================
+    match /counters/{counterId} {
+
+      // Lecture : tous actifs
+      allow read: if isActive();
+
+      // Écriture : crimping + admin (pour incrémenter)
+      allow write: if isActive() && hasAnyRole(["admin", "crimp"]);
+    }
+
+
+    // =========================================================================
+    // COLLECTION : stats / analytics (agrégats)
+    // =========================================================================
+    match /stats/{statId} {
+
+      // Lecture : labo + admin (tableaux de bord)
+      allow read: if isActive() && hasAnyRole(["admin", "labo"]);
+
+      // Écriture : admin uniquement (calculs agrégés)
+      allow write: if isAdmin();
+    }
+
+
+    // =========================================================================
+    // RÈGLE PAR DÉFAUT — Bloquer tout le reste
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}

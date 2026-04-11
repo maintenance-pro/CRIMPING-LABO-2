@@ -1,0 +1,121 @@
+<!-- =============================================================================
+     EXEMPLES D'INTÉGRATION — dashboard-examples.html
+     Montre comment utiliser auth-guard.js dans chaque dashboard
+     ============================================================================= -->
+
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!-- EXEMPLE 1 : admin-dashboard.html                                            -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>LEONI · Admin Dashboard</title>
+
+  <!-- 🔒 PROTECTION DE ROUTE — doit être le 1er script -->
+  <script type="module">
+    import { guardRoute } from "./auth-guard.js";
+    guardRoute("admin");   // Seul le rôle "admin" est autorisé (+ admin sur autres pages)
+  </script>
+</head>
+<body>
+
+  <script type="module">
+    import { logout, getCurrentUser } from "./auth-guard.js";
+
+    // Attendre que l'utilisateur soit prêt
+    document.addEventListener("userReady", (e) => {
+      const user = e.detail;
+      console.log("Connecté en tant que :", user.displayName, "| Rôle :", user.role);
+
+      // Afficher le nom dans le header
+      document.getElementById("user-name").textContent = user.displayName;
+    });
+
+    // Bouton déconnexion
+    document.getElementById("btn-logout").addEventListener("click", logout);
+  </script>
+
+  <header>
+    <span>Admin Dashboard</span>
+    <span id="user-name">…</span>
+    <button id="btn-logout">Se déconnecter</button>
+  </header>
+
+</body>
+</html>
+
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!-- EXEMPLE 2 : crimp-dashboard.html                                            -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>LEONI · Crimping Dashboard</title>
+
+  <script type="module">
+    import { guardRoute } from "./auth-guard.js";
+    guardRoute("crimp");   // Rôle "crimp" requis
+  </script>
+</head>
+<body>
+
+  <script type="module">
+    import { logout } from "./auth-guard.js";
+    document.addEventListener("userReady", (e) => {
+      document.getElementById("user-name").textContent = e.detail.displayName;
+    });
+    document.getElementById("btn-logout").addEventListener("click", logout);
+  </script>
+
+</body>
+</html>
+
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!-- EXEMPLE 3 : labo-dashboard.html                                             -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>LEONI · Labo Dashboard</title>
+
+  <script type="module">
+    import { guardRoute } from "./auth-guard.js";
+    guardRoute("labo");    // Rôle "labo" requis
+  </script>
+</head>
+<body>
+
+  <script type="module">
+    import { logout } from "./auth-guard.js";
+    document.addEventListener("userReady", (e) => {
+      document.getElementById("user-name").textContent = e.detail.displayName;
+    });
+    document.getElementById("btn-logout").addEventListener("click", logout);
+  </script>
+
+</body>
+</html>
+
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!-- STRUCTURE FIRESTORE ATTENDUE : /users/{uid}                                 -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!--
+{
+  "uid"         : "abc123xyz",
+  "displayName" : "Bilal Responsable",
+  "email"       : "bilal@leoni.ma",
+  "matricule"   : "LN-001",
+  "role"        : "admin",          ← "admin" | "crimp" | "labo"
+  "active"      : true,             ← false = compte bloqué
+  "createdAt"   : Timestamp,
+  "lastLoginAt" : Timestamp,
+  "photoUrl"    : null
+}
+-->
