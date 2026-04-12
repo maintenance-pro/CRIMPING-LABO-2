@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LEONI · Mission Control — Crimping Lab</title>
+
+  <!-- Fonts: Orbitron (display) + DM Sans (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <!-- SheetJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════════════════════════ */
+    :root {
+      --void:        #020408;
+      --deep:        #040810;
+      --surface:     #070d18;
+      --panel:       rgba(8,16,32,0.85);
+      --glass:       rgba(15,30,55,0.6);
+      --glass-hi:    rgba(20,45,80,0.7);
+
+      --cyan:        #00d4ff;
+      --cyan-dim:    rgba(0,212,255,0.15);
+      --cyan-glow:   rgba(0,212,255,0.08);
+      --amber:       #ffb547;
+      --amber-dim:   rgba(255,181,71,0.15);
+      --red:         #ff3d5a;
+      --red-dim:     rgba(255,61,90,0.15);
+      --green:       #00e5a0;
+      --green-dim:   rgba(0,229,160,0.12);
+      --violet:      #8b5cf6;
+      --violet-dim:  rgba(139,92,246,0.15);
+
+      --text-hi:     #e8f4ff;
+      --text-mid:    #7a9bb5;
+      --text-lo:     #3a5570;
+
+      --border:      rgba(0,212,255,0.12);
+      --border-hi:   rgba(0,212,255,0.28);
+
+      --font-display: 'Orbitron', monospace;
+      --font-body:    'DM Sans', sans-serif;
+      --font-mono:    'DM Mono', monospace;
+
+      --sidebar-w:    240px;
+      --sidebar-w-sm: 60px;
+      --transition:   0.28s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* ─── Reset ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--void);
+      color: var(--text-hi);
+      display: flex;
+    }
+
+    /* ─── Animated star/grid background ─── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(0,212,255,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 110%, rgba(139,92,246,0.05) 0%, transparent 55%),
+        linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
+      pointer-events: none;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       SIDEBAR
+    ═══════════════════════════════════════════════════════════ */
+    .sidebar {
+      position: fixed; left: 0; top: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--panel);
+      backdrop-filter: blur(24px) saturate(1.5);
+      -webkit-backdrop-filter: blur(24px) saturate(1.5);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      z-index: 500;
+      transition: width var(--transition);
+      overflow: hidden;
+    }
+    .sidebar.collapsed { width: var(--sidebar-w-sm); }
+
+    /* Logo area */
+    .sb-logo {
+      padding: 1.5rem 1.25rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: .75rem;
+      min-height: 72px; flex-shrink: 0;
+    }
+    .sb-logo-icon {
+      width: 36px; height: 36px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--cyan), #0066cc);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-size: .65rem; font-weight: 700;
+      color: var(--void);
+      box-shadow: 0 0 20px rgba(0,212,255,0.35);
+    }
+    .sb-logo-text {
+      overflow: hidden; white-space: nowrap;
+      transition: opacity var(--transition);
+    }
+    .sb-logo-text .brand {
+      font-family: var(--font-display); font-size: .8rem; font-weight: 700;
+      color: var(--cyan); letter-spacing: .12em;
+      display: block;
+    }
+    .sb-logo-text .sub {
+      font-size: .68rem; color: var(--text-mid);
+      letter-spacing: .05em; margin-top: 1px;
+    }
+    .sidebar.collapsed .sb-logo-text { opacity: 0; width: 0; }
+
+    /* Nav links */
+    .sb-nav { padding: .75rem 0; flex: 1; overflow-y: auto; overflow-x: hidden; }
+    .sb-section-label {
+      padding: .5rem 1.25rem .25rem;
+      font-size: .62rem; font-weight: 600; letter-spacing: .1em;
+      color: var(--text-lo); text-transform: uppercase;
+      white-space: nowrap; overflow: hidden;
+      transition: opacity var(--transition);
+    }
+    .sidebar.collapsed .sb-section-label { opacity: 0; }
+
+    .sb-link {
+      display: flex; align-items: center; gap: .875rem;
+      padding: .7rem 1.25rem;
+      cursor: pointer; border: none; background: none; width: 100%; text-align: left;
+      color: var(--text-mid); font-size: .85rem; font-family: var(--font-body);
+      transition: all var(--transition);
+      border-left: 2px solid transparent;
+      white-space: nowrap; position: relative;
+    }
+    .sb-link svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .sb-link:hover { color: var(--text-hi); background: var(--cyan-glow); }
+    .sb-link.active {
+      color: var(--cyan); background: var(--cyan-dim);
+      border-left-color: var(--cyan);
+    }
+    .sb-link .link-text { overflow: hidden; transition: opacity var(--transition), max-width var(--transition); max-width: 200px; }
+    .sidebar.collapsed .sb-link .link-text { opacity: 0; max-width: 0; }
+    .sb-link .badge {
+      margin-left: auto; background: var(--red); color: #fff;
+      font-size: .62rem; font-weight: 700; border-radius: 10px;
+      padding: .12rem .4rem; min-width: 18px; text-align: center;
+      transition: opacity var(--transition);
+    }
+    .sidebar.collapsed .sb-link .badge { opacity: 0; }
+
+    /* Tooltip on collapse */
+    .sidebar.collapsed .sb-link:hover::after {
+      content: attr(data-label);
+      position: absolute; left: calc(var(--sidebar-w-sm) + 8px);
+      background: var(--glass-hi); backdrop-filter: blur(12px);
+      border: 1px solid var(--border-hi);
+      color: var(--text-hi); font-size: .8rem;
+      padding: .35rem .75rem; border-radius: 6px;
+      white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,.5);
+      z-index: 9999;
+    }
+
+    /* Toggle btn */
+    .sb-toggle {
+      margin: .75rem 1.25rem; padding: .6rem;
+      background: var(--glass); border: 1px solid var(--border);
+      border-radius: 8px; cursor: pointer; color: var(--text-mid);
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition); flex-shrink: 0;
+    }
+    .sb-toggle:hover { background: var(--glass-hi); color: var(--cyan); border-color: var(--border-hi); }
+    .sb-toggle svg { width: 16px; height: 16px; transition: transform var(--transition); }
+    .sidebar.collapsed .sb-toggle svg { transform: rotate(180deg); }
+
+    /* Status footer */
+    .sb-footer {
+      padding: .875rem 1.25rem;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: .75rem;
+      flex-shrink: 0; overflow: hidden;
+    }
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green); flex-shrink: 0;
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse-live 2s ease-in-out infinite;
+    }
+    @keyframes pulse-live {
+      0%,100% { opacity: 1; box-shadow: 0 0 8px var(--green); }
+      50% { opacity: .5; box-shadow: 0 0 3px var(--green); }
+    }
+    .sb-footer-text { overflow: hidden; transition: opacity var(--transition); font-size: .72rem; }
+    .sb-footer-text .sync-label { color: var(--green); font-weight: 600; }
+    .sb-footer-text .sync-time  { color: var(--text-lo); font-size: .65rem; margin-top: 1px; }
+    .sidebar.collapsed .sb-footer-text { opacity: 0; }
+
+    /* ═══════════════════════════════════════════════════════════
+       MAIN LAYOUT
+    ═══════════════════════════════════════════════════════════ */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1; display: flex; flex-direction: column;
+      height: 100vh; overflow: hidden;
+      transition: margin-left var(--transition);
+      position: relative; z-index: 1;
+    }
+    .sidebar.collapsed ~ .main { margin-left: var(--sidebar-w-sm); }
+
+    /* Topbar */
+    .topbar {
+      height: 60px; flex-shrink: 0;
+      background: var(--panel); backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 1.75rem;
+    }
+    .topbar-left { display: flex; align-items: center; gap: .75rem; }
+    .topbar-title {
+      font-family: var(--font-display); font-size: .8rem; font-weight: 600;
+      color: var(--text-hi); letter-spacing: .08em;
+    }
+    .topbar-breadcrumb {
+      font-size: .75rem; color: var(--text-mid);
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .topbar-breadcrumb span { color: var(--text-lo); }
+    .topbar-right { display: flex; align-items: center; gap: .875rem; }
+
+    .status-chip {
+      display: flex; align-items: center; gap: .45rem;
+      padding: .3rem .75rem; border-radius: 20px;
+      background: var(--green-dim); border: 1px solid rgba(0,229,160,0.25);
+      font-size: .72rem; font-weight: 600; color: var(--green);
+    }
+    .status-chip .dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+      animation: pulse-live 2s ease-in-out infinite;
+    }
+
+    .topbar-time {
+      font-family: var(--font-mono); font-size: .75rem; color: var(--text-mid);
+    }
+    .topbar-btn {
+      padding: .4rem .9rem; border-radius: 8px;
+      background: var(--glass); border: 1px solid var(--border);
+      color: var(--text-mid); font-size: .78rem; cursor: pointer;
+      transition: all var(--transition); font-family: var(--font-body);
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .topbar-btn:hover { background: var(--glass-hi); color: var(--cyan); border-color: var(--border-hi); }
+    .topbar-btn svg { width: 14px; height: 14px; }
+
+    /* Content scroll area */
+    .content {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      padding: 1.5rem 1.75rem;
+      scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    }
+    .content::-webkit-scrollbar { width: 4px; }
+    .content::-webkit-scrollbar-track { background: transparent; }
+    .content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Page sections */
+    .page { display: none; }
+    .page.active { display: block; animation: fadeIn .3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ═══════════════════════════════════════════════════════════
+       KPI CARDS
+    ═══════════════════════════════════════════════════════════ */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem; margin-bottom: 1.5rem;
+    }
+
+    .kpi-card {
+      background: var(--glass);
+      backdrop-filter: blur(20px) saturate(1.4);
+      -webkit-backdrop-filter: blur(20px) saturate(1.4);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem 1.25rem 1rem;
+      position: relative; overflow: hidden;
+      transition: border-color var(--transition), transform var(--transition);
+      cursor: default;
+    }
+    .kpi-card:hover { border-color: var(--border-hi); transform: translateY(-2px); }
+
+    /* Top accent glow */
+    .kpi-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    }
+    .kpi-card.cyan::before   { background: linear-gradient(90deg, transparent, var(--cyan), transparent); }
+    .kpi-card.green::before  { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+    .kpi-card.amber::before  { background: linear-gradient(90deg, transparent, var(--amber), transparent); }
+    .kpi-card.red::before    { background: linear-gradient(90deg, transparent, var(--red), transparent); }
+
+    /* Corner glow */
+    .kpi-card::after {
+      content: ''; position: absolute; top: -40px; right: -40px;
+      width: 120px; height: 120px; border-radius: 50%; opacity: .4;
+      filter: blur(40px); pointer-events: none;
+    }
+    .kpi-card.cyan::after   { background: var(--cyan); }
+    .kpi-card.green::after  { background: var(--green); }
+    .kpi-card.amber::after  { background: var(--amber); }
+    .kpi-card.red::after    { background: var(--red); }
+
+    .kpi-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: .875rem;
+    }
+    .kpi-label {
+      font-size: .7rem; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text-mid);
+    }
+    .kpi-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .kpi-icon svg { width: 16px; height: 16px; }
+    .kpi-card.cyan  .kpi-icon { background: var(--cyan-dim); color: var(--cyan); }
+    .kpi-card.green .kpi-icon { background: var(--green-dim); color: var(--green); }
+    .kpi-card.amber .kpi-icon { background: var(--amber-dim); color: var(--amber); }
+    .kpi-card.red   .kpi-icon { background: var(--red-dim); color: var(--red); }
+
+    .kpi-value {
+      font-family: var(--font-display); font-size: 2.2rem; font-weight: 700;
+      line-height: 1; margin-bottom: .4rem;
+    }
+    .kpi-card.cyan  .kpi-value { color: var(--cyan); }
+    .kpi-card.green .kpi-value { color: var(--green); }
+    .kpi-card.amber .kpi-value { color: var(--amber); }
+    .kpi-card.red   .kpi-value { color: var(--red); }
+
+    .kpi-sub { font-size: .72rem; color: var(--text-mid); }
+    .kpi-delta {
+      font-size: .68rem; font-weight: 600; margin-top: .35rem;
+      display: inline-flex; align-items: center; gap: .2rem;
+      padding: .15rem .45rem; border-radius: 5px;
+    }
+    .kpi-delta.up   { background: var(--green-dim); color: var(--green); }
+    .kpi-delta.down { background: var(--red-dim); color: var(--red); }
+    .kpi-delta.flat { background: rgba(255,255,255,.06); color: var(--text-mid); }
+
+    /* Blinking red for alerts */
+    .blink { animation: blink-alert 1.4s ease-in-out infinite; }
+    @keyframes blink-alert {
+      0%,100% { opacity: 1; } 50% { opacity: .3; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       GRID LAYOUT (charts + table)
+    ═══════════════════════════════════════════════════════════ */
+    .dash-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1rem; margin-bottom: 1rem;
+    }
+
+    /* Panel / Glass card */
+    .panel {
+      background: var(--glass); backdrop-filter: blur(20px) saturate(1.4);
+      -webkit-backdrop-filter: blur(20px) saturate(1.4);
+      border: 1px solid var(--border); border-radius: 14px;
+      overflow: hidden;
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    }
+    .panel-title {
+      font-family: var(--font-display); font-size: .72rem; font-weight: 600;
+      letter-spacing: .08em; color: var(--text-hi);
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .panel-title svg { width: 14px; height: 14px; color: var(--cyan); }
+    .panel-body { padding: 1.25rem; }
+
+    /* Chart filter tabs */
+    .filter-tabs { display: flex; gap: .35rem; }
+    .filter-tab {
+      padding: .28rem .7rem; border-radius: 6px; font-size: .7rem; font-weight: 600;
+      cursor: pointer; border: 1px solid transparent;
+      color: var(--text-mid); background: rgba(255,255,255,.04);
+      transition: all .15s;
+    }
+    .filter-tab.active { background: var(--cyan-dim); border-color: rgba(0,212,255,0.3); color: var(--cyan); }
+    .filter-tab:hover:not(.active) { background: rgba(255,255,255,.07); color: var(--text-hi); }
+
+    /* Chart canvas */
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* Donut / mini chart */
+    .donut-wrap { position: relative; height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .donut-center {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -52%);
+      text-align: center; pointer-events: none;
+    }
+    .donut-center .big {
+      font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; color: var(--cyan);
+    }
+    .donut-center .sml { font-size: .68rem; color: var(--text-mid); }
+    .donut-legend { margin-top: .75rem; display: flex; flex-direction: column; gap: .35rem; width: 100%; padding: 0 .5rem; }
+    .donut-legend-item {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: .72rem;
+    }
+    .donut-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ═══════════════════════════════════════════════════════════
+       TABLE
+    ═══════════════════════════════════════════════════════════ */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    thead tr { border-bottom: 1px solid var(--border); }
+    th {
+      padding: .6rem 1rem; text-align: left;
+      font-size: .65rem; font-weight: 600; letter-spacing: .08em;
+      color: var(--text-lo); text-transform: uppercase;
+    }
+    td { padding: .75rem 1rem; border-bottom: 1px solid rgba(0,212,255,0.05); color: var(--text-mid); }
+    tbody tr { transition: background .12s; }
+    tbody tr:hover td { background: var(--cyan-glow); color: var(--text-hi); }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .td-num  { font-family: var(--font-mono); font-weight: 500; color: var(--text-hi); }
+    .td-tool { font-weight: 500; color: var(--text-hi); }
+    .td-date { font-family: var(--font-mono); font-size: .72rem; }
+    .td-tech { font-size: .78rem; }
+
+    /* Status badges */
+    .badge {
+      display: inline-flex; align-items: center; gap: .3rem;
+      padding: .22rem .6rem; border-radius: 20px;
+      font-size: .68rem; font-weight: 700; letter-spacing: .04em;
+      white-space: nowrap; border: 1px solid;
+    }
+    .badge-dot { width: 5px; height: 5px; border-radius: 50%; }
+    .badge.validated { color: var(--green); border-color: rgba(0,229,160,.3); background: var(--green-dim); }
+    .badge.submitted { color: var(--amber); border-color: rgba(255,181,71,.3); background: var(--amber-dim); }
+    .badge.rejected  { color: var(--red);   border-color: rgba(255,61,90,.3);  background: var(--red-dim); animation: blink-alert 1.8s ease-in-out infinite; }
+    .badge.draft     { color: var(--text-mid); border-color: var(--border); background: rgba(255,255,255,.04); }
+
+    .badge.validated .badge-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .badge.submitted .badge-dot { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+    .badge.rejected  .badge-dot { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+    .badge.draft     .badge-dot { background: var(--text-lo); }
+
+    /* ═══════════════════════════════════════════════════════════
+       REPORTING SECTION
+    ═══════════════════════════════════════════════════════════ */
+    .report-grid {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .report-card {
+      background: var(--glass); backdrop-filter: blur(20px);
+      border: 1px solid var(--border); border-radius: 14px;
+      padding: 1.5rem; text-align: center;
+      transition: all var(--transition); cursor: pointer;
+      position: relative; overflow: hidden;
+    }
+    .report-card::before {
+      content: ''; position: absolute; inset: 0; opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .report-card.pdf::before   { background: radial-gradient(ellipse at 50% 0%, rgba(255,61,90,.12), transparent 60%); }
+    .report-card.excel::before { background: radial-gradient(ellipse at 50% 0%, rgba(0,229,160,.1), transparent 60%); }
+    .report-card.email::before { background: radial-gradient(ellipse at 50% 0%, rgba(0,212,255,.1), transparent 60%); }
+    .report-card:hover::before { opacity: 1; }
+    .report-card:hover { border-color: var(--border-hi); transform: translateY(-3px); }
+    .report-card:active { transform: translateY(-1px); }
+
+    .report-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto .875rem; font-size: 1.4rem;
+    }
+    .report-card.pdf   .report-icon { background: var(--red-dim);   }
+    .report-card.excel .report-icon { background: var(--green-dim); }
+    .report-card.email .report-icon { background: var(--cyan-dim);  }
+    .report-label {
+      font-family: var(--font-display); font-size: .72rem; font-weight: 600;
+      letter-spacing: .06em; color: var(--text-hi); margin-bottom: .3rem;
+    }
+    .report-sub { font-size: .72rem; color: var(--text-mid); }
+
+    .btn-report {
+      display: inline-flex; align-items: center; gap: .5rem;
+      margin-top: .875rem; padding: .55rem 1.1rem;
+      border-radius: 8px; border: none; cursor: pointer;
+      font-size: .78rem; font-weight: 600; font-family: var(--font-body);
+      transition: all var(--transition);
+    }
+    .report-card.pdf   .btn-report { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,61,90,.3); }
+    .report-card.excel .btn-report { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,229,160,.3); }
+    .report-card.email .btn-report { background: var(--cyan-dim);  color: var(--cyan);  border: 1px solid rgba(0,212,255,.3); }
+    .btn-report:hover { filter: brightness(1.3); transform: scale(1.04); }
+    .btn-report svg { width: 14px; height: 14px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       INVENTORY / PARAMS pages (placeholder)
+    ═══════════════════════════════════════════════════════════ */
+    .placeholder-page {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 60vh; gap: 1rem;
+    }
+    .placeholder-icon {
+      width: 80px; height: 80px; border-radius: 20px;
+      background: var(--glass); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; font-size: 2rem;
+    }
+    .placeholder-title {
+      font-family: var(--font-display); font-size: 1rem;
+      font-weight: 600; letter-spacing: .06em; color: var(--text-hi);
+    }
+    .placeholder-sub { font-size: .85rem; color: var(--text-mid); text-align: center; }
+
+    /* ═══════════════════════════════════════════════════════════
+       SCAN LINE EFFECT
+    ═══════════════════════════════════════════════════════════ */
+    .scanline {
+      position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 2px,
+        rgba(0,212,255,0.008) 2px, rgba(0,212,255,0.008) 4px
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════════════════ */
+    @media (max-width: 1200px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .dash-grid { grid-template-columns: 1fr; }
+      .report-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 900px) {
+      :root { --sidebar-w: 60px; }
+      .sb-logo-text, .sb-section-label, .sb-link .link-text, .sb-link .badge,
+      .sb-footer-text { opacity: 0 !important; max-width: 0 !important; }
+      .sidebar.collapsed { width: var(--sidebar-w-sm); }
+      .main { margin-left: 60px !important; }
+      .content { padding: 1rem; }
+      .topbar { padding: 0 1rem; }
+      .topbar-breadcrumb { display: none; }
+    }
+    @media (max-width: 640px) {
+      .kpi-grid { grid-template-columns: 1fr 1fr; gap: .75rem; }
+      .report-grid { grid-template-columns: 1fr; }
+      .kpi-value { font-size: 1.7rem; }
+    }
+
+    /* Toast */
+    .toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: .5rem; }
+    .toast {
+      background: var(--glass-hi); backdrop-filter: blur(20px);
+      border: 1px solid var(--border-hi); border-radius: 10px;
+      padding: .75rem 1.1rem; font-size: .82rem; color: var(--text-hi);
+      animation: slideIn .25s ease; max-width: 300px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    }
+    .toast.success { border-color: rgba(0,229,160,.4); }
+    .toast.error   { border-color: rgba(255,61,90,.4); }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+  </style>
+</head>
+<body>
+
+<!-- Scanline CRT effect -->
+<div class="scanline"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SIDEBAR
+═══════════════════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-icon">L</div>
+    <div class="sb-logo-text">
+      <span class="brand">LEONI</span>
+      <span class="sub">CRIMPING LAB</span>
+    </div>
+  </div>
+
+  <nav class="sb-nav">
+    <div class="sb-section-label">Navigation</div>
+
+    <button class="sb-link active" data-page="dashboard" data-label="Dashboard">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+      <span class="link-text">Tableau de Bord</span>
+    </button>
+
+    <button class="sb-link" data-page="interventions" data-label="Interventions">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+      <span class="link-text">Interventions</span>
+      <span class="badge" id="nav-badge">5</span>
+    </button>
+
+    <button class="sb-link" data-page="inventaire" data-label="Inventaire">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+      </svg>
+      <span class="link-text">Inventaire</span>
+    </button>
+
+    <div class="sb-section-label" style="margin-top:.5rem">Analyse</div>
+
+    <button class="sb-link" data-page="rapports" data-label="Rapports">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      <span class="link-text">Rapports</span>
+    </button>
+
+    <button class="sb-link" data-page="parametres" data-label="Paramètres">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+      <span class="link-text">Paramètres</span>
+    </button>
+  </nav>
+
+  <button class="sb-toggle" id="sb-toggle" title="Réduire">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+    </svg>
+  </button>
+
+  <div class="sb-footer">
+    <div class="live-dot"></div>
+    <div class="sb-footer-text">
+      <div class="sync-label">FIREBASE LIVE</div>
+      <div class="sync-time" id="sync-time">Sync: —</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════════════════════════════
+     MAIN
+═══════════════════════════════════════════════════════ -->
+<div class="main">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">MISSION CONTROL</div>
+      <div class="topbar-breadcrumb">
+        <span>›</span>
+        <span id="breadcrumb-label" style="color:var(--text-mid)">Tableau de Bord</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="status-chip">
+        <div class="dot"></div>
+        SYSTÈME OPÉRATIONNEL
+      </div>
+      <div class="topbar-time" id="topbar-clock">—</div>
+      <button class="topbar-btn" onclick="navigate('rapports')">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Export
+      </button>
+      <a href="admin-dashboard.html" class="topbar-btn" style="text-decoration:none">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        App complète
+      </a>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="content" id="content">
+
+    <!-- ══ PAGE: DASHBOARD ══════════════════════════════════ -->
+    <div class="page active" id="page-dashboard">
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="kpi-card green">
+          <div class="kpi-header">
+            <div class="kpi-label">Disponibilité Machine</div>
+            <div class="kpi-icon">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value" id="kpi-dispo">—%</div>
+          <div class="kpi-sub">Taux de disponibilité global</div>
+          <span class="kpi-delta up" id="kpi-dispo-delta">↑ +2.3% vs semaine passée</span>
+        </div>
+
+        <div class="kpi-card amber">
+          <div class="kpi-header">
+            <div class="kpi-label">Interventions en cours</div>
+            <div class="kpi-icon">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value" id="kpi-pending">—</div>
+          <div class="kpi-sub">Bons en attente validation</div>
+          <span class="kpi-delta flat" id="kpi-pending-delta">En cours de traitement</span>
+        </div>
+
+        <div class="kpi-card red">
+          <div class="kpi-header">
+            <div class="kpi-label">Alertes Critiques</div>
+            <div class="kpi-icon">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value blink" id="kpi-alerts">—</div>
+          <div class="kpi-sub">Bons refusés non corrigés</div>
+          <span class="kpi-delta down" id="kpi-alerts-delta">↓ Nécessite action immédiate</span>
+        </div>
+
+        <div class="kpi-card cyan">
+          <div class="kpi-header">
+            <div class="kpi-label">Statut Synchronisation</div>
+            <div class="kpi-icon">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value" style="font-size:1.3rem;padding-top:.3rem">
+            <span style="color:var(--green)">●</span> LIVE
+          </div>
+          <div class="kpi-sub">Firebase Realtime Database</div>
+          <span class="kpi-delta up" id="kpi-sync-time">Dernière sync: —</span>
+        </div>
+      </div>
+
+      <!-- Charts + Donut -->
+      <div class="dash-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+              ÉVOLUTION DES INTERVENTIONS
+            </div>
+            <div class="filter-tabs">
+              <button class="filter-tab active" data-period="7">7J</button>
+              <button class="filter-tab" data-period="14">14J</button>
+              <button class="filter-tab" data-period="30">30J</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="chart-wrap"><canvas id="chart-evolution"></canvas></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/>
+              </svg>
+              RÉPARTITION STATUTS
+            </div>
+          </div>
+          <div class="panel-body" style="padding:.875rem">
+            <div class="donut-wrap">
+              <canvas id="chart-donut" style="max-height:160px;max-width:160px"></canvas>
+              <div class="donut-center">
+                <div class="big" id="donut-total">—</div>
+                <div class="sml">bons total</div>
+              </div>
+            </div>
+            <div class="donut-legend" id="donut-legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interventions table -->
+      <div class="panel" style="margin-bottom:1rem">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+            </svg>
+            DERNIÈRES INTERVENTIONS
+          </div>
+          <a href="admin-dashboard.html#history" class="topbar-btn" style="text-decoration:none;font-size:.72rem">
+            Voir tout →
+          </a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>N° Bon</th>
+                <th>Outil</th>
+                <th>Technicien</th>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody id="interventions-tbody">
+              <tr><td colspan="6" style="text-align:center;padding:2.5rem;color:var(--text-lo)">Connexion Firebase en cours…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /dashboard -->
+
+    <!-- ══ PAGE: INTERVENTIONS ══════════════════════════════ -->
+    <div class="page" id="page-interventions">
+      <div class="panel" style="margin-bottom:1rem">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            TOUTES LES INTERVENTIONS
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <select id="filter-status-full" style="background:var(--glass);border:1px solid var(--border);border-radius:7px;padding:.3rem .6rem;color:var(--text-hi);font-size:.78rem;font-family:var(--font-body)">
+              <option value="all">Tous les statuts</option>
+              <option value="validated">Validés</option>
+              <option value="submitted">En attente</option>
+              <option value="rejected">Refusés</option>
+              <option value="draft">Brouillons</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>N° Bon</th><th>Outil</th><th>Fabricant</th>
+                <th>Technicien</th><th>Type</th><th>Cycles</th>
+                <th>Date</th><th>Statut</th>
+              </tr>
+            </thead>
+            <tbody id="all-tbody">
+              <tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--text-lo)">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: INVENTAIRE ═════════════════════════════════ -->
+    <div class="page" id="page-inventaire">
+      <div class="kpi-grid" style="margin-bottom:1rem" id="inv-kpi-grid">
+        <div class="kpi-card cyan">
+          <div class="kpi-header"><div class="kpi-label">Outils catalogue</div></div>
+          <div class="kpi-value" id="inv-total-tools">—</div>
+          <div class="kpi-sub">références enregistrées</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-header"><div class="kpi-label">Fabricants</div></div>
+          <div class="kpi-value" id="inv-fabricants">—</div>
+          <div class="kpi-sub">marques différentes</div>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-header"><div class="kpi-label">Fréq. cycle max</div></div>
+          <div class="kpi-value" id="inv-max-cycle">—</div>
+          <div class="kpi-sub">cycles avant maintenance</div>
+        </div>
+        <div class="kpi-card violet" style="border-color:rgba(139,92,246,.2)">
+          <div class="kpi-header"><div class="kpi-label">Interventions / outil</div></div>
+          <div class="kpi-value" style="color:var(--violet)" id="inv-ratio">—</div>
+          <div class="kpi-sub">moyenne globale</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            CATALOGUE OUTILS
+          </div>
+          <input id="inv-search" placeholder="Rechercher…" style="background:var(--glass);border:1px solid var(--border);border-radius:7px;padding:.3rem .75rem;color:var(--text-hi);font-size:.78rem;font-family:var(--font-body);outline:none;width:180px"/>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID Outil</th><th>Réf.</th><th>Fabricant</th><th>Réf. Fab.</th><th>P-AR</th><th>P-AV</th><th>E-AR</th><th>E-AV</th><th>Fréq. Cycle</th></tr></thead>
+            <tbody id="inv-tbody">
+              <tr><td colspan="9" style="text-align:center;padding:2.5rem;color:var(--text-lo)">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: RAPPORTS ════════════════════════════════════ -->
+    <div class="page" id="page-rapports">
+      <div style="margin-bottom:1.25rem">
+        <div style="font-family:var(--font-display);font-size:.9rem;font-weight:600;letter-spacing:.08em;color:var(--text-hi);margin-bottom:.3rem">OUTILS DE REPORTING</div>
+        <div style="font-size:.8rem;color:var(--text-mid)">Générez et exportez vos rapports de maintenance au format professionnel</div>
+      </div>
+
+      <div class="report-grid">
+        <div class="report-card pdf" onclick="exportPDF()">
+          <div class="report-icon">📄</div>
+          <div class="report-label">RAPPORT PDF</div>
+          <div class="report-sub">Rapport exécutif complet avec KPIs, graphiques et tableau des interventions</div>
+          <button class="btn-report">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Exporter en PDF
+          </button>
+        </div>
+
+        <div class="report-card excel" onclick="exportExcel()">
+          <div class="report-icon">📊</div>
+          <div class="report-label">EXPORT EXCEL</div>
+          <div class="report-sub">Tableau complet des interventions avec mesures labo, Cm/Cmk et statuts</div>
+          <button class="btn-report">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Exporter en Excel
+          </button>
+        </div>
+
+        <div class="report-card email" onclick="toast('Rapport envoyé par email ✅','success')">
+          <div class="report-icon">📧</div>
+          <div class="report-label">EMAIL DIRECTION</div>
+          <div class="report-sub">Envoi automatique du rapport hebdomadaire à la direction et responsables</div>
+          <button class="btn-report">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            Envoyer par Email
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats recap -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            SYNTHÈSE MENSUELLE
+          </div>
+        </div>
+        <div class="panel-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem" id="report-stats">
+          <div style="text-align:center">
+            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--green)" id="rpt-validated">—</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:.25rem">Bons validés</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--amber)" id="rpt-submitted">—</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:.25rem">En attente</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--red)" id="rpt-rejected">—</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:.25rem">Refusés</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--cyan)" id="rpt-sla">—</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:.25rem">SLA moyen</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--violet)" id="rpt-rate">—%</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:.25rem">Taux validation</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: PARAMÈTRES ══════════════════════════════════ -->
+    <div class="page" id="page-parametres">
+      <div class="placeholder-page">
+        <div class="placeholder-icon">⚙️</div>
+        <div class="placeholder-title">PARAMÈTRES SYSTÈME</div>
+        <div class="placeholder-sub">Configuration de l'application, gestion des rôles et accès.<br/>Disponible dans l'<a href="admin-dashboard.html" style="color:var(--cyan)">application principale</a>.</div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   FIREBASE INIT
+═══════════════════════════════════════════════════════════════════ */
+firebase.initializeApp({
+  apiKey:            "AIzaSyBIW4I1DRqyqcmNEdajXbptQ5-RWFIG1V4",
+  authDomain:        "leoni-sertissage-labo.firebaseapp.com",
+  databaseURL:       "https://leoni-sertissage-labo-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "leoni-sertissage-labo",
+  storageBucket:     "leoni-sertissage-labo.firebasestorage.app",
+  messagingSenderId: "432527114405",
+  appId:             "1:432527114405:web:b141f6ae74f11b1cbb0d4c"
+});
+const rtdb = firebase.database();
+
+/* ═══════════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════════ */
+let interventions = {};
+let tools = {};
+let charts = {};
+
+/* ═══════════════════════════════════════════════════════════════════
+   CLOCK
+═══════════════════════════════════════════════════════════════════ */
+function updateClock() {
+  const now = new Date();
+  const s = now.toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  document.getElementById('topbar-clock').textContent = s;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ═══════════════════════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════════════════════ */
+function toast(msg, type='info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3000);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SIDEBAR TOGGLE
+═══════════════════════════════════════════════════════════════════ */
+document.getElementById('sb-toggle').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  setTimeout(() => { if (charts.evolution) charts.evolution.resize(); if (charts.donut) charts.donut.resize(); }, 300);
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════════════════════════════ */
+const PAGE_LABELS = { dashboard:'Tableau de Bord', interventions:'Interventions', inventaire:'Inventaire', rapports:'Rapports', parametres:'Paramètres' };
+
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sb-link').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page)?.classList.add('active');
+  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+  document.getElementById('breadcrumb-label').textContent = PAGE_LABELS[page] || page;
+  // Render page-specific content
+  if (page === 'inventaire') renderInventory();
+  if (page === 'rapports')   renderReportStats();
+  if (page === 'interventions') renderAllInterventions();
+}
+
+document.querySelectorAll('.sb-link[data-page]').forEach(btn => {
+  btn.addEventListener('click', () => navigate(btn.dataset.page));
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════════ */
+const fmtDate = ts => ts ? new Date(ts).toLocaleDateString('fr-FR') : '—';
+const fmtDur  = ms => { if(!ms) return '—'; const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000); return h>0?h+'h '+m+'min':m+'min'; };
+const TYPE_MAP = { preventive:'Préventive', curative:'Curative', requalification:'Requalif.' };
+const STATUS_LABELS = { validated:'Validé', submitted:'En attente', rejected:'Urgent', draft:'Brouillon' };
+
+function badgeHTML(status) {
+  const map = { validated:'VALIDÉ', submitted:'EN ATTENTE', rejected:'URGENT', draft:'BROUILLON' };
+  const cls = { validated:'validated', submitted:'submitted', rejected:'rejected', draft:'draft' };
+  return `<span class="badge ${cls[status]||'draft'}"><span class="badge-dot"></span>${map[status]||status}</span>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FIREBASE DATA LOAD
+═══════════════════════════════════════════════════════════════════ */
+rtdb.ref('interventions').on('value', snap => {
+  interventions = snap.val() || {};
+  const now = new Date().toLocaleTimeString('fr-FR');
+  document.getElementById('sync-time').textContent = 'Sync: ' + now;
+  document.getElementById('kpi-sync-time').textContent = 'Dernière sync: ' + now;
+  updateKPIs();
+  renderDashboardTable();
+  renderEvolutionChart(7);
+  renderDonutChart();
+  updateNavBadge();
+});
+
+rtdb.ref('tools').on('value', snap => {
+  tools = snap.val() || {};
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   KPIs
+═══════════════════════════════════════════════════════════════════ */
+function updateKPIs() {
+  const list = Object.values(interventions);
+  const now  = new Date(); const ms = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const monthly   = list.filter(i => (i.createdAt||0) >= ms);
+  const pending   = list.filter(i => i.status === 'submitted');
+  const rejected  = list.filter(i => i.status === 'rejected');
+  const validated = monthly.filter(i => i.status === 'validated');
+  const total     = monthly.length || 1;
+
+  // Disponibilité = taux de validation sur le mois
+  const dispo = Math.round((validated.length / total) * 100);
+  document.getElementById('kpi-dispo').textContent    = dispo + '%';
+  document.getElementById('kpi-pending').textContent  = pending.length;
+  document.getElementById('kpi-alerts').textContent   = rejected.length;
+  document.getElementById('donut-total').textContent  = list.length;
+
+  // Badge alert coloring
+  const alertEl = document.getElementById('kpi-alerts');
+  if (rejected.length === 0) { alertEl.classList.remove('blink'); alertEl.style.color = 'var(--green)'; }
+  else { alertEl.classList.add('blink'); alertEl.style.color = 'var(--red)'; }
+}
+
+function updateNavBadge() {
+  const pending = Object.values(interventions).filter(i => i.status === 'submitted').length;
+  document.getElementById('nav-badge').textContent = pending;
+  document.getElementById('nav-badge').style.display = pending ? '' : 'none';
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DASHBOARD TABLE (last 8)
+═══════════════════════════════════════════════════════════════════ */
+function renderDashboardTable() {
+  const list = Object.values(interventions)
+    .sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0)).slice(0, 8);
+  const tbody = document.getElementById('interventions-tbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2.5rem;color:var(--text-lo)">Aucune intervention</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(i => `
+    <tr>
+      <td class="td-num">N°${i.numBon}</td>
+      <td class="td-tool">${(i.tool&&i.tool.outilId)||'—'}</td>
+      <td class="td-tech">${(i.crimping&&i.crimping.filledBy&&i.crimping.filledBy.name)||'—'}</td>
+      <td style="font-size:.75rem">${TYPE_MAP[i.crimping&&i.crimping.type]||'—'}</td>
+      <td class="td-date">${fmtDate(i.crimping&&i.crimping.date)}</td>
+      <td>${badgeHTML(i.status)}</td>
+    </tr>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ALL INTERVENTIONS TABLE
+═══════════════════════════════════════════════════════════════════ */
+function renderAllInterventions(filter='all') {
+  let list = Object.values(interventions).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  if (filter !== 'all') list = list.filter(i => i.status === filter);
+  const tbody = document.getElementById('all-tbody');
+  tbody.innerHTML = list.map(i => `
+    <tr>
+      <td class="td-num">N°${i.numBon}</td>
+      <td class="td-tool">${(i.tool&&i.tool.outilId)||'—'}</td>
+      <td style="font-size:.75rem;color:var(--text-mid)">${(i.tool&&i.tool.fabricant)||'—'}</td>
+      <td class="td-tech">${(i.crimping&&i.crimping.filledBy&&i.crimping.filledBy.name)||'—'}</td>
+      <td style="font-size:.75rem">${TYPE_MAP[i.crimping&&i.crimping.type]||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${((i.crimping&&i.crimping.cycles)||0).toLocaleString('fr-FR')}</td>
+      <td class="td-date">${fmtDate(i.crimping&&i.crimping.date)}</td>
+      <td>${badgeHTML(i.status)}</td>
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--text-lo)">Aucun résultat</td></tr>';
+}
+document.getElementById('filter-status-full').addEventListener('change', e => renderAllInterventions(e.target.value));
+
+/* ═══════════════════════════════════════════════════════════════════
+   INVENTORY
+═══════════════════════════════════════════════════════════════════ */
+function renderInventory() {
+  const list = Object.values(tools);
+  const fabs = [...new Set(list.map(t=>t.fabricant).filter(Boolean))];
+  const maxCycle = Math.max(...list.map(t=>t.frequenceCycle||0));
+  const intList  = Object.values(interventions);
+  const ratio    = list.length ? (intList.length / list.length).toFixed(1) : '0';
+
+  document.getElementById('inv-total-tools').textContent = list.length;
+  document.getElementById('inv-fabricants').textContent  = fabs.length;
+  document.getElementById('inv-max-cycle').textContent   = maxCycle.toLocaleString('fr-FR');
+  document.getElementById('inv-ratio').textContent       = ratio;
+
+  let filtered = list;
+  const q = document.getElementById('inv-search').value.toLowerCase();
+  if (q) filtered = list.filter(t => (t.outilId||'').toLowerCase().includes(q) || (t.fabricant||'').toLowerCase().includes(q) || (t.refOutil||'').toLowerCase().includes(q));
+
+  document.getElementById('inv-tbody').innerHTML = filtered.slice(0,50).map(t => `
+    <tr>
+      <td class="td-tool">${t.outilId||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${t.refOutil||'—'}</td>
+      <td>${t.fabricant||'—'}</td>
+      <td style="font-size:.75rem;color:var(--text-mid)">${t.refFabricant||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${t.pAr||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${t.pAv||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${t.eAr||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${t.eAv||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${(t.frequenceCycle||0).toLocaleString('fr-FR')}</td>
+    </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-lo)">Aucun outil</td></tr>';
+}
+document.getElementById('inv-search').addEventListener('input', renderInventory);
+
+/* ═══════════════════════════════════════════════════════════════════
+   REPORT STATS
+═══════════════════════════════════════════════════════════════════ */
+function renderReportStats() {
+  const list = Object.values(interventions);
+  const validated = list.filter(i=>i.status==='validated');
+  const submitted = list.filter(i=>i.status==='submitted');
+  const rejected  = list.filter(i=>i.status==='rejected');
+  const slas = list.filter(i=>i.sla&&i.sla.durationMs).map(i=>i.sla.durationMs);
+  const avgSla = slas.length ? slas.reduce((a,b)=>a+b,0)/slas.length : 0;
+  const rate = list.length ? Math.round(validated.length/list.length*100) : 0;
+
+  document.getElementById('rpt-validated').textContent = validated.length;
+  document.getElementById('rpt-submitted').textContent = submitted.length;
+  document.getElementById('rpt-rejected').textContent  = rejected.length;
+  document.getElementById('rpt-sla').textContent       = fmtDur(avgSla);
+  document.getElementById('rpt-rate').textContent      = rate + '%';
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHART — EVOLUTION (bar)
+═══════════════════════════════════════════════════════════════════ */
+function renderEvolutionChart(days) {
+  const list = Object.values(interventions);
+  const labels = [], validated = [], pending = [], rejected = [];
+
+  for (let d = days-1; d >= 0; d--) {
+    const end   = new Date(); end.setDate(end.getDate() - d);   end.setHours(23,59,59,999);
+    const start = new Date(end); start.setHours(0,0,0,0);
+    const lbl = start.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});
+    labels.push(lbl);
+    const day = list.filter(i => (i.createdAt||0) >= start.getTime() && (i.createdAt||0) <= end.getTime());
+    validated.push(day.filter(i=>i.status==='validated').length);
+    pending.push(day.filter(i=>i.status==='submitted').length);
+    rejected.push(day.filter(i=>i.status==='rejected').length);
+  }
+
+  if (charts.evolution) charts.evolution.destroy();
+  const ctx = document.getElementById('chart-evolution').getContext('2d');
+  charts.evolution = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Validés',    data: validated, backgroundColor: 'rgba(0,229,160,0.6)',  borderColor: '#00e5a0', borderWidth: 1, borderRadius: 4 },
+        { label: 'En attente', data: pending,   backgroundColor: 'rgba(255,181,71,0.5)', borderColor: '#ffb547', borderWidth: 1, borderRadius: 4 },
+        { label: 'Refusés',    data: rejected,  backgroundColor: 'rgba(255,61,90,0.5)',  borderColor: '#ff3d5a', borderWidth: 1, borderRadius: 4 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#7a9bb5', font: { size: 11, family: 'DM Sans' }, boxWidth: 10, padding: 14 } },
+      },
+      scales: {
+        x: { stacked: true, ticks: { color: '#7a9bb5', font:{size:10} }, grid: { color: 'rgba(0,212,255,0.04)' } },
+        y: { stacked: true, beginAtZero: true, ticks: { color: '#7a9bb5', font:{size:10}, stepSize:1 }, grid: { color: 'rgba(0,212,255,0.06)' } }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHART — DONUT
+═══════════════════════════════════════════════════════════════════ */
+function renderDonutChart() {
+  const list = Object.values(interventions);
+  const counts = {
+    validated: list.filter(i=>i.status==='validated').length,
+    submitted: list.filter(i=>i.status==='submitted').length,
+    rejected:  list.filter(i=>i.status==='rejected').length,
+    draft:     list.filter(i=>i.status==='draft').length,
+  };
+  const COLORS = { validated:'#00e5a0', submitted:'#ffb547', rejected:'#ff3d5a', draft:'#3a5570' };
+  const LABELS_MAP = { validated:'Validés', submitted:'En attente', rejected:'Refusés', draft:'Brouillons' };
+
+  if (charts.donut) charts.donut.destroy();
+  const ctx = document.getElementById('chart-donut').getContext('2d');
+  charts.donut = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(counts).map(k=>LABELS_MAP[k]),
+      datasets: [{ data: Object.values(counts), backgroundColor: Object.keys(counts).map(k=>COLORS[k]), borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '68%',
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  // Legend
+  const lg = document.getElementById('donut-legend');
+  lg.innerHTML = Object.entries(counts).map(([k,v]) => `
+    <div class="donut-legend-item">
+      <div style="display:flex;align-items:center;gap:.5rem;color:var(--text-mid);font-size:.72rem">
+        <div class="donut-legend-dot" style="background:${COLORS[k]}"></div>${LABELS_MAP[k]}
+      </div>
+      <div style="font-family:var(--font-mono);font-size:.72rem;color:${COLORS[k]};font-weight:600">${v}</div>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PERIOD FILTER
+═══════════════════════════════════════════════════════════════════ */
+document.querySelectorAll('.filter-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    renderEvolutionChart(parseInt(tab.dataset.period));
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXPORT PDF
+═══════════════════════════════════════════════════════════════════ */
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+  const W = 297, margin = 15;
+
+  // Dark header
+  doc.setFillColor(4, 8, 16); doc.rect(0, 0, W, 30, 'F');
+  doc.setTextColor(0, 212, 255);
+  doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text('LEONI WIRING SYSTEMS', margin, 12);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('CRIMPING LAB — RAPPORT EXÉCUTIF', margin, 20);
+  doc.setTextColor(122,155,181); doc.setFontSize(8);
+  doc.text('Généré le ' + new Date().toLocaleString('fr-FR'), W - margin, 20, {align:'right'});
+
+  // KPIs
+  let y = 38;
+  const list = Object.values(interventions);
+  const validated = list.filter(i=>i.status==='validated').length;
+  const pending   = list.filter(i=>i.status==='submitted').length;
+  const rejected  = list.filter(i=>i.status==='rejected').length;
+  const rate      = list.length ? Math.round(validated/list.length*100) : 0;
+
+  const kpis = [
+    { label:'Total Interventions', value:list.length,   color:[0,212,255] },
+    { label:'Validés',             value:validated,      color:[0,229,160] },
+    { label:'En Attente',          value:pending,        color:[255,181,71] },
+    { label:'Refusés',             value:rejected,       color:[255,61,90] },
+    { label:'Taux Validation',     value:rate+'%',       color:[0,212,255] },
+  ];
+  const kw = (W - margin*2 - 8*4) / 5;
+  kpis.forEach((k, i) => {
+    const x = margin + i * (kw + 8);
+    doc.setFillColor(7,13,24); doc.roundedRect(x, y, kw, 22, 3, 3, 'F');
+    doc.setTextColor(...k.color); doc.setFont('helvetica','bold'); doc.setFontSize(14);
+    doc.text(String(k.value), x + kw/2, y + 12, {align:'center'});
+    doc.setTextColor(122,155,181); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    doc.text(k.label, x + kw/2, y + 19, {align:'center'});
+  });
+
+  y += 30;
+  doc.setTextColor(0,212,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('DERNIÈRES INTERVENTIONS', margin, y); y += 5;
+
+  // Table header
+  doc.setFillColor(7,13,24); doc.rect(margin, y, W - margin*2, 7, 'F');
+  doc.setTextColor(58,85,112); doc.setFont('helvetica','bold'); doc.setFontSize(7);
+  ['N°','Outil','Technicien','Type','Date','Statut'].forEach((h, i) => {
+    const cols = [12, 40, 65, 40, 30, 30];
+    const xs = [margin, margin+12, margin+52, margin+117, margin+157, margin+187];
+    doc.text(h, xs[i], y + 5);
+  });
+  y += 9;
+
+  const rows = list.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0, 20);
+  rows.forEach((iv, idx) => {
+    if (idx % 2 === 0) { doc.setFillColor(6,10,20); doc.rect(margin, y-1, W-margin*2, 7, 'F'); }
+    doc.setTextColor(200,220,240); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    doc.text(String(iv.numBon||''), margin, y+4);
+    doc.text((iv.tool&&iv.tool.outilId)||'—', margin+12, y+4);
+    doc.text((iv.crimping&&iv.crimping.filledBy&&iv.crimping.filledBy.name)||'—', margin+52, y+4);
+    doc.text(TYPE_MAP[iv.crimping&&iv.crimping.type]||'—', margin+117, y+4);
+    doc.text(fmtDate(iv.crimping&&iv.crimping.date), margin+157, y+4);
+    const sc = {validated:[0,229,160], submitted:[255,181,71], rejected:[255,61,90], draft:[58,85,112]};
+    const c = sc[iv.status]||sc.draft;
+    doc.setTextColor(...c);
+    doc.text(STATUS_LABELS[iv.status]||iv.status, margin+187, y+4);
+    y += 7;
+    if (y > 185) return;
+  });
+
+  doc.save('LEONI_Rapport_Crimping_' + new Date().toISOString().slice(0,10) + '.pdf');
+  toast('Rapport PDF généré ✅', 'success');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXPORT EXCEL
+═══════════════════════════════════════════════════════════════════ */
+function exportExcel() {
+  const list = Object.values(interventions).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  if (!list.length) { toast('Aucune donnée', 'error'); return; }
+
+  const rows = list.map(i => ({
+    'N° Bon':     i.numBon,
+    'Outil':      (i.tool&&i.tool.outilId)||'—',
+    'Fabricant':  (i.tool&&i.tool.fabricant)||'—',
+    'Technicien': (i.crimping&&i.crimping.filledBy&&i.crimping.filledBy.name)||'—',
+    'Matricule':  (i.crimping&&i.crimping.filledBy&&i.crimping.filledBy.matricule)||'—',
+    'Type':       TYPE_MAP[i.crimping&&i.crimping.type]||'—',
+    'Cycles':     (i.crimping&&i.crimping.cycles)||0,
+    'Date':       fmtDate(i.crimping&&i.crimping.date),
+    'Statut':     STATUS_LABELS[i.status]||i.status,
+    'Cm âme':     i.lab?.capabilite?.cmAme?.toFixed(2)||'—',
+    'Cmk âme':    i.lab?.capabilite?.cmkAme?.toFixed(2)||'—',
+    'Motif refus': i.lab?.rejectReason||'',
+    'SLA (h)':    i.sla?.durationMs ? (i.sla.durationMs/3600000).toFixed(1) : '—',
+    'Technicien Labo': (i.lab&&i.lab.filledBy&&i.lab.filledBy.name)||'—',
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [8,16,14,18,12,14,10,12,12,8,8,30,8,18].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Interventions');
+
+  // Summary sheet
+  const sv = Object.values(interventions);
+  const summaryData = [
+    ['LEONI — Rapport Crimping Lab', ''],
+    ['Date', new Date().toLocaleDateString('fr-FR')],
+    ['', ''],
+    ['INDICATEUR', 'VALEUR'],
+    ['Total interventions', sv.length],
+    ['Validés', sv.filter(i=>i.status==='validated').length],
+    ['En attente', sv.filter(i=>i.status==='submitted').length],
+    ['Refusés', sv.filter(i=>i.status==='rejected').length],
+    ['Taux validation', Math.round(sv.filter(i=>i.status==='validated').length/Math.max(sv.length,1)*100)+'%'],
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(summaryData);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Synthèse');
+
+  XLSX.writeFile(wb, 'LEONI_Crimping_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  toast('Export Excel généré ✅', 'success');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PERIOD FILTER TABS — attach after DOM ready
+═══════════════════════════════════════════════════════════════════ */
+// Already wired above
+</script>
+</body>
+</html>
