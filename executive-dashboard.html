@@ -718,11 +718,15 @@ function tryFirebase(){
 ════════════════════════════════════════════ */
 function renderAll2(){
   renderKPIs(); renderDash(); drawBar(activeDays); drawDonut();
+  renderAll(); renderInv(); renderReport();
 }
 
 document.addEventListener('DOMContentLoaded', function(){
   /* Données démo disponibles immédiatement (déjà dans IV/TL) */
-  renderAll2();
+  renderAll2();  /* Dashboard */
+  renderAll();   /* Interventions — pré-chargé */
+  renderInv();   /* Inventaire — pré-chargé */
+  renderReport();/* Rapports — pré-chargé */
 
   /* Resize */
   window.addEventListener('resize', function(){
