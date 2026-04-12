@@ -379,6 +379,26 @@
               🔧 Partie Crimping — Technicien maintenance
             </legend>
 
+            <!-- Technicien Crimping -->
+            <div class="intervention__grid intervention__grid--2" style="margin-bottom:.75rem;padding:.875rem 1rem;background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.15);border-radius:10px">
+              <div class="field" style="margin-bottom:0">
+                <label class="field__label" for="crimp-tech-name">
+                  👤 Nom du technicien crimping
+                </label>
+                <input class="field__input" id="crimp-tech-name" name="crimpTechName"
+                  type="text" placeholder="Ex: Ahmed Benali"
+                  style="background:rgba(255,255,255,.07);font-weight:500" />
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label class="field__label" for="crimp-tech-mat">
+                  🪪 Matricule technicien crimping
+                </label>
+                <input class="field__input" id="crimp-tech-mat" name="crimpTechMatricule"
+                  type="text" placeholder="Ex: LN-C-001"
+                  style="background:rgba(255,255,255,.07);font-family:var(--font-mono)" />
+              </div>
+            </div>
+
             <div class="intervention__grid intervention__grid--3">
               <div class="field">
                 <label class="field__label" for="int-date">Date intervention</label>
@@ -449,6 +469,28 @@
               <span class="intervention__legend-num">2</span>
               🧪 Partie Laboratoire — Validation
             </legend>
+
+            <!-- Technicien Laboratoire -->
+            <div class="intervention__subsection">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.875rem;padding:.875rem 1rem;background:rgba(99,102,241,.05);border:1px solid rgba(99,102,241,.15);border-radius:10px;margin-bottom:.75rem">
+                <div class="field" style="margin-bottom:0">
+                  <label class="field__label" for="labo-tech-name">
+                    👤 Nom du technicien laboratoire
+                  </label>
+                  <input class="field__input" id="labo-tech-name" name="laboTechName"
+                    type="text" placeholder="Ex: Fatima Zahra"
+                    style="background:rgba(255,255,255,.07);font-weight:500" />
+                </div>
+                <div class="field" style="margin-bottom:0">
+                  <label class="field__label" for="labo-tech-mat">
+                    🪪 Matricule technicien laboratoire
+                  </label>
+                  <input class="field__input" id="labo-tech-mat" name="laboTechMatricule"
+                    type="text" placeholder="Ex: LN-L-001"
+                    style="background:rgba(255,255,255,.07);font-family:var(--font-mono)" />
+                </div>
+              </div>
+            </div>
 
             <!-- Connexion -->
             <div class="intervention__subsection">

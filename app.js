@@ -1070,6 +1070,20 @@
         ui.applyRoleVisibility();
         // Active la section labo selon le rôle (visible mais disabled tant que pas submitted)
         $('#section-lab').disabled = true;
+        // Pré-remplir le technicien crimping avec le profil connecté
+        if ($('#crimp-tech-name') && state.profile) {
+          if ((state.role === 'crimp' || state.role === 'crimping') && !$('#crimp-tech-name').value) {
+            $('#crimp-tech-name').value = state.profile.displayName || '';
+            $('#crimp-tech-mat').value  = state.profile.matricule   || '';
+          }
+        }
+        // Pré-remplir le technicien labo avec le profil connecté
+        if ($('#labo-tech-name') && state.profile) {
+          if (state.role === 'labo' && !$('#labo-tech-name').value) {
+            $('#labo-tech-name').value = state.profile.displayName || '';
+            $('#labo-tech-mat').value  = state.profile.matricule   || '';
+          }
+        }
       },
 
       open(reg) {
@@ -1100,6 +1114,9 @@
           $$('input[name="piece"]').forEach(cb => {
             cb.checked = !!(data.crimping.piecesChanged && data.crimping.piecesChanged[cb.value]);
           });
+          // Technicien crimping
+          if ($('#crimp-tech-name')) $('#crimp-tech-name').value = data.crimping.technicienNom || (data.crimping.filledBy && data.crimping.filledBy.name) || '';
+          if ($('#crimp-tech-mat'))  $('#crimp-tech-mat').value  = data.crimping.technicienMatricule || (data.crimping.filledBy && data.crimping.filledBy.matricule) || '';
         }
 
         // Lab
@@ -1108,6 +1125,10 @@
         // Débloquer la section labo si on est au moins submitted ET utilisateur labo/admin
         const canEditLab = ['submitted'].includes(data.status) && auth.can('intervention.editLab');
         labSection.disabled = !canEditLab && data.status !== 'validated' && data.status !== 'rejected';
+
+        // Technicien labo
+        if ($('#labo-tech-name')) $('#labo-tech-name').value = lab.technicienNom || (lab.filledBy && lab.filledBy.name) || '';
+        if ($('#labo-tech-mat'))  $('#labo-tech-mat').value  = lab.technicienMatricule || (lab.filledBy && lab.filledBy.matricule) || '';
 
         if (lab.connexion) {
           $('#lab-ref-connexion').value = lab.connexion.refConnexion || '';
@@ -1214,6 +1235,9 @@
       collectCrimpingData() {
         const pieces = {};
         $$('input[name="piece"]').forEach(cb => { pieces[cb.value] = cb.checked; });
+        // Technicien crimping : champs manuels OU profil connecté
+        const crimpName = $('#crimp-tech-name')?.value.trim() || state.profile?.displayName || '';
+        const crimpMat  = $('#crimp-tech-mat')?.value.trim()  || state.profile?.matricule   || '';
         return {
           tool: {
             toolId: this.currentToolKey || '',
@@ -1226,7 +1250,9 @@
           cycles: parseInt($('#int-cycles').value) || 0,
           type: $('#int-type').value,
           piecesChanged: pieces,
-          observation: $('#int-observation').value
+          observation: $('#int-observation').value,
+          technicienNom:       crimpName,
+          technicienMatricule: crimpMat
         };
       },
 
@@ -1236,7 +1262,12 @@
         const hi = [1,2,3,4,5].map(i => parseFloat($(`[name="hi${i}"]`).value) || null);
         const ef = [1,2,3,4,5].map(i => parseFloat($(`[name="ef${i}"]`).value) || null);
         const computed = capa.compute({ hauteurIsolant: hi, effort: ef });
+        // Technicien labo : champs manuels OU profil connecté
+        const laboName = $('#labo-tech-name')?.value.trim() || state.profile?.displayName || '';
+        const laboMat  = $('#labo-tech-mat')?.value.trim()  || state.profile?.matricule   || '';
         return {
+          technicienNom:       laboName,
+          technicienMatricule: laboMat,
           connexion: {
             refConnexion: $('#lab-ref-connexion').value,
             sectionCable: $('#lab-section-cable').value,
