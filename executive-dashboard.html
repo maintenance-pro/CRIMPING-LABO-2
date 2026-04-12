@@ -1115,37 +1115,55 @@ function badgeHTML(status) {
 /* ═══════════════════════════════════════════════════════════════════
    FIREBASE DATA LOAD
 ═══════════════════════════════════════════════════════════════════ */
-/* ── Try to connect to Firebase (needs auth or open rules) ── */
-function loadFromFirebase() {
-  rtdb.ref('interventions').on('value', snap => {
-    interventions = snap.val() || {};
-    onDataLoaded();
-  }, err => {
-    console.warn('[Dashboard] Firebase interventions:', err.code);
-    // Use demo data on permission error
-    if (err.code === 'PERMISSION_DENIED') loadDemoData();
-  });
+/* ══════════════════════════════════════════════════════════════════
+   STRATÉGIE DE CHARGEMENT :
+   1. Affiche demo data IMMÉDIATEMENT (0ms de délai)
+   2. Tente Firebase en arrière-plan
+   3. Si Firebase répond → remplace silencieusement les données
+═══════════════════════════════════════════════════════════════════ */
 
-  rtdb.ref('tools').on('value', snap => {
-    tools = snap.val() || {};
-  }, () => {});
+// ÉTAPE 1 : Démo immédiate — l'utilisateur voit des données dès le chargement
+loadDemoData();
+
+// ÉTAPE 2 : Tente Firebase en arrière-plan (si connecté dans l'app principale)
+function tryFirebase() {
+  // Essai lecture directe d'abord (si règles open)
+  rtdb.ref('interventions').once('value')
+    .then(snap => {
+      const data = snap.val();
+      if (data && Object.keys(data).length > 0) {
+        interventions = data;
+        document.getElementById('demo-banner')?.remove();
+        onDataLoaded();
+        // Continuer à écouter les mises à jour en temps réel
+        rtdb.ref('interventions').on('value', s => {
+          interventions = s.val() || {};
+          onDataLoaded();
+        });
+        rtdb.ref('tools').on('value', s => { tools = s.val() || {}; });
+        console.log('[Dashboard] Firebase connecté avec', Object.keys(data).length, 'interventions');
+      }
+    })
+    .catch(() => {
+      // Permission refusée — on garde les données demo, on essaie avec auth
+      firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+          rtdb.ref('interventions').on('value', snap => {
+            const data = snap.val();
+            if (data && Object.keys(data).length > 0) {
+              interventions = data;
+              document.getElementById('demo-banner')?.remove();
+              onDataLoaded();
+            }
+          }, () => {});
+          rtdb.ref('tools').on('value', s => { tools = s.val() || {}; }, () => {});
+        }
+      });
+    });
 }
 
-/* ── Try anonymous sign-in first ── */
-firebase.auth().signInAnonymously()
-  .then(() => loadFromFirebase())
-  .catch(() => {
-    // No anonymous auth — try direct read (open rules) or fallback to demo
-    loadFromFirebase();
-    setTimeout(() => {
-      if (!Object.keys(interventions).length) loadDemoData();
-    }, 3500);
-  });
-
-/* ── Also try if already signed in ── */
-firebase.auth().onAuthStateChanged(user => {
-  if (user) loadFromFirebase();
-});
+// Lance Firebase en arrière-plan après 100ms (laisse le DOM se stabiliser)
+setTimeout(tryFirebase, 100);
 
 function onDataLoaded() {
   const now = new Date().toLocaleTimeString('fr-FR');
