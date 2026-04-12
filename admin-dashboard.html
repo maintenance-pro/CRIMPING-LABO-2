@@ -1,1045 +1,1587 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="LEONI Wiring Systems — Bon d'Intervention Sertissage & Validation Laboratoire" />
-  <meta name="theme-color" content="#0a0e1a" />
-  <title>LEONI · Admin Dashboard</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>" />
-  <link rel="stylesheet" href="styles.css" />
-</head>
-
-<body class="app" data-theme="dark">
-
-  <!-- ===================================================================== -->
-  <!-- VIEW 1 — LOGIN                                                        -->
-  <!-- ===================================================================== -->
-  <section class="login" id="view-login" data-view="login" aria-label="Connexion">
-    <div class="login__backdrop" aria-hidden="true"></div>
-
-    <div class="login__card">
-      <header class="login__header">
-        <div class="login__logo">LEONI</div>
-        <h1 class="login__title">Bon d'Intervention Sertissage</h1>
-        <p class="login__subtitle">Coordination Crimping &times; Laboratoire</p>
-      </header>
-
-      <form class="login__form" id="form-login" autocomplete="on" novalidate>
-        <div class="login__field">
-          <label class="login__label" for="login-email">Adresse e-mail ou matricule</label>
-          <input class="login__input" id="login-email" name="email" type="text" required autocomplete="username" />
-        </div>
-
-        <div class="login__field">
-          <label class="login__label" for="login-password">Mot de passe</label>
-          <input class="login__input" id="login-password" name="password" type="password" required autocomplete="current-password" />
-          <button class="login__toggle-pass" type="button" id="btn-toggle-pass" aria-label="Afficher le mot de passe">👁</button>
-        </div>
-
-        <div class="login__row">
-          <label class="login__remember">
-            <input type="checkbox" id="login-remember" name="remember" />
-            <span>Se souvenir de moi</span>
-          </label>
-          <a class="login__forgot" href="#" id="link-forgot">Mot de passe oublié&nbsp;?</a>
-        </div>
-
-        <button class="login__submit" type="submit" id="btn-login">Se connecter</button>
-        <p class="login__error" id="login-error" hidden></p>
-      </form>
-
-      <footer class="login__footer">
-        <span class="login__version">v1.0.0</span>
-        <span class="login__copy">© LEONI Wiring Systems · Maintenance</span>
-      </footer>
-    </div>
-  </section>
-
-
-  <!-- ===================================================================== -->
-  <!-- APP SHELL (visible après login)                                       -->
-  <!-- ===================================================================== -->
-  <div class="shell" id="shell" hidden>
-
-    <!-- ============== TOP BAR ============== -->
-    <header class="topbar" id="topbar">
-      <button class="topbar__menu" id="btn-menu" aria-label="Ouvrir le menu">☰</button>
-
-      <a class="topbar__brand" href="#hub">
-        <span class="topbar__brand-logo">LEONI</span>
-        <span class="topbar__brand-sep">·</span>
-        <span class="topbar__brand-title">Sertissage Lab</span>
-      </a>
-
-      <div class="topbar__search">
-        <input class="topbar__search-input" id="global-search" type="search" placeholder="Rechercher un bon, un outil, un technicien…" />
-      </div>
-
-      <div class="topbar__actions">
-        <button class="topbar__btn topbar__btn--quick" id="btn-quick-new" title="Nouveau bon (N)">＋ Nouveau bon</button>
-
-        <button class="topbar__btn topbar__btn--icon" id="btn-notifications" aria-label="Notifications">
-          🔔
-          <span class="topbar__badge" id="notif-badge" hidden>0</span>
-        </button>
-
-        <button class="topbar__btn topbar__btn--icon" id="btn-theme" aria-label="Changer le thème">◐</button>
-
-        <div class="topbar__user" id="user-menu">
-          <button class="topbar__user-btn" id="btn-user">
-            <span class="topbar__user-avatar" id="user-avatar">B</span>
-            <span class="topbar__user-name" id="user-name">—</span>
-            <span class="topbar__user-role" id="user-role">—</span>
-          </button>
-          <ul class="topbar__user-dropdown" id="user-dropdown" hidden>
-            <li><button data-action="profile">Mon profil</button></li>
-            <li><button data-action="password">Changer mot de passe</button></li>
-            <li><hr /></li>
-            <li><button data-action="logout">Se déconnecter</button></li>
-          </ul>
-        </div>
-      </div>
-    </header>
-
-    <!-- ============== SIDEBAR ============== -->
-    <aside class="sidebar" id="sidebar">
-      <nav class="sidebar__nav" aria-label="Navigation principale">
-        <ul class="sidebar__list">
-          <li class="sidebar__item">
-            <button class="sidebar__link sidebar__link--active" data-nav="hub">
-              <span class="sidebar__icon">🏠</span><span class="sidebar__label">Hub</span>
-            </button>
-          </li>
-          <li class="sidebar__item">
-            <button class="sidebar__link" data-nav="intervention">
-              <span class="sidebar__icon">📝</span><span class="sidebar__label">Bon d'intervention</span>
-            </button>
-          </li>
-          <li class="sidebar__item">
-            <button class="sidebar__link" data-nav="history">
-              <span class="sidebar__icon">📋</span><span class="sidebar__label">Historique</span>
-              <span class="sidebar__pill" id="nav-history-count">0</span>
-            </button>
-          </li>
-          <li class="sidebar__item">
-            <button class="sidebar__link" data-nav="queue">
-              <span class="sidebar__icon">⏳</span><span class="sidebar__label">File d'attente</span>
-              <span class="sidebar__pill sidebar__pill--warn" id="nav-queue-count">0</span>
-            </button>
-          </li>
-          <li class="sidebar__item">
-            <button class="sidebar__link" data-nav="catalog">
-              <span class="sidebar__icon">🛠</span><span class="sidebar__label">Catalogue outils</span>
-            </button>
-          </li>
-          <li class="sidebar__item sidebar__item--admin" data-requires-role="responsable,super_admin,admin">
-            <button class="sidebar__link" data-nav="users">
-              <span class="sidebar__icon">👥</span><span class="sidebar__label">Utilisateurs</span>
-            </button>
-          </li>
-          <li class="sidebar__item sidebar__item--admin" data-requires-role="responsable,super_admin,admin">
-            <button class="sidebar__link" data-nav="stats">
-              <span class="sidebar__icon">📊</span><span class="sidebar__label">Statistiques & SLA</span>
-            </button>
-          </li>
-          <li class="sidebar__item sidebar__item--admin" data-requires-role="admin,super_admin">
-            <button class="sidebar__link" data-nav="auditlog">
-              <span class="sidebar__icon">📜</span><span class="sidebar__label">Journal d'audit</span>
-            </button>
-          </li>
-        </ul>
-      </nav>
-
-      <footer class="sidebar__footer">
-        <div class="sidebar__sync" id="sync-status">
-          <span class="sidebar__sync-dot"></span>
-          <span class="sidebar__sync-label">En ligne</span>
-        </div>
-      </footer>
-    </aside>
-
-    <!-- ============== MAIN ============== -->
-    <main class="main" id="main">
-
-      <!-- ================================================================= -->
-      <!-- VIEW 2 — HUB / DASHBOARD                                          -->
-      <!-- ================================================================= -->
-      <section class="hub" id="view-hub" data-view="hub">
-        <header class="hub__header">
-          <div>
-            <h1 class="hub__title">Tableau de bord</h1>
-            <p class="hub__greeting" id="hub-greeting">Bienvenue —</p>
-          </div>
-          <div id="hub-health-score" style="min-width:220px;background:var(--bg-2);border:1px solid var(--border-soft);border-radius:12px;padding:.9rem 1.1rem;display:flex;align-items:center;gap:.75rem">
-            <span style="color:var(--text-muted);font-size:.82rem">Calcul du score…</span>
-          </div>
-        </header>
-
-        <div class="hub__kpis" id="hub-kpis">
-          <article class="kpi kpi--primary">
-            <div class="kpi__icon">📝</div>
-            <div class="kpi__body">
-              <div class="kpi__label">Bons ce mois</div>
-              <div class="kpi__value" id="kpi-month">—</div>
-              <div class="kpi__delta" id="kpi-month-delta">—</div>
-            </div>
-          </article>
-
-          <article class="kpi kpi--warn">
-            <div class="kpi__icon">⏳</div>
-            <div class="kpi__body">
-              <div class="kpi__label">En attente labo</div>
-              <div class="kpi__value" id="kpi-pending">—</div>
-              <div class="kpi__delta">à valider</div>
-            </div>
-          </article>
-
-          <article class="kpi kpi--success">
-            <div class="kpi__icon">✅</div>
-            <div class="kpi__body">
-              <div class="kpi__label">Validés (mois)</div>
-              <div class="kpi__value" id="kpi-validated">—</div>
-              <div class="kpi__delta" id="kpi-validated-rate">—</div>
-            </div>
-          </article>
-
-          <article class="kpi kpi--danger">
-            <div class="kpi__icon">⚠️</div>
-            <div class="kpi__body">
-              <div class="kpi__label">Refusés (mois)</div>
-              <div class="kpi__value" id="kpi-rejected">—</div>
-              <div class="kpi__delta">à corriger</div>
-            </div>
-          </article>
-
-          <article class="kpi kpi--info">
-            <div class="kpi__icon">⚡</div>
-            <div class="kpi__body">
-              <div class="kpi__label">SLA moyen validation</div>
-              <div class="kpi__value" id="kpi-sla">—</div>
-              <div class="kpi__delta">crimping → labo</div>
-            </div>
-          </article>
-        </div>
-
-        <div class="hub__grid">
-          <section class="card card--chart">
-            <header class="card__header">
-              <h2 class="card__title">Interventions / semaine</h2>
-              <select class="card__filter" id="chart-period">
-                <option value="4">4 dernières semaines</option>
-                <option value="12" selected>12 dernières semaines</option>
-                <option value="26">26 dernières semaines</option>
-              </select>
-            </header>
-            <div class="card__body">
-              <canvas class="chart" id="chart-weekly" aria-label="Graphique interventions par semaine"></canvas>
-            </div>
-          </section>
-
-          <section class="card card--list">
-            <header class="card__header">
-              <h2 class="card__title">À valider en urgence</h2>
-              <button class="card__see-all" data-nav="queue">Voir tout →</button>
-            </header>
-            <ul class="queue" id="queue-list">
-              <!-- items injectés dynamiquement -->
-            </ul>
-          </section>
-
-          <section class="card card--list">
-            <header class="card__header">
-              <h2 class="card__title">Top 5 outils maintenus</h2>
-            </header>
-            <ul class="toplist" id="top-tools-list"></ul>
-          </section>
-
-          <section class="card card--list">
-            <header class="card__header">
-              <h2 class="card__title">Dernières activités</h2>
-            </header>
-            <ul class="activity" id="activity-feed"></ul>
-          </section>
-        </div>
-      </section>
-
-
-      <!-- ================================================================= -->
-      <!-- VIEW 3 — BON D'INTERVENTION (cœur de l'app)                       -->
-      <!-- ================================================================= -->
-      <section class="intervention" id="view-intervention" data-view="intervention" hidden>
-
-        <!-- ===== Header / status bar ===== -->
-        <header class="intervention__header">
-          <div class="intervention__title-block">
-            <button class="intervention__back" id="btn-int-back" aria-label="Retour">←</button>
-            <div>
-              <h1 class="intervention__title">Bon d'intervention</h1>
-              <p class="intervention__subtitle">
-                N° <span class="intervention__num" id="int-num">—</span>
-                · créé le <span id="int-created">—</span>
-              </p>
-            </div>
-          </div>
-
-          <div class="intervention__status" id="int-status">
-            <span class="status-pill status-pill--draft" data-status="draft">Brouillon</span>
-            <span class="status-pill status-pill--submitted" data-status="submitted" hidden>En attente labo</span>
-            <span class="status-pill status-pill--validated" data-status="validated" hidden>Validé</span>
-            <span class="status-pill status-pill--rejected" data-status="rejected" hidden>Refusé</span>
-            <span class="status-pill status-pill--cancelled" data-status="cancelled" hidden>Annulé</span>
-          </div>
-
-          <div class="intervention__qr">
-            <canvas id="int-qrcode" width="80" height="80" aria-label="QR Code du bon"></canvas>
-          </div>
-        </header>
-
-        <!-- ===== Workflow stepper ===== -->
-        <ol class="stepper" id="int-stepper" aria-label="Workflow">
-          <li class="stepper__step stepper__step--active" data-step="draft">
-            <span class="stepper__num">1</span>
-            <span class="stepper__label">Saisie crimping</span>
-          </li>
-          <li class="stepper__step" data-step="submitted">
-            <span class="stepper__num">2</span>
-            <span class="stepper__label">Soumission</span>
-          </li>
-          <li class="stepper__step" data-step="lab">
-            <span class="stepper__num">3</span>
-            <span class="stepper__label">Validation labo</span>
-          </li>
-          <li class="stepper__step" data-step="done">
-            <span class="stepper__num">4</span>
-            <span class="stepper__label">Clôturé</span>
-          </li>
-        </ol>
-
-        <!-- ===== Form ===== -->
-        <form class="intervention__form" id="form-intervention" novalidate>
-
-          <!-- ============================================================= -->
-          <!-- SECTION A — Identification de l'outil                          -->
-          <!-- ============================================================= -->
-          <fieldset class="intervention__section intervention__section--tool">
-            <legend class="intervention__legend">🛠 Outil concerné</legend>
-
-            <div class="intervention__grid intervention__grid--3">
-              <div class="field">
-                <label class="field__label" for="int-tool-search">Référence outil</label>
-                <input class="field__input" id="int-tool-search" name="toolSearch" type="text" list="datalist-tools" placeholder="Ex: 2158S" required />
-                <datalist id="datalist-tools"></datalist>
-              </div>
-
-              <div class="field">
-                <label class="field__label" for="int-outil-id">OUTIL ID</label>
-                <input class="field__input" id="int-outil-id" name="outilId" type="text" placeholder="WZ2158*-4s" required />
-              </div>
-
-              <div class="field">
-                <label class="field__label" for="int-fabricant">Fabricant</label>
-                <input class="field__input" id="int-fabricant" name="fabricant" type="text" readonly />
-              </div>
-            </div>
-
-            <!-- Fiche technique auto-remplie -->
-            <aside class="tool-card" id="int-tool-card">
-              <header class="tool-card__header">
-                <span class="tool-card__icon">⚙</span>
-                <h3 class="tool-card__title">Fiche technique</h3>
-                <span class="tool-card__cycle" id="tool-cycle">— cycles</span>
-              </header>
-              <dl class="tool-card__list">
-                <div class="tool-card__row">
-                  <dt>Réf. fabricant</dt><dd id="tc-ref-fab">—</dd>
-                </div>
-                <div class="tool-card__row">
-                  <dt>P-AR</dt><dd id="tc-par">—</dd>
-                </div>
-                <div class="tool-card__row">
-                  <dt>P-AV</dt><dd id="tc-pav">—</dd>
-                </div>
-                <div class="tool-card__row">
-                  <dt>E-AR</dt><dd id="tc-ear">—</dd>
-                </div>
-                <div class="tool-card__row">
-                  <dt>E-AV</dt><dd id="tc-eav">—</dd>
-                </div>
-              </dl>
-            </aside>
-          </fieldset>
-
-          <!-- ============================================================= -->
-          <!-- SECTION B — Partie CRIMPING (technicien maintenance)           -->
-          <!-- ============================================================= -->
-          <fieldset class="intervention__section intervention__section--crimping" id="section-crimping">
-            <legend class="intervention__legend">
-              <span class="intervention__legend-num">1</span>
-              🔧 Partie Crimping — Technicien maintenance
-            </legend>
-
-            <!-- Technicien Crimping -->
-            <div class="intervention__grid intervention__grid--2" style="margin-bottom:.75rem;padding:.875rem 1rem;background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.15);border-radius:10px">
-              <div class="field" style="margin-bottom:0">
-                <label class="field__label" for="crimp-tech-name">
-                  👤 Nom du technicien crimping
-                </label>
-                <input class="field__input" id="crimp-tech-name" name="crimpTechName"
-                  type="text" placeholder="Ex: Ahmed Benali"
-                  style="background:rgba(255,255,255,.07);font-weight:500" />
-              </div>
-              <div class="field" style="margin-bottom:0">
-                <label class="field__label" for="crimp-tech-mat">
-                  🪪 Matricule technicien crimping
-                </label>
-                <input class="field__input" id="crimp-tech-mat" name="crimpTechMatricule"
-                  type="text" placeholder="Ex: LN-C-001"
-                  style="background:rgba(255,255,255,.07);font-family:var(--font-mono)" />
-              </div>
-            </div>
-
-            <div class="intervention__grid intervention__grid--3">
-              <div class="field">
-                <label class="field__label" for="int-date">Date intervention</label>
-                <input class="field__input" id="int-date" name="date" type="date" required />
-              </div>
-
-              <div class="field">
-                <label class="field__label" for="int-cycles">Cycles compteur</label>
-                <input class="field__input" id="int-cycles" name="cycles" type="number" min="0" inputmode="numeric" required />
-                <button class="field__addon" type="button" id="btn-photo-cycles" title="Prendre photo du compteur">📷</button>
-              </div>
-
-              <div class="field">
-                <label class="field__label" for="int-type">Type d'intervention</label>
-                <select class="field__input" id="int-type" name="type" required>
-                  <option value="">— Choisir —</option>
-                  <option value="preventive">Préventive</option>
-                  <option value="curative">Curative</option>
-                  <option value="requalification">Requalification</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="field field--full">
-              <label class="field__label">Pièces changées</label>
-              <div class="checkbox-group" id="pieces-group">
-                <label class="checkbox"><input type="checkbox" name="piece" value="pAr" /><span>P-AR · Poinçon Arrière</span></label>
-                <label class="checkbox"><input type="checkbox" name="piece" value="pAv" /><span>P-AV · Poinçon Avant</span></label>
-                <label class="checkbox"><input type="checkbox" name="piece" value="eAr" /><span>E-AR · Enclume Arrière</span></label>
-                <label class="checkbox"><input type="checkbox" name="piece" value="eAv" /><span>E-AV · Enclume Avant</span></label>
-                <label class="checkbox"><input type="checkbox" name="piece" value="ejector" /><span>Ejector</span></label>
-                <label class="checkbox"><input type="checkbox" name="piece" value="couteauBanda" /><span>Couteau / Banda</span></label>
-              </div>
-            </div>
-
-            <div class="field field--full">
-              <label class="field__label" for="int-observation">Observation</label>
-              <textarea class="field__input field__input--area" id="int-observation" name="observation" rows="4" maxlength="1000" placeholder="Ex: Requalification + bon n° 410034"></textarea>
-              <span class="field__counter" id="obs-counter">0 / 1000</span>
-            </div>
-
-            <div class="field field--full">
-              <label class="field__label">Photo compteur (optionnelle)</label>
-              <div class="upload" id="upload-cycles">
-                <input type="file" id="file-cycles" accept="image/*" capture="environment" hidden />
-                <button class="upload__btn" type="button" data-target="file-cycles">📷 Ajouter une photo</button>
-                <div class="upload__preview" id="preview-cycles"></div>
-              </div>
-            </div>
-
-            <div class="field field--full">
-              <label class="field__label">Signature crimping</label>
-              <div class="signature" id="sign-crimp">
-                <canvas class="signature__pad" id="sign-crimp-pad" width="600" height="160"></canvas>
-                <div class="signature__actions">
-                  <button type="button" class="btn btn--ghost" id="btn-sign-crimp-clear">Effacer</button>
-                  <span class="signature__name" id="sign-crimp-name">—</span>
-                </div>
-              </div>
-            </div>
-          </fieldset>
-
-          <!-- ============================================================= -->
-          <!-- SECTION C — Partie LABO (technicien laboratoire)               -->
-          <!-- ============================================================= -->
-          <fieldset class="intervention__section intervention__section--lab" id="section-lab" disabled>
-            <legend class="intervention__legend">
-              <span class="intervention__legend-num">2</span>
-              🧪 Partie Laboratoire — Validation
-            </legend>
-
-            <!-- Technicien Laboratoire -->
-            <div class="intervention__subsection">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.875rem;padding:.875rem 1rem;background:rgba(99,102,241,.05);border:1px solid rgba(99,102,241,.15);border-radius:10px;margin-bottom:.75rem">
-                <div class="field" style="margin-bottom:0">
-                  <label class="field__label" for="labo-tech-name">
-                    👤 Nom du technicien laboratoire
-                  </label>
-                  <input class="field__input" id="labo-tech-name" name="laboTechName"
-                    type="text" placeholder="Ex: Fatima Zahra"
-                    style="background:rgba(255,255,255,.07);font-weight:500" />
-                </div>
-                <div class="field" style="margin-bottom:0">
-                  <label class="field__label" for="labo-tech-mat">
-                    🪪 Matricule technicien laboratoire
-                  </label>
-                  <input class="field__input" id="labo-tech-mat" name="laboTechMatricule"
-                    type="text" placeholder="Ex: LN-L-001"
-                    style="background:rgba(255,255,255,.07);font-family:var(--font-mono)" />
-                </div>
-              </div>
-            </div>
-
-            <!-- Connexion -->
-            <div class="intervention__subsection">
-              <h3 class="intervention__sub-title">Cordon testé</h3>
-              <div class="intervention__grid intervention__grid--3">
-                <div class="field">
-                  <label class="field__label" for="lab-ref-connexion">Réf. connexion</label>
-                  <input class="field__input" id="lab-ref-connexion" name="refConnexion" type="text" />
-                </div>
-                <div class="field">
-                  <label class="field__label" for="lab-section-cable">Section câble</label>
-                  <input class="field__input" id="lab-section-cable" name="sectionCable" type="text" placeholder="Ex: 0,35 IR" />
-                </div>
-                <div class="field">
-                  <label class="field__label" for="lab-indice">Indice paramétrique</label>
-                  <input class="field__input" id="lab-indice" name="indiceParametrique" type="text" />
-                </div>
-              </div>
-            </div>
-
-            <!-- Mesures -->
-            <div class="intervention__subsection">
-              <h3 class="intervention__sub-title">Mesures dimensionnelles</h3>
-              <div class="intervention__grid intervention__grid--2">
-                <div class="field">
-                  <label class="field__label" for="lab-largeur-ame">Largeur âme</label>
-                  <input class="field__input" id="lab-largeur-ame" name="largeurAme" type="number" step="0.001" />
-                </div>
-                <div class="field">
-                  <label class="field__label" for="lab-largeur-isolant">Largeur isolant</label>
-                  <input class="field__input" id="lab-largeur-isolant" name="largeurIsolant" type="number" step="0.001" />
-                </div>
-              </div>
-
-              <table class="measure-table">
-                <caption class="measure-table__caption">5 mesures successives</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">#</th>
-                    <th scope="col">Hauteur isolant</th>
-                    <th scope="col">Effort</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><th scope="row">1</th>
-                    <td><input class="measure-table__input" name="hi1" type="number" step="0.001" /></td>
-                    <td><input class="measure-table__input" name="ef1" type="number" step="0.01" /></td>
-                  </tr>
-                  <tr><th scope="row">2</th>
-                    <td><input class="measure-table__input" name="hi2" type="number" step="0.001" /></td>
-                    <td><input class="measure-table__input" name="ef2" type="number" step="0.01" /></td>
-                  </tr>
-                  <tr><th scope="row">3</th>
-                    <td><input class="measure-table__input" name="hi3" type="number" step="0.001" /></td>
-                    <td><input class="measure-table__input" name="ef3" type="number" step="0.01" /></td>
-                  </tr>
-                  <tr><th scope="row">4</th>
-                    <td><input class="measure-table__input" name="hi4" type="number" step="0.001" /></td>
-                    <td><input class="measure-table__input" name="ef4" type="number" step="0.01" /></td>
-                  </tr>
-                  <tr><th scope="row">5</th>
-                    <td><input class="measure-table__input" name="hi5" type="number" step="0.001" /></td>
-                    <td><input class="measure-table__input" name="ef5" type="number" step="0.01" /></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Capabilité (calculé auto) -->
-            <div class="intervention__subsection">
-              <h3 class="intervention__sub-title">Capabilité <span class="badge badge--auto">Calcul auto</span></h3>
-              <div class="intervention__grid intervention__grid--4">
-                <div class="field field--readonly">
-                  <label class="field__label">Hauteur âme moy.</label>
-                  <output class="field__output" id="capa-ame-moy">—</output>
-                </div>
-                <div class="field field--readonly">
-                  <label class="field__label">Cm âme</label>
-                  <output class="field__output" id="capa-cm">—</output>
-                </div>
-                <div class="field field--readonly">
-                  <label class="field__label">Cmk âme</label>
-                  <output class="field__output" id="capa-cmk">—</output>
-                </div>
-                <div class="field field--readonly">
-                  <label class="field__label">Cm effort</label>
-                  <output class="field__output" id="capa-cm-effort">—</output>
-                </div>
-              </div>
-              <div class="field">
-                <label class="field__label" for="lab-chute-tension">Chute tension (mV)</label>
-                <input class="field__input" id="lab-chute-tension" name="chuteTension" type="number" step="0.01" />
-              </div>
-            </div>
-
-            <!-- Conformités -->
-            <div class="intervention__subsection">
-              <h3 class="intervention__sub-title">Conformités</h3>
-              <div class="checkbox-group checkbox-group--lab">
-                <label class="checkbox"><input type="checkbox" name="conf" value="chanfrein" /><span>Conformité chanfrein</span></label>
-                <label class="checkbox"><input type="checkbox" name="conf" value="temoinCoupe" /><span>Conformité témoin coupe</span></label>
-                <label class="checkbox"><input type="checkbox" name="conf" value="flexion" /><span>Conformité flexion</span></label>
-              </div>
-            </div>
-
-            <!-- Coupe métallographique -->
-            <div class="intervention__subsection">
-              <h3 class="intervention__sub-title">Coupe métallographique</h3>
-              <div class="upload" id="upload-coupe">
-                <input type="file" id="file-coupe" accept="application/pdf,image/*" hidden />
-                <button class="upload__btn" type="button" data-target="file-coupe">📎 Joindre PDF / image</button>
-                <div class="upload__preview" id="preview-coupe"></div>
-                <a class="upload__link" id="link-coupe" href="#" hidden target="_blank" rel="noopener">Voir le fichier</a>
-              </div>
-            </div>
-
-            <!-- Décision labo -->
-            <div class="intervention__subsection intervention__subsection--decision">
-              <h3 class="intervention__sub-title">Décision laboratoire</h3>
-              <div class="decision">
-                <button class="decision__btn decision__btn--validate" type="button" id="btn-validate">
-                  ✅ Valider le bon
-                </button>
-                <button class="decision__btn decision__btn--reject" type="button" id="btn-reject">
-                  ❌ Refuser & renvoyer au crimping
-                </button>
-              </div>
-
-              <div class="field field--full">
-                <label class="field__label">Signature labo</label>
-                <div class="signature" id="sign-lab">
-                  <canvas class="signature__pad" id="sign-lab-pad" width="600" height="160"></canvas>
-                  <div class="signature__actions">
-                    <button type="button" class="btn btn--ghost" id="btn-sign-lab-clear">Effacer</button>
-                    <span class="signature__name" id="sign-lab-name">—</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </fieldset>
-
-          <!-- ============================================================= -->
-          <!-- HISTORIQUE DES STATUTS                                         -->
-          <!-- ============================================================= -->
-          <section class="intervention__section intervention__section--history">
-            <h3 class="intervention__sub-title">Historique du bon</h3>
-            <ol class="timeline" id="int-timeline">
-              <!-- entries injectées dynamiquement -->
-            </ol>
-          </section>
-
-          <!-- ============================================================= -->
-          <!-- BARRE D'ACTIONS STICKY                                         -->
-          <!-- ============================================================= -->
-          <footer class="intervention__actions" id="int-actions">
-            <div class="intervention__actions-left">
-              <button type="button" class="btn btn--ghost" id="btn-int-prev" title="Précédent">⏮</button>
-              <button type="button" class="btn btn--ghost" id="btn-int-next" title="Suivant">⏭</button>
-              <span class="intervention__counter" id="int-counter">— / —</span>
-            </div>
-
-            <div class="intervention__actions-right">
-              <button type="button" class="btn btn--ghost" id="btn-int-print">🖨 Imprimer A4</button>
-              <button type="button" class="btn btn--ghost" id="btn-int-export">📤 Export PDF</button>
-              <button type="button" class="btn btn--danger btn--ghost" id="btn-int-delete" data-requires-role="responsable,super_admin,admin">🗑 Supprimer</button>
-              <button type="button" class="btn btn--secondary" id="btn-int-save">💾 Enregistrer brouillon</button>
-              <button type="submit" class="btn btn--primary" id="btn-int-submit">📨 Soumettre au labo</button>
-            </div>
-          </footer>
-        </form>
-      </section>
-
-
-      <!-- ================================================================= -->
-      <!-- VIEW 4 — HISTORIQUE / SUIVI DES MAINTENANCES                      -->
-      <!-- ================================================================= -->
-      <section class="history" id="view-history" data-view="history" hidden>
-        <header class="history__header">
-          <h1 class="history__title">Suivi des maintenances</h1>
-          <p class="history__subtitle">Validation des outils de sertissage</p>
-        </header>
-
-        <div class="history__filters" id="history-filters">
-          <div class="filter">
-            <label class="filter__label" for="filter-tool">Outil</label>
-            <input class="filter__input" id="filter-tool" type="text" list="datalist-tools" placeholder="Tous les outils" />
-          </div>
-
-          <div class="filter">
-            <label class="filter__label" for="filter-from">Du</label>
-            <input class="filter__input" id="filter-from" type="date" />
-          </div>
-
-          <div class="filter">
-            <label class="filter__label" for="filter-to">Au</label>
-            <input class="filter__input" id="filter-to" type="date" />
-          </div>
-
-          <div class="filter">
-            <label class="filter__label" for="filter-type">Type</label>
-            <select class="filter__input" id="filter-type">
-              <option value="">Tous</option>
-              <option value="preventive">Préventive</option>
-              <option value="curative">Curative</option>
-              <option value="requalification">Requalification</option>
-            </select>
-          </div>
-
-          <div class="filter">
-            <label class="filter__label" for="filter-status">Statut</label>
-            <select class="filter__input" id="filter-status">
-              <option value="">Tous</option>
-              <option value="draft">Brouillon</option>
-              <option value="submitted">En attente</option>
-              <option value="validated">Validé</option>
-              <option value="rejected">Refusé</option>
-            </select>
-          </div>
-
-          <div class="filter">
-            <label class="filter__label" for="filter-tech">Technicien</label>
-            <input class="filter__input" id="filter-tech" type="text" />
-          </div>
-
-          <div class="filter filter--actions">
-            <button class="btn btn--ghost" id="btn-filter-reset">Réinitialiser</button>
-            <button class="btn btn--secondary" id="btn-filter-export">📤 Excel</button>
-            <button class="btn btn--secondary" id="btn-filter-print">🖨 Imprimer</button>
-          </div>
-        </div>
-
-        <div class="history__tablewrap">
-          <table class="data-table" id="history-table">
-            <thead>
-              <tr>
-                <th><input type="checkbox" id="check-all" /></th>
-                <th data-sort="numBon">N° Bon</th>
-                <th data-sort="outilId">Outil</th>
-                <th data-sort="date">Date</th>
-                <th data-sort="cycles">Cycles</th>
-                <th data-sort="type">Type</th>
-                <th>Observation</th>
-                <th>Coupe métallo</th>
-                <th data-sort="status">Statut</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="history-body">
-              <!-- rows injected -->
-            </tbody>
-          </table>
-        </div>
-
-        <footer class="history__pagination">
-          <span class="history__total" id="history-total">— résultats</span>
-          <div class="history__pager">
-            <button class="btn btn--ghost" id="page-prev">←</button>
-            <span id="page-info">1 / 1</span>
-            <button class="btn btn--ghost" id="page-next">→</button>
-          </div>
-          <select class="history__pagesize" id="page-size">
-            <option value="25">25 / page</option>
-            <option value="50" selected>50 / page</option>
-            <option value="100">100 / page</option>
-            <option value="200">200 / page</option>
-          </select>
-        </footer>
-      </section>
-
-
-      <!-- ================================================================= -->
-      <!-- VIEW 5 — FILE D'ATTENTE (mes bons)                                -->
-      <!-- ================================================================= -->
-      <section class="queue-view" id="view-queue" data-view="queue" hidden>
-        <header class="queue-view__header">
-          <h1 class="queue-view__title">Ma file d'attente</h1>
-          <div class="queue-view__tabs" role="tablist">
-            <button class="tab tab--active" role="tab" data-tab="all">Tous</button>
-            <button class="tab" role="tab" data-tab="mine">Les miens</button>
-            <button class="tab" role="tab" data-tab="todo">À traiter</button>
-            <button class="tab" role="tab" data-tab="rejected">Refusés</button>
-          </div>
-        </header>
-
-        <div class="queue-view__list" id="queue-cards">
-          <!-- cartes injectées -->
-        </div>
-      </section>
-
-
-      <!-- ================================================================= -->
-      <!-- VIEW 6 — CATALOGUE OUTILS                                         -->
-      <!-- ================================================================= -->
-      <section class="catalog" id="view-catalog" data-view="catalog" hidden>
-        <header class="catalog__header">
-          <h1 class="catalog__title">Catalogue outils</h1>
-          <div class="catalog__actions">
-            <input class="catalog__search" id="catalog-search" type="search" placeholder="Rechercher un outil…" />
-            <button class="btn btn--secondary" id="btn-catalog-import">📥 Importer Excel</button>
-            <button class="btn btn--secondary" id="btn-catalog-export">📤 Exporter Excel</button>
-            <button class="btn btn--primary" id="btn-catalog-add" data-requires-role="responsable,super_admin,admin">＋ Nouvel outil</button>
-          </div>
-        </header>
-
-        <div class="catalog__grid" id="catalog-grid">
-          <!-- cards injected -->
-        </div>
-      </section>
-
-
-      <!-- ================================================================= -->
-      <!-- VIEW 7 — UTILISATEURS (admin)                                     -->
-      <!-- ================================================================= -->
-      <section class="users-view" id="view-users" data-view="users" hidden>
-        <header class="users-view__header">
-          <h1 class="users-view__title">Gestion des utilisateurs</h1>
-          <button class="btn btn--primary" id="btn-user-add">＋ Nouvel utilisateur</button>
-        </header>
-
-        <table class="data-table" id="users-table">
-          <thead>
-            <tr>
-              <th>Nom</th>
-              <th>Matricule</th>
-              <th>Email</th>
-              <th>Rôle</th>
-              <th>🔑 Mot de passe</th>
-              <th>Statut</th>
-              <th>Dernière connexion</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="users-body"></tbody>
-        </table>
-      </section>
-
-
-      <!-- ================================================================= -->
-      <!-- VIEW 8 — STATISTIQUES & SLA                                       -->
-      <!-- ================================================================= -->
-      <section class="stats-view" id="view-stats" data-view="stats" hidden>
-        <header class="stats-view__header">
-          <h1 class="stats-view__title">Statistiques & SLA</h1>
-          <div class="stats-view__period">
-            <select id="stats-period">
-              <option value="7">7 jours</option>
-              <option value="30" selected>30 jours</option>
-              <option value="90">90 jours</option>
-              <option value="365">12 mois</option>
-            </select>
-          </div>
-        </header>
-
-        <div class="stats-view__grid">
-          <article class="card"><canvas id="chart-status-distribution"></canvas></article>
-          <article class="card"><canvas id="chart-sla-trend"></canvas></article>
-          <article class="card"><canvas id="chart-tools-ranking"></canvas></article>
-          <article class="card"><canvas id="chart-tech-performance"></canvas></article>
-        </div>
-      </section>
-
-
-      <!-- ================================================================= -->
-      <!-- VIEW AUDIT LOG                                                     -->
-      <!-- ================================================================= -->
-      <section class="history" id="view-auditlog" data-view="auditlog" hidden>
-        <header class="history__header">
-          <h1 class="history__title">Journal d'audit</h1>
-          <p style="color:var(--text-secondary);font-size:.875rem">100 dernières actions administrateur</p>
-        </header>
-        <div class="history__tablewrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Date & heure</th>
-                <th>Utilisateur</th>
-                <th>Action</th>
-                <th>Entité</th>
-                <th>UID</th>
-              </tr>
-            </thead>
-            <tbody id="audit-body">
-              <tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted)">Chargement…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-    </main>
-
-
-    <!-- ============== NOTIFICATIONS PANEL ============== -->
-    <aside class="notif-panel" id="notif-panel" hidden>
-      <header class="notif-panel__header">
-        <h2>Notifications</h2>
-        <button id="btn-notif-clear">Tout marquer lu</button>
-        <button id="btn-notif-close" aria-label="Fermer">×</button>
-      </header>
-      <ul class="notif-panel__list" id="notif-list"></ul>
-    </aside>
-
-  </div>
-
-
-  <!-- ===================================================================== -->
-  <!-- MODALES                                                                -->
-  <!-- ===================================================================== -->
-
-  <!-- Modal: confirmation générique -->
-  <div class="modal" id="modal-confirm" role="dialog" aria-modal="true" hidden>
-    <div class="modal__backdrop" data-close></div>
-    <div class="modal__panel">
-      <header class="modal__header">
-        <h2 class="modal__title" id="confirm-title">Confirmer</h2>
-        <button class="modal__close" data-close aria-label="Fermer">×</button>
-      </header>
-      <div class="modal__body">
-        <p id="confirm-message">Êtes-vous sûr ?</p>
-      </div>
-      <footer class="modal__footer">
-        <button class="btn btn--ghost" data-close>Annuler</button>
-        <button class="btn btn--primary" id="confirm-ok">Confirmer</button>
-      </footer>
-    </div>
-  </div>
-
-  <!-- Modal: refus avec motif -->
-  <div class="modal" id="modal-reject" role="dialog" aria-modal="true" hidden>
-    <div class="modal__backdrop" data-close></div>
-    <div class="modal__panel">
-      <header class="modal__header">
-        <h2 class="modal__title">Refuser le bon</h2>
-        <button class="modal__close" data-close aria-label="Fermer">×</button>
-      </header>
-      <div class="modal__body">
-        <div class="field">
-          <label class="field__label" for="reject-reason">Motif du refus (obligatoire)</label>
-          <textarea class="field__input field__input--area" id="reject-reason" rows="4" required placeholder="Expliquez ce qui doit être corrigé par le crimping…"></textarea>
-        </div>
-      </div>
-      <footer class="modal__footer">
-        <button class="btn btn--ghost" data-close>Annuler</button>
-        <button class="btn btn--danger" id="btn-confirm-reject">Refuser & renvoyer</button>
-      </footer>
-    </div>
-  </div>
-
-  <!-- Modal: nouvel outil / édition outil -->
-  <div class="modal" id="modal-tool" role="dialog" aria-modal="true" hidden>
-    <div class="modal__backdrop" data-close></div>
-    <div class="modal__panel modal__panel--lg">
-      <header class="modal__header">
-        <h2 class="modal__title" id="tool-modal-title">Nouvel outil</h2>
-        <button class="modal__close" data-close aria-label="Fermer">×</button>
-      </header>
-      <form class="modal__body" id="form-tool">
-        <div class="intervention__grid intervention__grid--2">
-          <div class="field"><label>Réf outil</label><input name="refOutil" required /></div>
-          <div class="field"><label>OUTIL ID</label><input name="outilId" required /></div>
-          <div class="field"><label>Fabricant</label><input name="fabricant" /></div>
-          <div class="field"><label>Réf fabricant</label><input name="refFabricant" /></div>
-          <div class="field"><label>P-AR</label><input name="pAr" /></div>
-          <div class="field"><label>P-AV</label><input name="pAv" /></div>
-          <div class="field"><label>E-AR</label><input name="eAr" /></div>
-          <div class="field"><label>E-AV</label><input name="eAv" /></div>
-          <div class="field"><label>Fréquence cycle</label><input name="frequenceCycle" type="number" /></div>
-        </div>
-      </form>
-      <footer class="modal__footer">
-        <button class="btn btn--ghost" data-close>Annuler</button>
-        <button class="btn btn--primary" id="btn-tool-save">Enregistrer</button>
-      </footer>
-    </div>
-  </div>
-
-  <!-- Modal: nouvel utilisateur -->
-  <div class="modal" id="modal-user" role="dialog" aria-modal="true" hidden>
-    <div class="modal__backdrop" data-close></div>
-    <div class="modal__panel">
-      <header class="modal__header">
-        <h2 class="modal__title">Nouvel utilisateur</h2>
-        <button class="modal__close" data-close>×</button>
-      </header>
-      <form class="modal__body" id="form-user">
-        <div class="field"><label class="field__label">Nom complet</label><input class="field__input" name="displayName" required placeholder="Ex: Ahmed Benali" /></div>
-        <div class="field"><label class="field__label">Matricule</label><input class="field__input" name="matricule" placeholder="Ex: LN-C-003" /></div>
-        <div class="field"><label class="field__label">Email</label><input class="field__input" name="email" type="email" required placeholder="Ex: ahmed@leoni.com" /></div>
-        <div class="field">
-          <label class="field__label">Rôle</label>
-          <select class="field__input" name="role" required>
-            <option value="crimp">Technicien Crimping</option>
-            <option value="labo">Technicien Laboratoire</option>
-            <option value="responsable">Responsable Maintenance</option>
-            <option value="admin">Administrateur</option>
-          </select>
-        </div>
-        <div class="field"><label class="field__label">Mot de passe initial</label><input class="field__input" name="password" type="text" required placeholder="Min. 8 caractères" /></div>
-      </form>
-      <footer class="modal__footer">
-        <button class="btn btn--ghost" data-close>Annuler</button>
-        <button class="btn btn--primary" id="btn-user-save">Créer</button>
-      </footer>
-    </div>
-  </div>
-
-
-  <!-- ===================================================================== -->
-  <!-- SESSION WARNING MODAL                                                  -->
-  <!-- ===================================================================== -->
-  <div class="modal" id="modal-session-warn" role="dialog" aria-modal="true" hidden>
-    <div class="modal__backdrop"></div>
-    <div class="modal__panel" style="max-width:380px;text-align:center">
-      <div style="font-size:2.5rem;margin-bottom:.5rem">⏰</div>
-      <h2 class="modal__title" style="margin-bottom:.5rem">Session sur le point d'expirer</h2>
-      <p style="color:var(--text-secondary);font-size:.875rem;margin-bottom:1.25rem">
-        Votre session va expirer dans <strong id="session-countdown">120</strong> secondes.<br/>
-        Cliquez pour rester connecté.
-      </p>
-      <button class="btn btn--primary" id="btn-session-extend" style="width:100%">
-        ✅ Rester connecté
-      </button>
-    </div>
-  </div>
-
-  <!-- ===================================================================== -->
-  <!-- TOAST NOTIFICATIONS                                                    -->
-  <!-- ===================================================================== -->
-  <div class="toast-container" id="toast-container" aria-live="polite" aria-atomic="true"></div>
-
-  <!-- ===================================================================== -->
-  <!-- LOADING OVERLAY                                                        -->
-  <!-- ===================================================================== -->
-  <div class="loader" id="loader" hidden>
-    <div class="loader__spinner"></div>
-    <p class="loader__text" id="loader-text">Chargement…</p>
-  </div>
-
-  <!-- ===================================================================== -->
-  <!-- 🔥 FIREBASE SDK (compat v9) — MODE PRODUCTION                        -->
-  <!-- ===================================================================== -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LEONI · Mission Control — Crimping Lab</title>
+
+  <!-- Fonts: Orbitron (display) + DM Sans (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+  <!-- Firebase Auth (for anonymous login) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
-  <!-- ===================================================================== -->
-  <!-- APPLICATION                                                            -->
-  <!-- ===================================================================== -->
-  <script src="app.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <!-- SheetJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════════════════════════ */
+    :root {
+      --void:        #020408;
+      --deep:        #040810;
+      --surface:     #070d18;
+      --panel:       rgba(8,16,32,0.85);
+      --glass:       rgba(15,30,55,0.6);
+      --glass-hi:    rgba(20,45,80,0.7);
+
+      --cyan:        #00d4ff;
+      --cyan-dim:    rgba(0,212,255,0.15);
+      --cyan-glow:   rgba(0,212,255,0.08);
+      --amber:       #ffb547;
+      --amber-dim:   rgba(255,181,71,0.15);
+      --red:         #ff3d5a;
+      --red-dim:     rgba(255,61,90,0.15);
+      --green:       #00e5a0;
+      --green-dim:   rgba(0,229,160,0.12);
+      --violet:      #8b5cf6;
+      --violet-dim:  rgba(139,92,246,0.15);
+
+      --text-hi:     #e8f4ff;
+      --text-mid:    #7a9bb5;
+      --text-lo:     #3a5570;
+
+      --border:      rgba(0,212,255,0.12);
+      --border-hi:   rgba(0,212,255,0.28);
+
+      --font-display: 'Orbitron', monospace;
+      --font-body:    'DM Sans', sans-serif;
+      --font-mono:    'DM Mono', monospace;
+
+      --sidebar-w:    240px;
+      --sidebar-w-sm: 60px;
+      --transition:   0.28s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* ─── Reset ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--void);
+      color: var(--text-hi);
+      display: flex;
+    }
+
+    /* ─── Animated star/grid background ─── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(0,212,255,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 110%, rgba(139,92,246,0.05) 0%, transparent 55%),
+        linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
+      pointer-events: none;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       SIDEBAR
+    ═══════════════════════════════════════════════════════════ */
+    .sidebar {
+      position: fixed; left: 0; top: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--panel);
+      backdrop-filter: blur(24px) saturate(1.5);
+      -webkit-backdrop-filter: blur(24px) saturate(1.5);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      z-index: 500;
+      transition: width var(--transition);
+      overflow: hidden;
+    }
+    .sidebar.collapsed { width: var(--sidebar-w-sm); }
+
+    /* Logo area */
+    .sb-logo {
+      padding: 1.5rem 1.25rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: .75rem;
+      min-height: 72px; flex-shrink: 0;
+    }
+    .sb-logo-icon {
+      width: 36px; height: 36px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--cyan), #0066cc);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-size: .65rem; font-weight: 700;
+      color: var(--void);
+      box-shadow: 0 0 20px rgba(0,212,255,0.35);
+    }
+    .sb-logo-text {
+      overflow: hidden; white-space: nowrap;
+      transition: opacity var(--transition);
+    }
+    .sb-logo-text .brand {
+      font-family: var(--font-display); font-size: .8rem; font-weight: 700;
+      color: var(--cyan); letter-spacing: .12em;
+      display: block;
+    }
+    .sb-logo-text .sub {
+      font-size: .68rem; color: var(--text-mid);
+      letter-spacing: .05em; margin-top: 1px;
+    }
+    .sidebar.collapsed .sb-logo-text { opacity: 0; width: 0; }
+
+    /* Nav links */
+    .sb-nav { padding: .75rem 0; flex: 1; overflow-y: auto; overflow-x: hidden; }
+    .sb-section-label {
+      padding: .5rem 1.25rem .25rem;
+      font-size: .62rem; font-weight: 600; letter-spacing: .1em;
+      color: var(--text-lo); text-transform: uppercase;
+      white-space: nowrap; overflow: hidden;
+      transition: opacity var(--transition);
+    }
+    .sidebar.collapsed .sb-section-label { opacity: 0; }
+
+    .sb-link {
+      display: flex; align-items: center; gap: .875rem;
+      padding: .7rem 1.25rem;
+      cursor: pointer; border: none; background: none; width: 100%; text-align: left;
+      color: var(--text-mid); font-size: .85rem; font-family: var(--font-body);
+      transition: all var(--transition);
+      border-left: 2px solid transparent;
+      white-space: nowrap; position: relative;
+    }
+    .sb-link svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .sb-link:hover { color: var(--text-hi); background: var(--cyan-glow); }
+    .sb-link.active {
+      color: var(--cyan); background: var(--cyan-dim);
+      border-left-color: var(--cyan);
+    }
+    .sb-link .link-text { overflow: hidden; transition: opacity var(--transition), max-width var(--transition); max-width: 200px; }
+    .sidebar.collapsed .sb-link .link-text { opacity: 0; max-width: 0; }
+    .sb-link .badge {
+      margin-left: auto; background: var(--red); color: #fff;
+      font-size: .62rem; font-weight: 700; border-radius: 10px;
+      padding: .12rem .4rem; min-width: 18px; text-align: center;
+      transition: opacity var(--transition);
+    }
+    .sidebar.collapsed .sb-link .badge { opacity: 0; }
+
+    /* Tooltip on collapse */
+    .sidebar.collapsed .sb-link:hover::after {
+      content: attr(data-label);
+      position: absolute; left: calc(var(--sidebar-w-sm) + 8px);
+      background: var(--glass-hi); backdrop-filter: blur(12px);
+      border: 1px solid var(--border-hi);
+      color: var(--text-hi); font-size: .8rem;
+      padding: .35rem .75rem; border-radius: 6px;
+      white-space: nowrap; pointer-events: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,.5);
+      z-index: 9999;
+    }
+
+    /* Toggle btn */
+    .sb-toggle {
+      margin: .75rem 1.25rem; padding: .6rem;
+      background: var(--glass); border: 1px solid var(--border);
+      border-radius: 8px; cursor: pointer; color: var(--text-mid);
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition); flex-shrink: 0;
+    }
+    .sb-toggle:hover { background: var(--glass-hi); color: var(--cyan); border-color: var(--border-hi); }
+    .sb-toggle svg { width: 16px; height: 16px; transition: transform var(--transition); }
+    .sidebar.collapsed .sb-toggle svg { transform: rotate(180deg); }
+
+    /* Status footer */
+    .sb-footer {
+      padding: .875rem 1.25rem;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: .75rem;
+      flex-shrink: 0; overflow: hidden;
+    }
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green); flex-shrink: 0;
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse-live 2s ease-in-out infinite;
+    }
+    @keyframes pulse-live {
+      0%,100% { opacity: 1; box-shadow: 0 0 8px var(--green); }
+      50% { opacity: .5; box-shadow: 0 0 3px var(--green); }
+    }
+    .sb-footer-text { overflow: hidden; transition: opacity var(--transition); font-size: .72rem; }
+    .sb-footer-text .sync-label { color: var(--green); font-weight: 600; }
+    .sb-footer-text .sync-time  { color: var(--text-lo); font-size: .65rem; margin-top: 1px; }
+    .sidebar.collapsed .sb-footer-text { opacity: 0; }
+
+    /* ═══════════════════════════════════════════════════════════
+       MAIN LAYOUT
+    ═══════════════════════════════════════════════════════════ */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1; display: flex; flex-direction: column;
+      min-height: 100vh;
+      transition: margin-left var(--transition);
+      position: relative; z-index: 1;
+    }
+    .sidebar.collapsed ~ .main { margin-left: var(--sidebar-w-sm); }
+
+    /* Topbar */
+    .topbar {
+      height: 60px; flex-shrink: 0;
+      background: var(--panel); backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 1.75rem;
+    }
+    .topbar-left { display: flex; align-items: center; gap: .75rem; }
+    .topbar-title {
+      font-family: var(--font-display); font-size: .8rem; font-weight: 600;
+      color: var(--text-hi); letter-spacing: .08em;
+    }
+    .topbar-breadcrumb {
+      font-size: .75rem; color: var(--text-mid);
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .topbar-breadcrumb span { color: var(--text-lo); }
+    .topbar-right { display: flex; align-items: center; gap: .875rem; }
+
+    .status-chip {
+      display: flex; align-items: center; gap: .45rem;
+      padding: .3rem .75rem; border-radius: 20px;
+      background: var(--green-dim); border: 1px solid rgba(0,229,160,0.25);
+      font-size: .72rem; font-weight: 600; color: var(--green);
+    }
+    .status-chip .dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+      animation: pulse-live 2s ease-in-out infinite;
+    }
+
+    .topbar-time {
+      font-family: var(--font-mono); font-size: .75rem; color: var(--text-mid);
+    }
+    .topbar-btn {
+      padding: .4rem .9rem; border-radius: 8px;
+      background: var(--glass); border: 1px solid var(--border);
+      color: var(--text-mid); font-size: .78rem; cursor: pointer;
+      transition: all var(--transition); font-family: var(--font-body);
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .topbar-btn:hover { background: var(--glass-hi); color: var(--cyan); border-color: var(--border-hi); }
+    .topbar-btn svg { width: 14px; height: 14px; }
+
+    /* Content scroll area */
+    .content {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      padding: 1.5rem 1.75rem;
+      scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    }
+    .content::-webkit-scrollbar { width: 4px; }
+    .content::-webkit-scrollbar-track { background: transparent; }
+    .content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Page sections */
+    .page { display: none; }
+    .page.active { display: block; animation: fadeIn .3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ═══════════════════════════════════════════════════════════
+       KPI CARDS
+    ═══════════════════════════════════════════════════════════ */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem; margin-bottom: 1.5rem;
+    }
+
+    .kpi-card {
+      background: var(--glass);
+      backdrop-filter: blur(20px) saturate(1.4);
+      -webkit-backdrop-filter: blur(20px) saturate(1.4);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem 1.25rem 1rem;
+      position: relative; overflow: hidden;
+      transition: border-color var(--transition), transform var(--transition);
+      cursor: default;
+    }
+    .kpi-card:hover { border-color: var(--border-hi); transform: translateY(-2px); }
+
+    /* Top accent glow */
+    .kpi-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    }
+    .kpi-card.cyan::before   { background: linear-gradient(90deg, transparent, var(--cyan), transparent); }
+    .kpi-card.green::before  { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+    .kpi-card.amber::before  { background: linear-gradient(90deg, transparent, var(--amber), transparent); }
+    .kpi-card.red::before    { background: linear-gradient(90deg, transparent, var(--red), transparent); }
+
+    /* Corner glow */
+    .kpi-card::after {
+      content: ''; position: absolute; top: -40px; right: -40px;
+      width: 120px; height: 120px; border-radius: 50%; opacity: .4;
+      filter: blur(40px); pointer-events: none;
+    }
+    .kpi-card.cyan::after   { background: var(--cyan); }
+    .kpi-card.green::after  { background: var(--green); }
+    .kpi-card.amber::after  { background: var(--amber); }
+    .kpi-card.red::after    { background: var(--red); }
+
+    .kpi-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: .875rem;
+    }
+    .kpi-label {
+      font-size: .7rem; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text-mid);
+    }
+    .kpi-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .kpi-icon svg { width: 16px; height: 16px; }
+    .kpi-card.cyan  .kpi-icon { background: var(--cyan-dim); color: var(--cyan); }
+    .kpi-card.green .kpi-icon { background: var(--green-dim); color: var(--green); }
+    .kpi-card.amber .kpi-icon { background: var(--amber-dim); color: var(--amber); }
+    .kpi-card.red   .kpi-icon { background: var(--red-dim); color: var(--red); }
+
+    .kpi-value {
+      font-family: var(--font-display); font-size: 2.2rem; font-weight: 700;
+      line-height: 1; margin-bottom: .4rem;
+    }
+    .kpi-card.cyan  .kpi-value { color: var(--cyan); }
+    .kpi-card.green .kpi-value { color: var(--green); }
+    .kpi-card.amber .kpi-value { color: var(--amber); }
+    .kpi-card.red   .kpi-value { color: var(--red); }
+
+    .kpi-sub { font-size: .72rem; color: var(--text-mid); }
+    .kpi-delta {
+      font-size: .68rem; font-weight: 600; margin-top: .35rem;
+      display: inline-flex; align-items: center; gap: .2rem;
+      padding: .15rem .45rem; border-radius: 5px;
+    }
+    .kpi-delta.up   { background: var(--green-dim); color: var(--green); }
+    .kpi-delta.down { background: var(--red-dim); color: var(--red); }
+    .kpi-delta.flat { background: rgba(255,255,255,.06); color: var(--text-mid); }
+
+    /* Blinking red for alerts */
+    .blink { animation: blink-alert 1.4s ease-in-out infinite; }
+    @keyframes blink-alert {
+      0%,100% { opacity: 1; } 50% { opacity: .3; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       GRID LAYOUT (charts + table)
+    ═══════════════════════════════════════════════════════════ */
+    .dash-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1rem; margin-bottom: 1rem;
+    }
+
+    /* Panel / Glass card */
+    .panel {
+      background: var(--glass); backdrop-filter: blur(20px) saturate(1.4);
+      -webkit-backdrop-filter: blur(20px) saturate(1.4);
+      border: 1px solid var(--border); border-radius: 14px;
+      overflow: hidden;
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    }
+    .panel-title {
+      font-family: var(--font-display); font-size: .72rem; font-weight: 600;
+      letter-spacing: .08em; color: var(--text-hi);
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .panel-title svg { width: 14px; height: 14px; color: var(--cyan); }
+    .panel-body { padding: 1.25rem; }
+
+    /* Chart filter tabs */
+    .filter-tabs { display: flex; gap: .35rem; }
+    .filter-tab {
+      padding: .28rem .7rem; border-radius: 6px; font-size: .7rem; font-weight: 600;
+      cursor: pointer; border: 1px solid transparent;
+      color: var(--text-mid); background: rgba(255,255,255,.04);
+      transition: all .15s;
+    }
+    .filter-tab.active { background: var(--cyan-dim); border-color: rgba(0,212,255,0.3); color: var(--cyan); }
+    .filter-tab:hover:not(.active) { background: rgba(255,255,255,.07); color: var(--text-hi); }
+
+    /* Chart canvas */
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* Donut / mini chart */
+    .donut-wrap { position: relative; height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .donut-center {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -52%);
+      text-align: center; pointer-events: none;
+    }
+    .donut-center .big {
+      font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; color: var(--cyan);
+    }
+    .donut-center .sml { font-size: .68rem; color: var(--text-mid); }
+    .donut-legend { margin-top: .75rem; display: flex; flex-direction: column; gap: .35rem; width: 100%; padding: 0 .5rem; }
+    .donut-legend-item {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: .72rem;
+    }
+    .donut-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ═══════════════════════════════════════════════════════════
+       TABLE
+    ═══════════════════════════════════════════════════════════ */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    thead tr { border-bottom: 1px solid var(--border); }
+    th {
+      padding: .6rem 1rem; text-align: left;
+      font-size: .65rem; font-weight: 600; letter-spacing: .08em;
+      color: var(--text-lo); text-transform: uppercase;
+    }
+    td { padding: .75rem 1rem; border-bottom: 1px solid rgba(0,212,255,0.05); color: var(--text-mid); }
+    tbody tr { transition: background .12s; }
+    tbody tr:hover td { background: var(--cyan-glow); color: var(--text-hi); }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .td-num  { font-family: var(--font-mono); font-weight: 500; color: var(--text-hi); }
+    .td-tool { font-weight: 500; color: var(--text-hi); }
+    .td-date { font-family: var(--font-mono); font-size: .72rem; }
+    .td-tech { font-size: .78rem; }
+
+    /* Status badges */
+    .badge {
+      display: inline-flex; align-items: center; gap: .3rem;
+      padding: .22rem .6rem; border-radius: 20px;
+      font-size: .68rem; font-weight: 700; letter-spacing: .04em;
+      white-space: nowrap; border: 1px solid;
+    }
+    .badge-dot { width: 5px; height: 5px; border-radius: 50%; }
+    .badge.validated { color: var(--green); border-color: rgba(0,229,160,.3); background: var(--green-dim); }
+    .badge.submitted { color: var(--amber); border-color: rgba(255,181,71,.3); background: var(--amber-dim); }
+    .badge.rejected  { color: var(--red);   border-color: rgba(255,61,90,.3);  background: var(--red-dim); animation: blink-alert 1.8s ease-in-out infinite; }
+    .badge.draft     { color: var(--text-mid); border-color: var(--border); background: rgba(255,255,255,.04); }
+
+    .badge.validated .badge-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .badge.submitted .badge-dot { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+    .badge.rejected  .badge-dot { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+    .badge.draft     .badge-dot { background: var(--text-lo); }
+
+    /* ═══════════════════════════════════════════════════════════
+       REPORTING SECTION
+    ═══════════════════════════════════════════════════════════ */
+    .report-grid {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .report-card {
+      background: var(--glass); backdrop-filter: blur(20px);
+      border: 1px solid var(--border); border-radius: 14px;
+      padding: 1.5rem; text-align: center;
+      transition: all var(--transition); cursor: pointer;
+      position: relative; overflow: hidden;
+    }
+    .report-card::before {
+      content: ''; position: absolute; inset: 0; opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .report-card.pdf::before   { background: radial-gradient(ellipse at 50% 0%, rgba(255,61,90,.12), transparent 60%); }
+    .report-card.excel::before { background: radial-gradient(ellipse at 50% 0%, rgba(0,229,160,.1), transparent 60%); }
+    .report-card.email::before { background: radial-gradient(ellipse at 50% 0%, rgba(0,212,255,.1), transparent 60%); }
+    .report-card:hover::before { opacity: 1; }
+    .report-card:hover { border-color: var(--border-hi); transform: translateY(-3px); }
+    .report-card:active { transform: translateY(-1px); }
+
+    .report-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto .875rem; font-size: 1.4rem;
+    }
+    .report-card.pdf   .report-icon { background: var(--red-dim);   }
+    .report-card.excel .report-icon { background: var(--green-dim); }
+    .report-card.email .report-icon { background: var(--cyan-dim);  }
+    .report-label {
+      font-family: var(--font-display); font-size: .72rem; font-weight: 600;
+      letter-spacing: .06em; color: var(--text-hi); margin-bottom: .3rem;
+    }
+    .report-sub { font-size: .72rem; color: var(--text-mid); }
+
+    .btn-report {
+      display: inline-flex; align-items: center; gap: .5rem;
+      margin-top: .875rem; padding: .55rem 1.1rem;
+      border-radius: 8px; border: none; cursor: pointer;
+      font-size: .78rem; font-weight: 600; font-family: var(--font-body);
+      transition: all var(--transition);
+    }
+    .report-card.pdf   .btn-report { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(255,61,90,.3); }
+    .report-card.excel .btn-report { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,229,160,.3); }
+    .report-card.email .btn-report { background: var(--cyan-dim);  color: var(--cyan);  border: 1px solid rgba(0,212,255,.3); }
+    .btn-report:hover { filter: brightness(1.3); transform: scale(1.04); }
+    .btn-report svg { width: 14px; height: 14px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       INVENTORY / PARAMS pages (placeholder)
+    ═══════════════════════════════════════════════════════════ */
+    .placeholder-page {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 60vh; gap: 1rem;
+    }
+    .placeholder-icon {
+      width: 80px; height: 80px; border-radius: 20px;
+      background: var(--glass); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; font-size: 2rem;
+    }
+    .placeholder-title {
+      font-family: var(--font-display); font-size: 1rem;
+      font-weight: 600; letter-spacing: .06em; color: var(--text-hi);
+    }
+    .placeholder-sub { font-size: .85rem; color: var(--text-mid); text-align: center; }
+
+    /* ═══════════════════════════════════════════════════════════
+       SCAN LINE EFFECT
+    ═══════════════════════════════════════════════════════════ */
+    .scanline {
+      position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 2px,
+        rgba(0,212,255,0.008) 2px, rgba(0,212,255,0.008) 4px
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════════════════ */
+    @media (max-width: 1200px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .dash-grid { grid-template-columns: 1fr; }
+      .report-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 900px) {
+      :root { --sidebar-w: 60px; }
+      .sb-logo-text, .sb-section-label, .sb-link .link-text, .sb-link .badge,
+      .sb-footer-text { opacity: 0 !important; max-width: 0 !important; }
+      .sidebar.collapsed { width: var(--sidebar-w-sm); }
+      .main { margin-left: 60px !important; }
+      .content { padding: 1rem; }
+      .topbar { padding: 0 1rem; }
+      .topbar-breadcrumb { display: none; }
+    }
+    @media (max-width: 640px) {
+      .kpi-grid { grid-template-columns: 1fr 1fr; gap: .75rem; }
+      .report-grid { grid-template-columns: 1fr; }
+      .kpi-value { font-size: 1.7rem; }
+    }
+
+    /* Toast */
+    .toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: .5rem; }
+    .toast {
+      background: var(--glass-hi); backdrop-filter: blur(20px);
+      border: 1px solid var(--border-hi); border-radius: 10px;
+      padding: .75rem 1.1rem; font-size: .82rem; color: var(--text-hi);
+      animation: slideIn .25s ease; max-width: 300px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    }
+    .toast.success { border-color: rgba(0,229,160,.4); }
+    .toast.error   { border-color: rgba(255,61,90,.4); }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+  </style>
+</head>
+<body>
+
+<!-- Scanline CRT effect -->
+<div class="scanline"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SIDEBAR
+═══════════════════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-icon">L</div>
+    <div class="sb-logo-text">
+      <span class="brand">LEONI</span>
+      <span class="sub">CRIMPING LAB</span>
+    </div>
+  </div>
+
+  <nav class="sb-nav">
+    <div class="sb-section-label">Navigation</div>
+
+    <button class="sb-link active" data-page="dashboard" data-label="Dashboard">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+      <span class="link-text">Tableau de Bord</span>
+    </button>
+
+    <button class="sb-link" data-page="interventions" data-label="Interventions">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+      <span class="link-text">Interventions</span>
+      <span class="badge" id="nav-badge">5</span>
+    </button>
+
+    <button class="sb-link" data-page="inventaire" data-label="Inventaire">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+      </svg>
+      <span class="link-text">Inventaire</span>
+    </button>
+
+    <div class="sb-section-label" style="margin-top:.5rem">Analyse</div>
+
+    <button class="sb-link" data-page="rapports" data-label="Rapports">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      <span class="link-text">Rapports</span>
+    </button>
+
+    <button class="sb-link" data-page="parametres" data-label="Paramètres">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+      <span class="link-text">Paramètres</span>
+    </button>
+  </nav>
+
+  <button class="sb-toggle" id="sb-toggle" title="Réduire">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+    </svg>
+  </button>
+
+  <div class="sb-footer">
+    <div class="live-dot"></div>
+    <div class="sb-footer-text">
+      <div class="sync-label">FIREBASE LIVE</div>
+      <div class="sync-time" id="sync-time">Sync: —</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════════════════════════════
+     MAIN
+═══════════════════════════════════════════════════════ -->
+<div class="main">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">MISSION CONTROL</div>
+      <div class="topbar-breadcrumb">
+        <span>›</span>
+        <span id="breadcrumb-label" style="color:var(--text-mid)">Tableau de Bord</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="status-chip">
+        <div class="dot"></div>
+        SYSTÈME OPÉRATIONNEL
+      </div>
+      <div class="topbar-time" id="topbar-clock">—</div>
+      <button class="topbar-btn" onclick="navigate('rapports')">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Export
+      </button>
+      <a href="admin-dashboard.html" class="topbar-btn" style="text-decoration:none">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        App complète
+      </a>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="content" id="content">
+
+    <!-- ══ PAGE: DASHBOARD ══════════════════════════════════ -->
+    <div class="page active" id="page-dashboard">
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="kpi-card green">
+          <div class="kpi-header">
+            <div class="kpi-label">Disponibilité Machine</div>
+            <div class="kpi-icon">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value" id="kpi-dispo">—%</div>
+          <div class="kpi-sub">Taux de disponibilité global</div>
+          <span class="kpi-delta up" id="kpi-dispo-delta">↑ +2.3% vs semaine passée</span>
+        </div>
+
+        <div class="kpi-card amber">
+          <div class="kpi-header">
+            <div class="kpi-label">Interventions en cours</div>
+            <div class="kpi-icon">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value" id="kpi-pending">—</div>
+          <div class="kpi-sub">Bons en attente validation</div>
+          <span class="kpi-delta flat" id="kpi-pending-delta">En cours de traitement</span>
+        </div>
+
+        <div class="kpi-card red">
+          <div class="kpi-header">
+            <div class="kpi-label">Alertes Critiques</div>
+            <div class="kpi-icon">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value blink" id="kpi-alerts">—</div>
+          <div class="kpi-sub">Bons refusés non corrigés</div>
+          <span class="kpi-delta down" id="kpi-alerts-delta">↓ Nécessite action immédiate</span>
+        </div>
+
+        <div class="kpi-card cyan">
+          <div class="kpi-header">
+            <div class="kpi-label">Statut Synchronisation</div>
+            <div class="kpi-icon">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+            </div>
+          </div>
+          <div class="kpi-value" style="font-size:1.3rem;padding-top:.3rem">
+            <span style="color:var(--green)">●</span> LIVE
+          </div>
+          <div class="kpi-sub">Firebase Realtime Database</div>
+          <span class="kpi-delta up" id="kpi-sync-time">Dernière sync: —</span>
+        </div>
+      </div>
+
+      <!-- Charts + Donut -->
+      <div class="dash-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+              ÉVOLUTION DES INTERVENTIONS
+            </div>
+            <div class="filter-tabs">
+              <button class="filter-tab active" data-period="7">7J</button>
+              <button class="filter-tab" data-period="14">14J</button>
+              <button class="filter-tab" data-period="30">30J</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="chart-wrap"><canvas id="chart-evolution"></canvas></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/>
+              </svg>
+              RÉPARTITION STATUTS
+            </div>
+          </div>
+          <div class="panel-body" style="padding:.875rem">
+            <div class="donut-wrap">
+              <canvas id="chart-donut" style="max-height:160px;max-width:160px"></canvas>
+              <div class="donut-center">
+                <div class="big" id="donut-total">—</div>
+                <div class="sml">bons total</div>
+              </div>
+            </div>
+            <div class="donut-legend" id="donut-legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interventions table -->
+      <div class="panel" style="margin-bottom:1rem">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+            </svg>
+            DERNIÈRES INTERVENTIONS
+          </div>
+          <a href="admin-dashboard.html#history" class="topbar-btn" style="text-decoration:none;font-size:.72rem">
+            Voir tout →
+          </a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>N° Bon</th>
+                <th>Outil</th>
+                <th>Technicien</th>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody id="interventions-tbody">
+              <tr><td colspan="6" style="text-align:center;padding:2.5rem;color:var(--text-lo)">Connexion Firebase en cours…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /dashboard -->
+
+    <!-- ══ PAGE: INTERVENTIONS ══════════════════════════════ -->
+    <div class="page" id="page-interventions">
+      <div class="panel" style="margin-bottom:1rem">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            TOUTES LES INTERVENTIONS
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <select id="filter-status-full" style="background:var(--glass);border:1px solid var(--border);border-radius:7px;padding:.3rem .6rem;color:var(--text-hi);font-size:.78rem;font-family:var(--font-body)">
+              <option value="all">Tous les statuts</option>
+              <option value="validated">Validés</option>
+              <option value="submitted">En attente</option>
+              <option value="rejected">Refusés</option>
+              <option value="draft">Brouillons</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>N° Bon</th><th>Outil</th><th>Fabricant</th>
+                <th>Technicien</th><th>Type</th><th>Cycles</th>
+                <th>Date</th><th>Statut</th>
+              </tr>
+            </thead>
+            <tbody id="all-tbody">
+              <tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--text-lo)">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: INVENTAIRE ═════════════════════════════════ -->
+    <div class="page" id="page-inventaire">
+      <div class="kpi-grid" style="margin-bottom:1rem" id="inv-kpi-grid">
+        <div class="kpi-card cyan">
+          <div class="kpi-header"><div class="kpi-label">Outils catalogue</div></div>
+          <div class="kpi-value" id="inv-total-tools">—</div>
+          <div class="kpi-sub">références enregistrées</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-header"><div class="kpi-label">Fabricants</div></div>
+          <div class="kpi-value" id="inv-fabricants">—</div>
+          <div class="kpi-sub">marques différentes</div>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-header"><div class="kpi-label">Fréq. cycle max</div></div>
+          <div class="kpi-value" id="inv-max-cycle">—</div>
+          <div class="kpi-sub">cycles avant maintenance</div>
+        </div>
+        <div class="kpi-card violet" style="border-color:rgba(139,92,246,.2)">
+          <div class="kpi-header"><div class="kpi-label">Interventions / outil</div></div>
+          <div class="kpi-value" style="color:var(--violet)" id="inv-ratio">—</div>
+          <div class="kpi-sub">moyenne globale</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            CATALOGUE OUTILS
+          </div>
+          <input id="inv-search" placeholder="Rechercher…" style="background:var(--glass);border:1px solid var(--border);border-radius:7px;padding:.3rem .75rem;color:var(--text-hi);font-size:.78rem;font-family:var(--font-body);outline:none;width:180px"/>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID Outil</th><th>Réf.</th><th>Fabricant</th><th>Réf. Fab.</th><th>P-AR</th><th>P-AV</th><th>E-AR</th><th>E-AV</th><th>Fréq. Cycle</th></tr></thead>
+            <tbody id="inv-tbody">
+              <tr><td colspan="9" style="text-align:center;padding:2.5rem;color:var(--text-lo)">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: RAPPORTS ════════════════════════════════════ -->
+    <div class="page" id="page-rapports">
+      <div style="margin-bottom:1.25rem">
+        <div style="font-family:var(--font-display);font-size:.9rem;font-weight:600;letter-spacing:.08em;color:var(--text-hi);margin-bottom:.3rem">OUTILS DE REPORTING</div>
+        <div style="font-size:.8rem;color:var(--text-mid)">Générez et exportez vos rapports de maintenance au format professionnel</div>
+      </div>
+
+      <div class="report-grid">
+        <div class="report-card pdf" onclick="exportPDF()">
+          <div class="report-icon">📄</div>
+          <div class="report-label">RAPPORT PDF</div>
+          <div class="report-sub">Rapport exécutif complet avec KPIs, graphiques et tableau des interventions</div>
+          <button class="btn-report">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Exporter en PDF
+          </button>
+        </div>
+
+        <div class="report-card excel" onclick="exportExcel()">
+          <div class="report-icon">📊</div>
+          <div class="report-label">EXPORT EXCEL</div>
+          <div class="report-sub">Tableau complet des interventions avec mesures labo, Cm/Cmk et statuts</div>
+          <button class="btn-report">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Exporter en Excel
+          </button>
+        </div>
+
+        <div class="report-card email" onclick="toast('Rapport envoyé par email ✅','success')">
+          <div class="report-icon">📧</div>
+          <div class="report-label">EMAIL DIRECTION</div>
+          <div class="report-sub">Envoi automatique du rapport hebdomadaire à la direction et responsables</div>
+          <button class="btn-report">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            Envoyer par Email
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats recap -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            SYNTHÈSE MENSUELLE
+          </div>
+        </div>
+        <div class="panel-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem" id="report-stats">
+          <div style="text-align:center">
+            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--green)" id="rpt-validated">—</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:.25rem">Bons validés</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--amber)" id="rpt-submitted">—</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:.25rem">En attente</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--red)" id="rpt-rejected">—</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:.25rem">Refusés</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--cyan)" id="rpt-sla">—</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:.25rem">SLA moyen</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--violet)" id="rpt-rate">—%</div>
+            <div style="font-size:.72rem;color:var(--text-mid);margin-top:.25rem">Taux validation</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: PARAMÈTRES ══════════════════════════════════ -->
+    <div class="page" id="page-parametres">
+      <div class="placeholder-page">
+        <div class="placeholder-icon">⚙️</div>
+        <div class="placeholder-title">PARAMÈTRES SYSTÈME</div>
+        <div class="placeholder-sub">Configuration de l'application, gestion des rôles et accès.<br/>Disponible dans l'<a href="admin-dashboard.html" style="color:var(--cyan)">application principale</a>.</div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   FIREBASE INIT
+═══════════════════════════════════════════════════════════════════ */
+firebase.initializeApp({
+  apiKey:            "AIzaSyBIW4I1DRqyqcmNEdajXbptQ5-RWFIG1V4",
+  authDomain:        "leoni-sertissage-labo.firebaseapp.com",
+  databaseURL:       "https://leoni-sertissage-labo-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "leoni-sertissage-labo",
+  storageBucket:     "leoni-sertissage-labo.firebasestorage.app",
+  messagingSenderId: "432527114405",
+  appId:             "1:432527114405:web:b141f6ae74f11b1cbb0d4c"
+});
+const rtdb = firebase.database();
+
+/* ═══════════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════════ */
+let interventions = {};
+let tools = {};
+let charts = {};
+
+/* ═══════════════════════════════════════════════════════════════════
+   CLOCK
+═══════════════════════════════════════════════════════════════════ */
+function updateClock() {
+  const now = new Date();
+  const s = now.toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  document.getElementById('topbar-clock').textContent = s;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ═══════════════════════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════════════════════ */
+function toast(msg, type='info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3000);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SIDEBAR TOGGLE
+═══════════════════════════════════════════════════════════════════ */
+document.getElementById('sb-toggle').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  setTimeout(() => { if (charts.evolution) charts.evolution.resize(); if (charts.donut) charts.donut.resize(); }, 300);
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════════════════════════════ */
+const PAGE_LABELS = { dashboard:'Tableau de Bord', interventions:'Interventions', inventaire:'Inventaire', rapports:'Rapports', parametres:'Paramètres' };
+
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sb-link').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page)?.classList.add('active');
+  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+  document.getElementById('breadcrumb-label').textContent = PAGE_LABELS[page] || page;
+  // Render page-specific content
+  if (page === 'inventaire') renderInventory();
+  if (page === 'rapports')   renderReportStats();
+  if (page === 'interventions') renderAllInterventions();
+}
+
+document.querySelectorAll('.sb-link[data-page]').forEach(btn => {
+  btn.addEventListener('click', () => navigate(btn.dataset.page));
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════════ */
+const fmtDate = ts => ts ? new Date(ts).toLocaleDateString('fr-FR') : '—';
+const fmtDur  = ms => { if(!ms) return '—'; const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000); return h>0?h+'h '+m+'min':m+'min'; };
+const TYPE_MAP = { preventive:'Préventive', curative:'Curative', requalification:'Requalif.' };
+const STATUS_LABELS = { validated:'Validé', submitted:'En attente', rejected:'Urgent', draft:'Brouillon' };
+
+function badgeHTML(status) {
+  const map = { validated:'VALIDÉ', submitted:'EN ATTENTE', rejected:'URGENT', draft:'BROUILLON' };
+  const cls = { validated:'validated', submitted:'submitted', rejected:'rejected', draft:'draft' };
+  return `<span class="badge ${cls[status]||'draft'}"><span class="badge-dot"></span>${map[status]||status}</span>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FIREBASE DATA LOAD
+═══════════════════════════════════════════════════════════════════ */
+/* ── Try to connect to Firebase (needs auth or open rules) ── */
+function loadFromFirebase() {
+  rtdb.ref('interventions').on('value', snap => {
+    interventions = snap.val() || {};
+    onDataLoaded();
+  }, err => {
+    console.warn('[Dashboard] Firebase interventions:', err.code);
+    // Use demo data on permission error
+    if (err.code === 'PERMISSION_DENIED') loadDemoData();
+  });
+
+  rtdb.ref('tools').on('value', snap => {
+    tools = snap.val() || {};
+  }, () => {});
+}
+
+/* ── Try anonymous sign-in first ── */
+firebase.auth().signInAnonymously()
+  .then(() => loadFromFirebase())
+  .catch(() => {
+    // No anonymous auth — try direct read (open rules) or fallback to demo
+    loadFromFirebase();
+    setTimeout(() => {
+      if (!Object.keys(interventions).length) loadDemoData();
+    }, 3500);
+  });
+
+/* ── Also try if already signed in ── */
+firebase.auth().onAuthStateChanged(user => {
+  if (user) loadFromFirebase();
+});
+
+function onDataLoaded() {
+  const now = new Date().toLocaleTimeString('fr-FR');
+  document.getElementById('sync-time').textContent = 'Sync: ' + now;
+  document.getElementById('kpi-sync-time').textContent = 'Dernière sync: ' + now;
+  updateKPIs();
+  renderDashboardTable();
+  renderEvolutionChart(7);
+  renderDonutChart();
+  updateNavBadge();
+  document.getElementById('demo-banner')?.remove();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   KPIs
+═══════════════════════════════════════════════════════════════════ */
+function updateKPIs() {
+  const list = Object.values(interventions);
+  const now  = new Date(); const ms = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const monthly   = list.filter(i => (i.createdAt||0) >= ms);
+  const pending   = list.filter(i => i.status === 'submitted');
+  const rejected  = list.filter(i => i.status === 'rejected');
+  const validated = monthly.filter(i => i.status === 'validated');
+  const total     = monthly.length || 1;
+
+  // Disponibilité = taux de validation sur le mois
+  const dispo = Math.round((validated.length / total) * 100);
+  document.getElementById('kpi-dispo').textContent    = dispo + '%';
+  document.getElementById('kpi-pending').textContent  = pending.length;
+  document.getElementById('kpi-alerts').textContent   = rejected.length;
+  document.getElementById('donut-total').textContent  = list.length;
+
+  // Badge alert coloring
+  const alertEl = document.getElementById('kpi-alerts');
+  if (rejected.length === 0) { alertEl.classList.remove('blink'); alertEl.style.color = 'var(--green)'; }
+  else { alertEl.classList.add('blink'); alertEl.style.color = 'var(--red)'; }
+}
+
+function updateNavBadge() {
+  const pending = Object.values(interventions).filter(i => i.status === 'submitted').length;
+  document.getElementById('nav-badge').textContent = pending;
+  document.getElementById('nav-badge').style.display = pending ? '' : 'none';
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DASHBOARD TABLE (last 8)
+═══════════════════════════════════════════════════════════════════ */
+function renderDashboardTable() {
+  const list = Object.values(interventions)
+    .sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0)).slice(0, 8);
+  const tbody = document.getElementById('interventions-tbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2.5rem;color:var(--text-lo)">Aucune intervention</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(i => `
+    <tr>
+      <td class="td-num">N°${i.numBon}</td>
+      <td class="td-tool">${(i.tool&&i.tool.outilId)||'—'}</td>
+      <td class="td-tech">${(i.crimping&&i.crimping.filledBy&&i.crimping.filledBy.name)||'—'}</td>
+      <td style="font-size:.75rem">${TYPE_MAP[i.crimping&&i.crimping.type]||'—'}</td>
+      <td class="td-date">${fmtDate(i.crimping&&i.crimping.date)}</td>
+      <td>${badgeHTML(i.status)}</td>
+    </tr>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ALL INTERVENTIONS TABLE
+═══════════════════════════════════════════════════════════════════ */
+function renderAllInterventions(filter='all') {
+  let list = Object.values(interventions).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  if (filter !== 'all') list = list.filter(i => i.status === filter);
+  const tbody = document.getElementById('all-tbody');
+  tbody.innerHTML = list.map(i => `
+    <tr>
+      <td class="td-num">N°${i.numBon}</td>
+      <td class="td-tool">${(i.tool&&i.tool.outilId)||'—'}</td>
+      <td style="font-size:.75rem;color:var(--text-mid)">${(i.tool&&i.tool.fabricant)||'—'}</td>
+      <td class="td-tech">${(i.crimping&&i.crimping.filledBy&&i.crimping.filledBy.name)||'—'}</td>
+      <td style="font-size:.75rem">${TYPE_MAP[i.crimping&&i.crimping.type]||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${((i.crimping&&i.crimping.cycles)||0).toLocaleString('fr-FR')}</td>
+      <td class="td-date">${fmtDate(i.crimping&&i.crimping.date)}</td>
+      <td>${badgeHTML(i.status)}</td>
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--text-lo)">Aucun résultat</td></tr>';
+}
+document.getElementById('filter-status-full').addEventListener('change', e => renderAllInterventions(e.target.value));
+
+/* ═══════════════════════════════════════════════════════════════════
+   INVENTORY
+═══════════════════════════════════════════════════════════════════ */
+function renderInventory() {
+  const list = Object.values(tools);
+  const fabs = [...new Set(list.map(t=>t.fabricant).filter(Boolean))];
+  const maxCycle = Math.max(...list.map(t=>t.frequenceCycle||0));
+  const intList  = Object.values(interventions);
+  const ratio    = list.length ? (intList.length / list.length).toFixed(1) : '0';
+
+  document.getElementById('inv-total-tools').textContent = list.length;
+  document.getElementById('inv-fabricants').textContent  = fabs.length;
+  document.getElementById('inv-max-cycle').textContent   = maxCycle.toLocaleString('fr-FR');
+  document.getElementById('inv-ratio').textContent       = ratio;
+
+  let filtered = list;
+  const q = document.getElementById('inv-search').value.toLowerCase();
+  if (q) filtered = list.filter(t => (t.outilId||'').toLowerCase().includes(q) || (t.fabricant||'').toLowerCase().includes(q) || (t.refOutil||'').toLowerCase().includes(q));
+
+  document.getElementById('inv-tbody').innerHTML = filtered.slice(0,50).map(t => `
+    <tr>
+      <td class="td-tool">${t.outilId||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${t.refOutil||'—'}</td>
+      <td>${t.fabricant||'—'}</td>
+      <td style="font-size:.75rem;color:var(--text-mid)">${t.refFabricant||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${t.pAr||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${t.pAv||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${t.eAr||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${t.eAv||'—'}</td>
+      <td class="td-num" style="font-size:.78rem">${(t.frequenceCycle||0).toLocaleString('fr-FR')}</td>
+    </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-lo)">Aucun outil</td></tr>';
+}
+document.getElementById('inv-search').addEventListener('input', renderInventory);
+
+/* ═══════════════════════════════════════════════════════════════════
+   REPORT STATS
+═══════════════════════════════════════════════════════════════════ */
+function renderReportStats() {
+  const list = Object.values(interventions);
+  const validated = list.filter(i=>i.status==='validated');
+  const submitted = list.filter(i=>i.status==='submitted');
+  const rejected  = list.filter(i=>i.status==='rejected');
+  const slas = list.filter(i=>i.sla&&i.sla.durationMs).map(i=>i.sla.durationMs);
+  const avgSla = slas.length ? slas.reduce((a,b)=>a+b,0)/slas.length : 0;
+  const rate = list.length ? Math.round(validated.length/list.length*100) : 0;
+
+  document.getElementById('rpt-validated').textContent = validated.length;
+  document.getElementById('rpt-submitted').textContent = submitted.length;
+  document.getElementById('rpt-rejected').textContent  = rejected.length;
+  document.getElementById('rpt-sla').textContent       = fmtDur(avgSla);
+  document.getElementById('rpt-rate').textContent      = rate + '%';
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHART — EVOLUTION (bar)
+═══════════════════════════════════════════════════════════════════ */
+function renderEvolutionChart(days) {
+  const list = Object.values(interventions);
+  const labels = [], validated = [], pending = [], rejected = [];
+
+  for (let d = days-1; d >= 0; d--) {
+    const end   = new Date(); end.setDate(end.getDate() - d);   end.setHours(23,59,59,999);
+    const start = new Date(end); start.setHours(0,0,0,0);
+    const lbl = start.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});
+    labels.push(lbl);
+    const day = list.filter(i => (i.createdAt||0) >= start.getTime() && (i.createdAt||0) <= end.getTime());
+    validated.push(day.filter(i=>i.status==='validated').length);
+    pending.push(day.filter(i=>i.status==='submitted').length);
+    rejected.push(day.filter(i=>i.status==='rejected').length);
+  }
+
+  if (charts.evolution) charts.evolution.destroy();
+  const ctx = document.getElementById('chart-evolution').getContext('2d');
+  charts.evolution = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Validés',    data: validated, backgroundColor: 'rgba(0,229,160,0.6)',  borderColor: '#00e5a0', borderWidth: 1, borderRadius: 4 },
+        { label: 'En attente', data: pending,   backgroundColor: 'rgba(255,181,71,0.5)', borderColor: '#ffb547', borderWidth: 1, borderRadius: 4 },
+        { label: 'Refusés',    data: rejected,  backgroundColor: 'rgba(255,61,90,0.5)',  borderColor: '#ff3d5a', borderWidth: 1, borderRadius: 4 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#7a9bb5', font: { size: 11, family: 'DM Sans' }, boxWidth: 10, padding: 14 } },
+      },
+      scales: {
+        x: { stacked: true, ticks: { color: '#7a9bb5', font:{size:10} }, grid: { color: 'rgba(0,212,255,0.04)' } },
+        y: { stacked: true, beginAtZero: true, ticks: { color: '#7a9bb5', font:{size:10}, stepSize:1 }, grid: { color: 'rgba(0,212,255,0.06)' } }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHART — DONUT
+═══════════════════════════════════════════════════════════════════ */
+function renderDonutChart() {
+  const list = Object.values(interventions);
+  const counts = {
+    validated: list.filter(i=>i.status==='validated').length,
+    submitted: list.filter(i=>i.status==='submitted').length,
+    rejected:  list.filter(i=>i.status==='rejected').length,
+    draft:     list.filter(i=>i.status==='draft').length,
+  };
+  const COLORS = { validated:'#00e5a0', submitted:'#ffb547', rejected:'#ff3d5a', draft:'#3a5570' };
+  const LABELS_MAP = { validated:'Validés', submitted:'En attente', rejected:'Refusés', draft:'Brouillons' };
+
+  if (charts.donut) charts.donut.destroy();
+  const ctx = document.getElementById('chart-donut').getContext('2d');
+  charts.donut = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(counts).map(k=>LABELS_MAP[k]),
+      datasets: [{ data: Object.values(counts), backgroundColor: Object.keys(counts).map(k=>COLORS[k]), borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '68%',
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  // Legend
+  const lg = document.getElementById('donut-legend');
+  lg.innerHTML = Object.entries(counts).map(([k,v]) => `
+    <div class="donut-legend-item">
+      <div style="display:flex;align-items:center;gap:.5rem;color:var(--text-mid);font-size:.72rem">
+        <div class="donut-legend-dot" style="background:${COLORS[k]}"></div>${LABELS_MAP[k]}
+      </div>
+      <div style="font-family:var(--font-mono);font-size:.72rem;color:${COLORS[k]};font-weight:600">${v}</div>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PERIOD FILTER
+═══════════════════════════════════════════════════════════════════ */
+document.querySelectorAll('.filter-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    renderEvolutionChart(parseInt(tab.dataset.period));
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXPORT PDF
+═══════════════════════════════════════════════════════════════════ */
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+  const W = 297, margin = 15;
+
+  // Dark header
+  doc.setFillColor(4, 8, 16); doc.rect(0, 0, W, 30, 'F');
+  doc.setTextColor(0, 212, 255);
+  doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text('LEONI WIRING SYSTEMS', margin, 12);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('CRIMPING LAB — RAPPORT EXÉCUTIF', margin, 20);
+  doc.setTextColor(122,155,181); doc.setFontSize(8);
+  doc.text('Généré le ' + new Date().toLocaleString('fr-FR'), W - margin, 20, {align:'right'});
+
+  // KPIs
+  let y = 38;
+  const list = Object.values(interventions);
+  const validated = list.filter(i=>i.status==='validated').length;
+  const pending   = list.filter(i=>i.status==='submitted').length;
+  const rejected  = list.filter(i=>i.status==='rejected').length;
+  const rate      = list.length ? Math.round(validated/list.length*100) : 0;
+
+  const kpis = [
+    { label:'Total Interventions', value:list.length,   color:[0,212,255] },
+    { label:'Validés',             value:validated,      color:[0,229,160] },
+    { label:'En Attente',          value:pending,        color:[255,181,71] },
+    { label:'Refusés',             value:rejected,       color:[255,61,90] },
+    { label:'Taux Validation',     value:rate+'%',       color:[0,212,255] },
+  ];
+  const kw = (W - margin*2 - 8*4) / 5;
+  kpis.forEach((k, i) => {
+    const x = margin + i * (kw + 8);
+    doc.setFillColor(7,13,24); doc.roundedRect(x, y, kw, 22, 3, 3, 'F');
+    doc.setTextColor(...k.color); doc.setFont('helvetica','bold'); doc.setFontSize(14);
+    doc.text(String(k.value), x + kw/2, y + 12, {align:'center'});
+    doc.setTextColor(122,155,181); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    doc.text(k.label, x + kw/2, y + 19, {align:'center'});
+  });
+
+  y += 30;
+  doc.setTextColor(0,212,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('DERNIÈRES INTERVENTIONS', margin, y); y += 5;
+
+  // Table header
+  doc.setFillColor(7,13,24); doc.rect(margin, y, W - margin*2, 7, 'F');
+  doc.setTextColor(58,85,112); doc.setFont('helvetica','bold'); doc.setFontSize(7);
+  ['N°','Outil','Technicien','Type','Date','Statut'].forEach((h, i) => {
+    const cols = [12, 40, 65, 40, 30, 30];
+    const xs = [margin, margin+12, margin+52, margin+117, margin+157, margin+187];
+    doc.text(h, xs[i], y + 5);
+  });
+  y += 9;
+
+  const rows = list.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0, 20);
+  rows.forEach((iv, idx) => {
+    if (idx % 2 === 0) { doc.setFillColor(6,10,20); doc.rect(margin, y-1, W-margin*2, 7, 'F'); }
+    doc.setTextColor(200,220,240); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    doc.text(String(iv.numBon||''), margin, y+4);
+    doc.text((iv.tool&&iv.tool.outilId)||'—', margin+12, y+4);
+    doc.text((iv.crimping&&iv.crimping.filledBy&&iv.crimping.filledBy.name)||'—', margin+52, y+4);
+    doc.text(TYPE_MAP[iv.crimping&&iv.crimping.type]||'—', margin+117, y+4);
+    doc.text(fmtDate(iv.crimping&&iv.crimping.date), margin+157, y+4);
+    const sc = {validated:[0,229,160], submitted:[255,181,71], rejected:[255,61,90], draft:[58,85,112]};
+    const c = sc[iv.status]||sc.draft;
+    doc.setTextColor(...c);
+    doc.text(STATUS_LABELS[iv.status]||iv.status, margin+187, y+4);
+    y += 7;
+    if (y > 185) return;
+  });
+
+  doc.save('LEONI_Rapport_Crimping_' + new Date().toISOString().slice(0,10) + '.pdf');
+  toast('Rapport PDF généré ✅', 'success');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXPORT EXCEL
+═══════════════════════════════════════════════════════════════════ */
+function exportExcel() {
+  const list = Object.values(interventions).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  if (!list.length) { toast('Aucune donnée', 'error'); return; }
+
+  const rows = list.map(i => ({
+    'N° Bon':     i.numBon,
+    'Outil':      (i.tool&&i.tool.outilId)||'—',
+    'Fabricant':  (i.tool&&i.tool.fabricant)||'—',
+    'Technicien': (i.crimping&&i.crimping.filledBy&&i.crimping.filledBy.name)||'—',
+    'Matricule':  (i.crimping&&i.crimping.filledBy&&i.crimping.filledBy.matricule)||'—',
+    'Type':       TYPE_MAP[i.crimping&&i.crimping.type]||'—',
+    'Cycles':     (i.crimping&&i.crimping.cycles)||0,
+    'Date':       fmtDate(i.crimping&&i.crimping.date),
+    'Statut':     STATUS_LABELS[i.status]||i.status,
+    'Cm âme':     i.lab?.capabilite?.cmAme?.toFixed(2)||'—',
+    'Cmk âme':    i.lab?.capabilite?.cmkAme?.toFixed(2)||'—',
+    'Motif refus': i.lab?.rejectReason||'',
+    'SLA (h)':    i.sla?.durationMs ? (i.sla.durationMs/3600000).toFixed(1) : '—',
+    'Technicien Labo': (i.lab&&i.lab.filledBy&&i.lab.filledBy.name)||'—',
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [8,16,14,18,12,14,10,12,12,8,8,30,8,18].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Interventions');
+
+  // Summary sheet
+  const sv = Object.values(interventions);
+  const summaryData = [
+    ['LEONI — Rapport Crimping Lab', ''],
+    ['Date', new Date().toLocaleDateString('fr-FR')],
+    ['', ''],
+    ['INDICATEUR', 'VALEUR'],
+    ['Total interventions', sv.length],
+    ['Validés', sv.filter(i=>i.status==='validated').length],
+    ['En attente', sv.filter(i=>i.status==='submitted').length],
+    ['Refusés', sv.filter(i=>i.status==='rejected').length],
+    ['Taux validation', Math.round(sv.filter(i=>i.status==='validated').length/Math.max(sv.length,1)*100)+'%'],
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(summaryData);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Synthèse');
+
+  XLSX.writeFile(wb, 'LEONI_Crimping_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  toast('Export Excel généré ✅', 'success');
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   DEMO DATA — utilisé si Firebase inaccessible
+═══════════════════════════════════════════════════════════════════ */
+function loadDemoData() {
+  // Show demo banner
+  const banner = document.createElement('div');
+  banner.id = 'demo-banner';
+  banner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(255,181,71,.15);border:1px solid rgba(255,181,71,.4);border-radius:8px;padding:.5rem 1.25rem;font-size:.78rem;color:#ffb547;backdrop-filter:blur(12px)';
+  banner.textContent = '⚡ Mode démonstration — Connectez-vous à l\u2019application principale pour voir vos données réelles';
+  document.body.appendChild(banner);
+
+  const now = Date.now();
+  const d = (days, h=9) => { const t=new Date(); t.setDate(t.getDate()-days); t.setHours(h,0,0,0); return t.getTime(); };
+  const DEMO_TOOLS = [
+    {id:'wz2158s',outilId:'WZ2158-4s',fabricant:'WEZAG',refOutil:'2158S',pAr:'1.45',pAv:'1.42',eAr:'1.38',eAv:'1.40',frequenceCycle:50000},
+    {id:'mc1440', outilId:'MC1440-T',  fabricant:'MECAL', refOutil:'MC-1440',pAr:'1.35',pAv:'1.33',eAr:'1.28',eAv:'1.30',frequenceCycle:60000},
+    {id:'ko520',  outilId:'KO520-PRO', fabricant:'KOMAX', refOutil:'KO-520',pAr:'1.65',pAv:'1.63',eAr:'1.58',eAv:'1.60',frequenceCycle:70000},
+    {id:'sc1020', outilId:'SC1020-V',  fabricant:'SCHLEUNIGER',refOutil:'SC-1020',pAr:'1.40',pAv:'1.38',eAr:'1.33',eAv:'1.35',frequenceCycle:48000},
+    {id:'ap3810', outilId:'AP3810-S',  fabricant:'APLITEC',refOutil:'AP3810',pAr:'1.42',pAv:'1.40',eAr:'1.35',eAv:'1.37',frequenceCycle:40000},
+  ];
+  DEMO_TOOLS.forEach(t => tools[t.id] = t);
+
+  const techniciens = [
+    {uid:'c1',name:'Ahmed Benali',   matricule:'LN-C-001'},
+    {uid:'c2',name:'Youssef Karimi', matricule:'LN-C-002'},
+    {uid:'c3',name:'Omar Tahir',     matricule:'LN-C-003'},
+  ];
+  const DEMO_BONS = [
+    {n:1, tid:'wz2158s',ti:0,type:'preventive',    cycles:48250,da:28,st:'validated'},
+    {n:2, tid:'mc1440', ti:1,type:'curative',       cycles:61200,da:24,st:'validated'},
+    {n:3, tid:'ko520',  ti:0,type:'requalification',cycles:69800,da:20,st:'validated'},
+    {n:4, tid:'sc1020', ti:2,type:'preventive',     cycles:47500,da:18,st:'validated'},
+    {n:5, tid:'ap3810', ti:0,type:'preventive',     cycles:39500,da:15,st:'validated'},
+    {n:6, tid:'wz2158s',ti:1,type:'curative',       cycles:50100,da:12,st:'validated'},
+    {n:7, tid:'mc1440', ti:2,type:'preventive',     cycles:58000,da:10,st:'validated'},
+    {n:8, tid:'ko520',  ti:0,type:'requalification',cycles:68000,da:8, st:'validated'},
+    {n:9, tid:'sc1020', ti:1,type:'preventive',     cycles:46000,da:7, st:'validated'},
+    {n:10,tid:'ap3810', ti:2,type:'curative',       cycles:41000,da:6, st:'validated'},
+    {n:11,tid:'wz2158s',ti:0,type:'preventive',     cycles:48900,da:5, st:'validated'},
+    {n:12,tid:'mc1440', ti:1,type:'curative',       cycles:62000,da:4, st:'validated'},
+    {n:13,tid:'ko520',  ti:2,type:'preventive',     cycles:70000,da:3, st:'validated'},
+    {n:14,tid:'sc1020', ti:0,type:'requalification',cycles:47000,da:2, st:'validated'},
+    {n:15,tid:'mc1440', ti:1,type:'preventive',     cycles:59800,da:2, st:'submitted'},
+    {n:16,tid:'wz2158s',ti:2,type:'curative',       cycles:45100,da:1, st:'submitted'},
+    {n:17,tid:'ko520',  ti:0,type:'requalification',cycles:70200,da:1, st:'submitted'},
+    {n:18,tid:'ap3810', ti:1,type:'preventive',     cycles:40100,da:1, st:'submitted'},
+    {n:19,tid:'sc1020', ti:2,type:'curative',       cycles:46300,da:0, st:'submitted'},
+    {n:20,tid:'wz2158s',ti:0,type:'curative',       cycles:48900,da:10,st:'rejected'},
+    {n:21,tid:'mc1440', ti:1,type:'preventive',     cycles:39800,da:7, st:'rejected'},
+    {n:22,tid:'wz2158s',ti:2,type:'preventive',     cycles:50100,da:0, st:'draft'},
+    {n:23,tid:'mc1440', ti:0,type:'curative',       cycles:55400,da:0, st:'draft'},
+    {n:24,tid:'ko520',  ti:1,type:'preventive',     cycles:64000,da:0, st:'draft'},
+    {n:25,tid:'ap3810', ti:2,type:'requalification',cycles:43100,da:0, st:'draft'},
+  ];
+
+  DEMO_BONS.forEach(b => {
+    const tool = DEMO_TOOLS.find(t=>t.id===b.tid)||DEMO_TOOLS[0];
+    const tech = techniciens[b.ti];
+    const bDate = d(b.da, 9);
+    const subAt = ['submitted','validated','rejected'].includes(b.st) ? bDate+3600000 : null;
+    const decAt = ['validated','rejected'].includes(b.st) ? bDate+10800000 : null;
+    interventions[b.n] = {
+      numBon:b.n, status:b.st, createdAt:bDate, updatedAt:decAt||subAt||bDate,
+      tool:{refOutil:tool.refOutil,outilId:tool.outilId,fabricant:tool.fabricant,
+            pieces:{pAr:tool.pAr,pAv:tool.pAv,eAr:tool.eAr,eAv:tool.eAv},frequenceCycle:tool.frequenceCycle},
+      crimping:{filledAt:bDate,filledBy:{uid:tech.uid,name:tech.name,matricule:tech.matricule},
+                date:bDate,cycles:b.cycles,type:b.type,piecesChanged:{},observation:''},
+      lab: decAt ? {filledAt:decAt,decision:b.st,capabilite:{cmAme:1.82,cmkAme:1.75}} : null,
+      sla:{submittedAt:subAt,decidedAt:decAt,durationMs:subAt&&decAt?decAt-subAt:null}
+    };
+  });
+
+  onDataLoaded();
+}
+
+</script>
 </body>
 </html>
