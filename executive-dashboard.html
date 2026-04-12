@@ -10,6 +10,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 
+  <!-- Firebase Auth (for anonymous login) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
   <!-- Chart.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <!-- SheetJS -->
@@ -59,7 +62,7 @@
 
     /* ─── Reset ─── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow: hidden; }
+    html, body { height: 100%; }
 
     body {
       font-family: var(--font-body);
@@ -218,7 +221,7 @@
     .main {
       margin-left: var(--sidebar-w);
       flex: 1; display: flex; flex-direction: column;
-      height: 100vh; overflow: hidden;
+      min-height: 100vh;
       transition: margin-left var(--transition);
       position: relative; z-index: 1;
     }
@@ -1112,8 +1115,39 @@ function badgeHTML(status) {
 /* ═══════════════════════════════════════════════════════════════════
    FIREBASE DATA LOAD
 ═══════════════════════════════════════════════════════════════════ */
-rtdb.ref('interventions').on('value', snap => {
-  interventions = snap.val() || {};
+/* ── Try to connect to Firebase (needs auth or open rules) ── */
+function loadFromFirebase() {
+  rtdb.ref('interventions').on('value', snap => {
+    interventions = snap.val() || {};
+    onDataLoaded();
+  }, err => {
+    console.warn('[Dashboard] Firebase interventions:', err.code);
+    // Use demo data on permission error
+    if (err.code === 'PERMISSION_DENIED') loadDemoData();
+  });
+
+  rtdb.ref('tools').on('value', snap => {
+    tools = snap.val() || {};
+  }, () => {});
+}
+
+/* ── Try anonymous sign-in first ── */
+firebase.auth().signInAnonymously()
+  .then(() => loadFromFirebase())
+  .catch(() => {
+    // No anonymous auth — try direct read (open rules) or fallback to demo
+    loadFromFirebase();
+    setTimeout(() => {
+      if (!Object.keys(interventions).length) loadDemoData();
+    }, 3500);
+  });
+
+/* ── Also try if already signed in ── */
+firebase.auth().onAuthStateChanged(user => {
+  if (user) loadFromFirebase();
+});
+
+function onDataLoaded() {
   const now = new Date().toLocaleTimeString('fr-FR');
   document.getElementById('sync-time').textContent = 'Sync: ' + now;
   document.getElementById('kpi-sync-time').textContent = 'Dernière sync: ' + now;
@@ -1122,11 +1156,8 @@ rtdb.ref('interventions').on('value', snap => {
   renderEvolutionChart(7);
   renderDonutChart();
   updateNavBadge();
-});
-
-rtdb.ref('tools').on('value', snap => {
-  tools = snap.val() || {};
-});
+  document.getElementById('demo-banner')?.remove();
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    KPIs
@@ -1475,10 +1506,82 @@ function exportExcel() {
   toast('Export Excel généré ✅', 'success');
 }
 
+
 /* ═══════════════════════════════════════════════════════════════════
-   PERIOD FILTER TABS — attach after DOM ready
+   DEMO DATA — utilisé si Firebase inaccessible
 ═══════════════════════════════════════════════════════════════════ */
-// Already wired above
+function loadDemoData() {
+  // Show demo banner
+  const banner = document.createElement('div');
+  banner.id = 'demo-banner';
+  banner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(255,181,71,.15);border:1px solid rgba(255,181,71,.4);border-radius:8px;padding:.5rem 1.25rem;font-size:.78rem;color:#ffb547;backdrop-filter:blur(12px)';
+  banner.textContent = '⚡ Mode démonstration — Connectez-vous à l\u2019application principale pour voir vos données réelles';
+  document.body.appendChild(banner);
+
+  const now = Date.now();
+  const d = (days, h=9) => { const t=new Date(); t.setDate(t.getDate()-days); t.setHours(h,0,0,0); return t.getTime(); };
+  const DEMO_TOOLS = [
+    {id:'wz2158s',outilId:'WZ2158-4s',fabricant:'WEZAG',refOutil:'2158S',pAr:'1.45',pAv:'1.42',eAr:'1.38',eAv:'1.40',frequenceCycle:50000},
+    {id:'mc1440', outilId:'MC1440-T',  fabricant:'MECAL', refOutil:'MC-1440',pAr:'1.35',pAv:'1.33',eAr:'1.28',eAv:'1.30',frequenceCycle:60000},
+    {id:'ko520',  outilId:'KO520-PRO', fabricant:'KOMAX', refOutil:'KO-520',pAr:'1.65',pAv:'1.63',eAr:'1.58',eAv:'1.60',frequenceCycle:70000},
+    {id:'sc1020', outilId:'SC1020-V',  fabricant:'SCHLEUNIGER',refOutil:'SC-1020',pAr:'1.40',pAv:'1.38',eAr:'1.33',eAv:'1.35',frequenceCycle:48000},
+    {id:'ap3810', outilId:'AP3810-S',  fabricant:'APLITEC',refOutil:'AP3810',pAr:'1.42',pAv:'1.40',eAr:'1.35',eAv:'1.37',frequenceCycle:40000},
+  ];
+  DEMO_TOOLS.forEach(t => tools[t.id] = t);
+
+  const techniciens = [
+    {uid:'c1',name:'Ahmed Benali',   matricule:'LN-C-001'},
+    {uid:'c2',name:'Youssef Karimi', matricule:'LN-C-002'},
+    {uid:'c3',name:'Omar Tahir',     matricule:'LN-C-003'},
+  ];
+  const DEMO_BONS = [
+    {n:1, tid:'wz2158s',ti:0,type:'preventive',    cycles:48250,da:28,st:'validated'},
+    {n:2, tid:'mc1440', ti:1,type:'curative',       cycles:61200,da:24,st:'validated'},
+    {n:3, tid:'ko520',  ti:0,type:'requalification',cycles:69800,da:20,st:'validated'},
+    {n:4, tid:'sc1020', ti:2,type:'preventive',     cycles:47500,da:18,st:'validated'},
+    {n:5, tid:'ap3810', ti:0,type:'preventive',     cycles:39500,da:15,st:'validated'},
+    {n:6, tid:'wz2158s',ti:1,type:'curative',       cycles:50100,da:12,st:'validated'},
+    {n:7, tid:'mc1440', ti:2,type:'preventive',     cycles:58000,da:10,st:'validated'},
+    {n:8, tid:'ko520',  ti:0,type:'requalification',cycles:68000,da:8, st:'validated'},
+    {n:9, tid:'sc1020', ti:1,type:'preventive',     cycles:46000,da:7, st:'validated'},
+    {n:10,tid:'ap3810', ti:2,type:'curative',       cycles:41000,da:6, st:'validated'},
+    {n:11,tid:'wz2158s',ti:0,type:'preventive',     cycles:48900,da:5, st:'validated'},
+    {n:12,tid:'mc1440', ti:1,type:'curative',       cycles:62000,da:4, st:'validated'},
+    {n:13,tid:'ko520',  ti:2,type:'preventive',     cycles:70000,da:3, st:'validated'},
+    {n:14,tid:'sc1020', ti:0,type:'requalification',cycles:47000,da:2, st:'validated'},
+    {n:15,tid:'mc1440', ti:1,type:'preventive',     cycles:59800,da:2, st:'submitted'},
+    {n:16,tid:'wz2158s',ti:2,type:'curative',       cycles:45100,da:1, st:'submitted'},
+    {n:17,tid:'ko520',  ti:0,type:'requalification',cycles:70200,da:1, st:'submitted'},
+    {n:18,tid:'ap3810', ti:1,type:'preventive',     cycles:40100,da:1, st:'submitted'},
+    {n:19,tid:'sc1020', ti:2,type:'curative',       cycles:46300,da:0, st:'submitted'},
+    {n:20,tid:'wz2158s',ti:0,type:'curative',       cycles:48900,da:10,st:'rejected'},
+    {n:21,tid:'mc1440', ti:1,type:'preventive',     cycles:39800,da:7, st:'rejected'},
+    {n:22,tid:'wz2158s',ti:2,type:'preventive',     cycles:50100,da:0, st:'draft'},
+    {n:23,tid:'mc1440', ti:0,type:'curative',       cycles:55400,da:0, st:'draft'},
+    {n:24,tid:'ko520',  ti:1,type:'preventive',     cycles:64000,da:0, st:'draft'},
+    {n:25,tid:'ap3810', ti:2,type:'requalification',cycles:43100,da:0, st:'draft'},
+  ];
+
+  DEMO_BONS.forEach(b => {
+    const tool = DEMO_TOOLS.find(t=>t.id===b.tid)||DEMO_TOOLS[0];
+    const tech = techniciens[b.ti];
+    const bDate = d(b.da, 9);
+    const subAt = ['submitted','validated','rejected'].includes(b.st) ? bDate+3600000 : null;
+    const decAt = ['validated','rejected'].includes(b.st) ? bDate+10800000 : null;
+    interventions[b.n] = {
+      numBon:b.n, status:b.st, createdAt:bDate, updatedAt:decAt||subAt||bDate,
+      tool:{refOutil:tool.refOutil,outilId:tool.outilId,fabricant:tool.fabricant,
+            pieces:{pAr:tool.pAr,pAv:tool.pAv,eAr:tool.eAr,eAv:tool.eAv},frequenceCycle:tool.frequenceCycle},
+      crimping:{filledAt:bDate,filledBy:{uid:tech.uid,name:tech.name,matricule:tech.matricule},
+                date:bDate,cycles:b.cycles,type:b.type,piecesChanged:{},observation:''},
+      lab: decAt ? {filledAt:decAt,decision:b.st,capabilite:{cmAme:1.82,cmkAme:1.75}} : null,
+      sla:{submittedAt:subAt,decidedAt:decAt,durationMs:subAt&&decAt?decAt-subAt:null}
+    };
+  });
+
+  onDataLoaded();
+}
+
 </script>
 </body>
 </html>
