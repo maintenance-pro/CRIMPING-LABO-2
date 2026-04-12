@@ -1026,18 +1026,24 @@
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════
-   FIREBASE INIT
+   FIREBASE INIT (synchrone — avant window.load)
 ═══════════════════════════════════════════════════════════════════ */
-firebase.initializeApp({
-  apiKey:            "AIzaSyBIW4I1DRqyqcmNEdajXbptQ5-RWFIG1V4",
-  authDomain:        "leoni-sertissage-labo.firebaseapp.com",
-  databaseURL:       "https://leoni-sertissage-labo-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId:         "leoni-sertissage-labo",
-  storageBucket:     "leoni-sertissage-labo.firebasestorage.app",
-  messagingSenderId: "432527114405",
-  appId:             "1:432527114405:web:b141f6ae74f11b1cbb0d4c"
-});
-const rtdb = firebase.database();
+let rtdb;
+try {
+  firebase.initializeApp({
+    apiKey:            "AIzaSyBIW4I1DRqyqcmNEdajXbptQ5-RWFIG1V4",
+    authDomain:        "leoni-sertissage-labo.firebaseapp.com",
+    databaseURL:       "https://leoni-sertissage-labo-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId:         "leoni-sertissage-labo",
+    storageBucket:     "leoni-sertissage-labo.firebasestorage.app",
+    messagingSenderId: "432527114405",
+    appId:             "1:432527114405:web:b141f6ae74f11b1cbb0d4c"
+  });
+  rtdb = firebase.database();
+} catch(e) { console.warn('[Dashboard] Firebase init failed:', e.message); }
+
+/* Tout le reste s'exécute après que TOUS les scripts soient chargés */
+window.addEventListener('load', function() {
 
 /* ═══════════════════════════════════════════════════════════════════
    STATE
@@ -1600,6 +1606,7 @@ function loadDemoData() {
   onDataLoaded();
 }
 
+}); // end window.load
 </script>
 </body>
 </html>
