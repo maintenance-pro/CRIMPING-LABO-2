@@ -1041,5 +1041,101 @@
   <!-- ===================================================================== -->
   <script src="app.js"></script>
 
+
+  <!-- ================================================================== -->
+  <!-- MODAL — MON PROFIL                                                  -->
+  <!-- ================================================================== -->
+  <div class="modal" id="modal-profile" role="dialog" aria-modal="true" hidden>
+    <div class="modal__backdrop"></div>
+    <div class="modal__panel" style="max-width:440px">
+      <div class="modal__header">
+        <h2 class="modal__title">👤 Mon Profil</h2>
+        <button class="modal__close" id="btn-profile-close" type="button">✕</button>
+      </div>
+      <div class="modal__body">
+        <!-- Avatar + nom -->
+        <div style="display:flex;align-items:center;gap:1rem;padding:1rem;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid var(--border-soft);margin-bottom:1.25rem">
+          <div id="profile-avatar-big" style="width:54px;height:54px;border-radius:12px;background:var(--accent-500);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;color:#fff;flex-shrink:0">B</div>
+          <div>
+            <div id="profile-name-display" style="font-weight:700;font-size:1rem;color:var(--text-primary)">—</div>
+            <div id="profile-role-display" style="font-size:.8rem;color:var(--text-muted);margin-top:.2rem">—</div>
+            <div id="profile-email-display" style="font-size:.78rem;color:var(--text-secondary);margin-top:.15rem;font-family:var(--font-mono)">—</div>
+          </div>
+        </div>
+        <!-- Champs modifiables -->
+        <div class="field">
+          <label class="field__label">Nom affiché</label>
+          <input class="field__input" id="profile-displayname" type="text" placeholder="Votre nom complet"/>
+        </div>
+        <div class="field">
+          <label class="field__label">Matricule</label>
+          <input class="field__input" id="profile-matricule" type="text" placeholder="Ex: LN-A-001"/>
+        </div>
+        <div class="field">
+          <label class="field__label">Email (lecture seule)</label>
+          <input class="field__input" id="profile-email" type="email" readonly style="opacity:.6;cursor:not-allowed"/>
+        </div>
+        <div style="font-size:.78rem;color:var(--text-muted);margin-top:-.5rem;margin-bottom:.875rem">
+          ℹ️ Dernière connexion : <span id="profile-lastlogin">—</span>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--ghost" id="btn-profile-cancel" type="button">Annuler</button>
+        <button class="btn btn--primary" id="btn-profile-save" type="button">💾 Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- MODAL — CHANGER MOT DE PASSE                                        -->
+  <!-- ================================================================== -->
+  <div class="modal" id="modal-password" role="dialog" aria-modal="true" hidden>
+    <div class="modal__backdrop"></div>
+    <div class="modal__panel" style="max-width:400px">
+      <div class="modal__header">
+        <h2 class="modal__title">🔑 Changer le mot de passe</h2>
+        <button class="modal__close" id="btn-password-close" type="button">✕</button>
+      </div>
+      <div class="modal__body">
+        <div id="password-error" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:.65rem .875rem;font-size:.82rem;color:var(--danger-500);margin-bottom:.875rem"></div>
+        <div class="field">
+          <label class="field__label">Mot de passe actuel</label>
+          <div style="position:relative">
+            <input class="field__input" id="pass-current" type="password" placeholder="Votre mot de passe actuel" style="padding-right:2.5rem"/>
+            <button type="button" onclick="togglePassVis('pass-current',this)" style="position:absolute;right:.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.9rem">👁</button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__label">Nouveau mot de passe</label>
+          <div style="position:relative">
+            <input class="field__input" id="pass-new" type="password" placeholder="Minimum 8 caractères" style="padding-right:2.5rem"/>
+            <button type="button" onclick="togglePassVis('pass-new',this)" style="position:absolute;right:.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.9rem">👁</button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__label">Confirmer le nouveau mot de passe</label>
+          <div style="position:relative">
+            <input class="field__input" id="pass-confirm" type="password" placeholder="Répétez le nouveau mot de passe" style="padding-right:2.5rem"/>
+            <button type="button" onclick="togglePassVis('pass-confirm',this)" style="position:absolute;right:.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.9rem">👁</button>
+          </div>
+        </div>
+        <!-- Indicateur de force -->
+        <div style="margin-bottom:.875rem">
+          <div style="display:flex;gap:.3rem;margin-bottom:.3rem" id="pass-strength-bars">
+            <div style="height:4px;flex:1;border-radius:2px;background:var(--border-soft)" id="psb1"></div>
+            <div style="height:4px;flex:1;border-radius:2px;background:var(--border-soft)" id="psb2"></div>
+            <div style="height:4px;flex:1;border-radius:2px;background:var(--border-soft)" id="psb3"></div>
+            <div style="height:4px;flex:1;border-radius:2px;background:var(--border-soft)" id="psb4"></div>
+          </div>
+          <div style="font-size:.72rem;color:var(--text-muted)" id="pass-strength-label"></div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--ghost" id="btn-password-cancel" type="button">Annuler</button>
+        <button class="btn btn--primary" id="btn-password-save" type="button">🔑 Modifier</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
