@@ -1070,6 +1070,12 @@
         ui.applyRoleVisibility();
         // Active la section labo selon le rôle (visible mais disabled tant que pas submitted)
         $('#section-lab').disabled = true;
+        // LABO ne peut pas créer de bons crimping
+        if (state.role === 'labo') {
+          ui.toast('Le rôle Labo ne peut pas créer de bons. Ouvrez un bon existant depuis la File d’attente.', 'warn');
+          router.go('queue');
+          return;
+        }
         // Pré-remplir le technicien crimping avec le profil connecté
         if ($('#crimp-tech-name') && state.profile) {
           if ((state.role === 'crimp' || state.role === 'crimping') && !$('#crimp-tech-name').value) {
@@ -1104,6 +1110,22 @@
           this.fillToolCard(data.tool);
         }
 
+        // ── Verrouillage Outil + Crimping pour le rôle LABO ──
+        const isLabo = state.role === 'labo';
+        const toolSection = $('.intervention__section--tool');
+        if (toolSection) toolSection.disabled = isLabo;
+
+        // Disable outil inputs individually (fieldset disabled n'affecte pas les readonly)
+        ['int-tool-search','int-outil-id','int-fabricant','int-outil-id'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.readOnly  = isLabo;
+            el.style.opacity = isLabo ? '0.6' : '';
+            el.style.cursor  = isLabo ? 'not-allowed' : '';
+            el.style.pointerEvents = isLabo ? 'none' : '';
+          }
+        });
+
         // Crimping
         if (data.crimping) {
           $('#int-date').value = data.crimping.date ? new Date(data.crimping.date).toISOString().slice(0, 10) : '';
@@ -1117,6 +1139,30 @@
           // Technicien crimping
           if ($('#crimp-tech-name')) $('#crimp-tech-name').value = data.crimping.technicienNom || (data.crimping.filledBy && data.crimping.filledBy.name) || '';
           if ($('#crimp-tech-mat'))  $('#crimp-tech-mat').value  = data.crimping.technicienMatricule || (data.crimping.filledBy && data.crimping.filledBy.matricule) || '';
+        }
+
+        // ── Verrouillage section CRIMPING pour le rôle LABO ──
+        const crimpSection = document.getElementById('section-crimping');
+        if (crimpSection) {
+          if (state.role === 'labo') {
+            crimpSection.disabled = true;
+            crimpSection.style.opacity = '0.65';
+            crimpSection.style.pointerEvents = 'none';
+            // Ajouter badge "Lecture seule" si pas déjà là
+            if (!document.getElementById('crimp-readonly-badge')) {
+              const badge = document.createElement('span');
+              badge.id = 'crimp-readonly-badge';
+              badge.style.cssText = 'display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:600;padding:.18rem .55rem;border-radius:5px;background:rgba(99,102,241,.12);color:#a5b4fc;border:1px solid rgba(99,102,241,.25);margin-left:.75rem';
+              badge.textContent = '🔒 Lecture seule';
+              const legend = crimpSection.querySelector('.intervention__legend');
+              if (legend) legend.appendChild(badge);
+            }
+          } else {
+            crimpSection.disabled = false;
+            crimpSection.style.opacity = '';
+            crimpSection.style.pointerEvents = '';
+            document.getElementById('crimp-readonly-badge')?.remove();
+          }
         }
 
         // Lab
@@ -2351,7 +2397,10 @@
       $$('#user-dropdown button').forEach(b => {
         b.addEventListener('click', () => {
           const action = b.dataset.action;
-          if (action === 'logout') auth.logout();
+          $('#user-dropdown').hidden = true;
+          if (action === 'logout')   auth.logout();
+          if (action === 'profile')  userActions.openProfile();
+          if (action === 'password') userActions.openPassword();
         });
       });
 
@@ -2383,6 +2432,160 @@
     }
   };
 
+
+  /* ==========================================================================
+     USER ACTIONS — Mon Profil + Changer Mot de Passe
+     ========================================================================== */
+  const userActions = {
+
+    /* ── PROFIL ── */
+    openProfile() {
+      const p = state.profile;
+      if (!p) return ui.toast('Profil non chargé', 'warn');
+
+      $('#profile-displayname').value    = p.displayName   || '';
+      $('#profile-matricule').value      = p.matricule      || '';
+      $('#profile-email').value          = p.email          || state.user?.email || '';
+      $('#profile-email-display').textContent = p.email    || state.user?.email || '—';
+      $('#profile-name-display').textContent  = p.displayName || '—';
+      $('#profile-role-display').textContent  = auth.roleLabel(p.role);
+      $('#profile-lastlogin').textContent     = fmt.dateTime(p.lastLoginAt) || 'Inconnue';
+
+      const letter = (p.displayName || '?').charAt(0).toUpperCase();
+      $('#profile-avatar-big').textContent = letter;
+      $('#modal-profile').hidden = false;
+    },
+
+    async saveProfile() {
+      const btn  = $('#btn-profile-save');
+      const name = $('#profile-displayname').value.trim();
+      const mat  = $('#profile-matricule').value.trim();
+      if (!name) return ui.toast('Le nom ne peut pas être vide', 'warn');
+
+      btn.disabled = true; btn.textContent = 'Enregistrement…';
+      try {
+        const uid = state.user.uid;
+        await fbDb.ref('users/' + uid).update({ displayName: name, matricule: mat });
+        // Mettre à jour Firebase Auth displayName
+        await fbAuth.currentUser.updateProfile({ displayName: name });
+        // Mettre à jour le profil local
+        state.profile.displayName = name;
+        state.profile.matricule   = mat;
+        // Mettre à jour la topbar
+        $('#user-name').textContent   = name;
+        $('#user-avatar').textContent = name.charAt(0).toUpperCase();
+        $('#hub-greeting').textContent = `Bienvenue ${name} — ${auth.roleLabel(state.profile.role)}`;
+        $('#modal-profile').hidden = true;
+        ui.toast('Profil mis à jour ✅', 'success');
+        // Audit log
+        await fbDb.ref('auditLog').push({ timestamp: Date.now(), uid, userName: name, action: 'profile.update', entity: 'users/'+uid });
+      } catch(e) {
+        ui.toast('Erreur : ' + e.message, 'danger');
+      } finally {
+        btn.disabled = false; btn.textContent = '💾 Enregistrer';
+      }
+    },
+
+    /* ── MOT DE PASSE ── */
+    openPassword() {
+      $('#pass-current').value  = '';
+      $('#pass-new').value      = '';
+      $('#pass-confirm').value  = '';
+      $('#password-error').style.display = 'none';
+      // Reset force bars
+      ['psb1','psb2','psb3','psb4'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.background = 'var(--border-soft)';
+      });
+      document.getElementById('pass-strength-label').textContent = '';
+      $('#modal-password').hidden = false;
+
+      // Live strength meter
+      $('#pass-new').oninput = () => userActions.checkStrength($('#pass-new').value);
+    },
+
+    checkStrength(pw) {
+      let score = 0;
+      if (pw.length >= 8)  score++;
+      if (/[A-Z]/.test(pw)) score++;
+      if (/[0-9]/.test(pw)) score++;
+      if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+      const colors = ['#ef4444','#f59e0b','#3b82f6','#10b981'];
+      const labels = ['Très faible','Faible','Moyen','Fort'];
+      ['psb1','psb2','psb3','psb4'].forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (el) el.style.background = i < score ? colors[score-1] : 'var(--border-soft)';
+      });
+      const lbl = document.getElementById('pass-strength-label');
+      if (lbl) { lbl.textContent = pw ? labels[score-1] || 'Fort' : ''; lbl.style.color = colors[score-1] || '#10b981'; }
+    },
+
+    async savePassword() {
+      const current = $('#pass-current').value;
+      const newPw   = $('#pass-new').value;
+      const confirm = $('#pass-confirm').value;
+      const errEl   = $('#password-error');
+
+      const showErr = (msg) => { errEl.textContent = msg; errEl.style.display = 'block'; };
+      errEl.style.display = 'none';
+
+      if (!current)          return showErr('Veuillez entrer votre mot de passe actuel.');
+      if (newPw.length < 8)  return showErr('Le nouveau mot de passe doit faire au moins 8 caractères.');
+      if (newPw !== confirm)  return showErr('Les deux nouveaux mots de passe ne correspondent pas.');
+      if (current === newPw)  return showErr('Le nouveau mot de passe doit \u00eatre diff\u00e9rent de l\u2019actuel.');
+
+      const btn = $('#btn-password-save');
+      btn.disabled = true; btn.textContent = 'Modification…';
+      try {
+        // Ré-authentifier puis changer
+        const user       = fbAuth.currentUser;
+        const credential = firebase.auth.EmailAuthProvider.credential(user.email, current);
+        await user.reauthenticateWithCredential(credential);
+        await user.updatePassword(newPw);
+
+        // Sauvegarder dans RTDB aussi (pour l'admin)
+        await fbDb.ref('users/' + user.uid + '/password').set(newPw);
+
+        $('#modal-password').hidden = true;
+        ui.toast('Mot de passe modifié avec succès ✅', 'success');
+        await fbDb.ref('auditLog').push({ timestamp: Date.now(), uid: user.uid, userName: state.profile?.displayName || '', action: 'password.change', entity: 'auth/'+user.uid });
+      } catch(e) {
+        const msgs = {
+          'auth/wrong-password': 'Mot de passe actuel incorrect.',
+          'auth/too-many-requests': 'Trop de tentatives. Réessayez plus tard.',
+          'auth/requires-recent-login': 'Session expirée. Reconnectez-vous d’abord.',
+        };
+        showErr(msgs[e.code] || 'Erreur : ' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = '🔑 Modifier';
+      }
+    },
+
+    /* ── Fermeture modals ── */
+    initModals() {
+      // Profile
+      $('#btn-profile-close')?.addEventListener('click', () => $('#modal-profile').hidden = true);
+      $('#btn-profile-cancel')?.addEventListener('click', () => $('#modal-profile').hidden = true);
+      $('#btn-profile-save')?.addEventListener('click', () => userActions.saveProfile());
+      $('#modal-profile .modal__backdrop')?.addEventListener('click', () => $('#modal-profile').hidden = true);
+
+      // Password
+      $('#btn-password-close')?.addEventListener('click', () => $('#modal-password').hidden = true);
+      $('#btn-password-cancel')?.addEventListener('click', () => $('#modal-password').hidden = true);
+      $('#btn-password-save')?.addEventListener('click', () => userActions.savePassword());
+      $('#modal-password .modal__backdrop')?.addEventListener('click', () => $('#modal-password').hidden = true);
+    }
+  };
+
+  /* Helper: toggle password visibility */
+  function togglePassVis(inputId, btn) {
+    const inp = document.getElementById(inputId);
+    if (!inp) return;
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+    btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+  }
+
   /* ==========================================================================
      15. BOOTSTRAP
      ========================================================================== */
@@ -2398,6 +2601,7 @@
     views.users.init();
     views.notifications.init();
     views.auditLog.init();
+    userActions.initModals();
 
     // Stats period change triggers re-render
     const statsPeriod = document.getElementById('stats-period');
