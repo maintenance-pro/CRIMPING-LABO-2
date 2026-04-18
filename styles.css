@@ -54,16 +54,16 @@
   --info-600:    #0891b2;
   --info-glow:   rgba(6, 182, 212, 0.30);
 
-  /* Status pills */
-  --status-draft-bg:     rgba(107, 115, 136, 0.15);
-  --status-draft-fg:     #a8b1c8;
-  --status-submitted-bg: rgba(245, 158, 11, 0.15);
-  --status-submitted-fg: #fbbf24;
-  --status-validated-bg: rgba(16, 185, 129, 0.18);
-  --status-validated-fg: #34d399;
-  --status-rejected-bg:  rgba(239, 68, 68, 0.18);
-  --status-rejected-fg:  #f87171;
-  --status-cancelled-bg: rgba(75, 85, 99, 0.18);
+  /* Status pills — NASA colors */
+  --status-draft-bg:     rgba(255,255,255,.07);
+  --status-draft-fg:     #8895b3;
+  --status-submitted-bg: rgba(255,181,71,.15);
+  --status-submitted-fg: #ffb547;
+  --status-validated-bg: rgba(0,229,160,.13);
+  --status-validated-fg: #00e5a0;
+  --status-rejected-bg:  rgba(255,61,90,.14);
+  --status-rejected-fg:  #ff3d5a;
+  --status-cancelled-bg: rgba(107,114,128,.12);
   --status-cancelled-fg: #9ca3af;
 
   /* Typography */
@@ -1728,7 +1728,7 @@ legend { padding: 0; }
   transition: all var(--t-fast);
 }
 .tab:hover { color: var(--text-primary); }
-.tab--active { background: var(--accent-600); color: var(--text-on-accent); box-shadow: var(--sh-sm); }
+.tab--active { background: var(--accent-500); color: #000; font-weight: 700; box-shadow: 0 0 12px rgba(0,212,255,.3); }
 
 .queue-view__list,
 .catalog__grid {
@@ -2296,10 +2296,39 @@ legend { padding: 0; }
 }
 
 /* Status pill in hub (Activity feed) */
-.status-pill--validated { background: #00e5a0; box-shadow: 0 0 6px #00e5a0; }
-.status-pill--submitted { background: #ffb547; box-shadow: 0 0 6px #ffb547; }
-.status-pill--rejected  { background: #ff3d5a; box-shadow: 0 0 6px #ff3d5a; }
-.status-pill--draft     { background: var(--text-muted); }
+/* Status pills — NASA glowing badges with readable text */
+.status-pill--validated {
+  background: rgba(0,229,160,.15) !important;
+  color: #00e5a0 !important;
+  border: 1px solid rgba(0,229,160,.35) !important;
+  box-shadow: 0 0 10px rgba(0,229,160,.2);
+}
+.status-pill--submitted {
+  background: rgba(255,181,71,.15) !important;
+  color: #ffb547 !important;
+  border: 1px solid rgba(255,181,71,.35) !important;
+  box-shadow: 0 0 10px rgba(255,181,71,.2);
+}
+.status-pill--rejected {
+  background: rgba(255,61,90,.15) !important;
+  color: #ff3d5a !important;
+  border: 1px solid rgba(255,61,90,.35) !important;
+  box-shadow: 0 0 10px rgba(255,61,90,.2);
+  animation: blink-pill 1.8s ease-in-out infinite;
+}
+.status-pill--draft {
+  background: rgba(255,255,255,.07) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border-base) !important;
+}
+.status-pill--cancelled {
+  background: rgba(107,114,128,.12) !important;
+  color: #9ca3af !important;
+  border: 1px solid rgba(107,114,128,.25) !important;
+}
+@keyframes blink-pill {
+  0%,100% { opacity:1; } 50% { opacity:.55; }
+}
 
 /* Field focus — cyan ring */
 .field__input:focus,
@@ -2387,16 +2416,40 @@ legend { padding: 0; }
 ::-webkit-scrollbar-thumb { background: var(--border-base); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
-/* Light mode override — keep dark for now */
+/* Light mode — proper readable palette */
 [data-theme="light"] {
-  --bg-0:       #f0f4f8;
-  --bg-1:       #e8edf4;
-  --bg-2:       #dde4ed;
-  --bg-3:       rgba(200,215,235,.8);
+  --bg-0:        #f2f6fc;
+  --bg-1:        #eaf0f8;
+  --bg-2:        rgba(210,228,248,.9);
+  --bg-3:        rgba(185,210,240,.85);
+  --bg-4:        rgba(160,195,230,.7);
+  --bg-elevated: #ffffff;
   --text-primary:   #0a1628;
-  --text-secondary: #2a3f5c;
-  --text-muted:     #5c7a99;
-  --border-base:   rgba(0,100,150,.15);
-  --border-strong: rgba(0,150,200,.3);
+  --text-secondary: #254060;
+  --text-muted:     #4a6580;
+  --text-disabled:  #85a0bb;
+  --border-base:   rgba(0,100,180,.14);
+  --border-strong: rgba(0,150,220,.28);
+  --border-accent: rgba(0,180,255,.5);
+  --accent-500:  #0095cc;
+  --accent-glow: rgba(0,150,210,.25);
 }
+[data-theme="light"] .topbar {
+  background: rgba(235,245,255,.95) !important;
+  border-bottom-color: rgba(0,120,180,.15) !important;
+}
+[data-theme="light"] .sidebar {
+  background: rgba(230,242,255,.95) !important;
+  border-right-color: rgba(0,120,180,.15) !important;
+}
+[data-theme="light"] .card,
+[data-theme="light"] .kpi {
+  background: rgba(255,255,255,.9) !important;
+  border-color: rgba(0,120,180,.12) !important;
+  color: #0a1628 !important;
+}
+[data-theme="light"] .status-pill--validated { background: rgba(0,180,130,.15) !important; color: #007a58 !important; }
+[data-theme="light"] .status-pill--submitted { background: rgba(200,130,0,.12) !important;  color: #8a5500 !important; }
+[data-theme="light"] .status-pill--rejected  { background: rgba(200,40,60,.12) !important;  color: #8a0020 !important; }
+[data-theme="light"] .status-pill--draft     { background: rgba(0,0,0,.06) !important;      color: #4a6580 !important; }
 
