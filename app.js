@@ -2275,24 +2275,24 @@
       },
 
       _COLS: [
-        { k:'nom',         label:'Nom (Référence)',  w:140 },
-        { k:'nom2',        label:'Désignation',      w:200 },
-        { k:'npiece',      label:'N° Pièce',         w:130 },
-        { k:'nstock',      label:'N° Stock',         w:100 },
-        { k:'empl',        label:'Emplacement',      w:140 },
-        { k:'qty',         label:'Qté Phys.',        w:80, num:true },
-        { k:'qmin',        label:'Qté Min',          w:70, num:true },
-        { k:'qmax',        label:'Qté Max',          w:70, num:true },
-        { k:'qdispo',      label:'Qté Dispon.',      w:90, num:true },
-        { k:'qreserv',     label:'Qté Réservée',     w:90, num:true },
-        { k:'qcommand',    label:'Qté Cmdée',        w:90, num:true },
-        { k:'codeFour',    label:'Code Fourn.',      w:130 },
-        { k:'nomFour',     label:'Nom Fourn.',       w:140 },
-        { k:'typePiece',   label:'Type Pièce',       w:130 },
-        { k:'groupePiece', label:'Groupe',           w:120 },
-        { k:'barcode',     label:'Code Barres',      w:130 },
-        { k:'prix',        label:'Prix Moyen',       w:90, num:true },
-        { k:'devise',      label:'Devise',           w:70 }
+        { k:'npiece',      label:'N° de Pièce',                 w:140 },
+        { k:'nom',         label:'Nom',                         w:140 },
+        { k:'nstock',      label:'N° Stock',                    w:200 },
+        { k:'qty',         label:'Quantité Physiq.',            w:120, num:true },
+        { k:'qmin',        label:'Quantité Minimum',            w:120, num:true },
+        { k:'qmax',        label:'Quantité Maximum',            w:120, num:true },
+        { k:'nom2',        label:'Nom 2',                       w:200 },
+        { k:'empl',        label:'Emplacem. Mag. Principal',    w:200 },
+        { k:'nomFour',     label:'Nom Fournisseur',             w:140 },
+        { k:'codeFour',    label:'Code Fournisseur',            w:130 },
+        { k:'typePiece',   label:'Type Pièces',                 w:130 },
+        { k:'groupePiece', label:'Groupe Pièces',               w:130 },
+        { k:'qdispo',      label:'Qté. Dispon.',                w:100, num:true },
+        { k:'qreserv',     label:'Qté. Réservée',               w:100, num:true },
+        { k:'qcommand',    label:'Qté. Commandée',              w:100, num:true },
+        { k:'barcode',     label:'Code à Barres',               w:130 },
+        { k:'prix',        label:'Prix Moyen',                  w:100, num:true },
+        { k:'devise',      label:'Devise',                      w:80 }
       ],
 
       mapRow(row) {
@@ -2453,8 +2453,8 @@
       render() {
         if (state.currentView !== 'magasin') return;
         const mergeEl = document.getElementById('pc-merge-toggle');
-        // Fusion par défaut activée — basée sur le NOM (référence)
-        const isMerged = mergeEl ? mergeEl.checked : true;
+        // Fusion DÉSACTIVÉE par défaut — affiche toutes les lignes du fichier Excel
+        const isMerged = mergeEl ? mergeEl.checked : false;
         const rawData = this.pieces;
         const data = isMerged ? this.mergePiecesData(rawData) : rawData;
         const hasData = data.length > 0;
@@ -2576,7 +2576,7 @@
 
       applyFilters() {
         const mergeEl2 = document.getElementById('pc-merge-toggle');
-        const isMerged = mergeEl2 ? mergeEl2.checked : true;
+        const isMerged = mergeEl2 ? mergeEl2.checked : false;
         let data = isMerged ? this.mergePiecesData(this.pieces) : this.pieces;
 
         const q = (document.getElementById('pc-search')?.value || '').toLowerCase().trim();
