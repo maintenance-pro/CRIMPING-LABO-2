@@ -2275,24 +2275,23 @@
       },
 
       _COLS: [
+        { k:'nom',         label:'Nom (Référence)',             w:160, key:true },
+        { k:'nom2',        label:'Désignation',                 w:200 },
+        { k:'empl',        label:'Emplacement',                 w:160 },
+        { k:'qty',         label:'Stock Nominal',               w:120, num:true },
+        { k:'qmin',        label:'Stock Min',                   w:100, num:true },
+        { k:'qmax',        label:'Stock Max',                   w:100, num:true },
         { k:'npiece',      label:'N° de Pièce',                 w:140 },
-        { k:'nom',         label:'Nom',                         w:140 },
         { k:'nstock',      label:'N° Stock',                    w:200 },
-        { k:'qty',         label:'Quantité Physiq.',            w:120, num:true },
-        { k:'qmin',        label:'Quantité Minimum',            w:120, num:true },
-        { k:'qmax',        label:'Quantité Maximum',            w:120, num:true },
-        { k:'nom2',        label:'Nom 2',                       w:200 },
-        { k:'empl',        label:'Emplacem. Mag. Principal',    w:200 },
-        { k:'nomFour',     label:'Nom Fournisseur',             w:140 },
-        { k:'codeFour',    label:'Code Fournisseur',            w:130 },
-        { k:'typePiece',   label:'Type Pièces',                 w:130 },
-        { k:'groupePiece', label:'Groupe Pièces',               w:130 },
-        { k:'qdispo',      label:'Qté. Dispon.',                w:100, num:true },
-        { k:'qreserv',     label:'Qté. Réservée',               w:100, num:true },
-        { k:'qcommand',    label:'Qté. Commandée',              w:100, num:true },
-        { k:'barcode',     label:'Code à Barres',               w:130 },
-        { k:'prix',        label:'Prix Moyen',                  w:100, num:true },
-        { k:'devise',      label:'Devise',                      w:80 }
+        { k:'nomFour',     label:'Fournisseur',                 w:130 },
+        { k:'codeFour',    label:'Code Fourn.',                 w:120 },
+        { k:'typePiece',   label:'Type',                        w:130 },
+        { k:'groupePiece', label:'Groupe',                      w:120 },
+        { k:'qdispo',      label:'Dispon.',                     w:90, num:true },
+        { k:'qreserv',     label:'Réservée',                    w:90, num:true },
+        { k:'qcommand',    label:'Cmdée',                       w:90, num:true },
+        { k:'barcode',     label:'Code Barres',                 w:130 },
+        { k:'prix',        label:'Prix',                        w:80, num:true }
       ],
 
       mapRow(row) {
@@ -2605,8 +2604,22 @@
           return na.localeCompare(nb, 'fr', { numeric: true, sensitivity: 'base' });
         });
 
+        // ═══ TRI PAR NOM (référence) — groupement automatique ═══
+        // Toutes les lignes avec le même nom sont collées ensemble
+        data.sort((a, b) => {
+          const na = (a.nom || '').trim();
+          const nb = (b.nom || '').trim();
+          if (na === nb) {
+            // Si même nom, trier par emplacement
+            return (a.empl || '').localeCompare(b.empl || '');
+          }
+          return na.localeCompare(nb, 'fr', { numeric: true });
+        });
+
         this.filtered = data;
-        document.getElementById('pc-sct').textContent = data.length + ' réf.';
+        // Compter les références uniques (par nom)
+        const uniqueNoms = new Set(data.map(r => (r.nom || '').trim()).filter(Boolean));
+        document.getElementById('pc-sct').textContent = data.length + ' lignes · ' + uniqueNoms.size + ' réf. uniques';
 
         this.renderRows(data);
       },
