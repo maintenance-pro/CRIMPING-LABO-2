@@ -2567,7 +2567,15 @@
         const cols = this._COLS.filter(c => data.some(r => r[c.k] && String(r[c.k]).trim() !== ''));
         const thead = document.getElementById('pc-thead');
         if (thead) {
-          thead.innerHTML = '<tr>' + cols.map(c => `<th style="${c.num?'text-align:right;':''}min-width:${c.w||100}px;white-space:nowrap">${c.label}</th>`).join('') + '<th style="white-space:nowrap">Statut</th></tr>';
+          // En-tête VISIBLE avec fond cyan
+          thead.innerHTML = '<tr style="background:rgba(0,212,255,.08);border-bottom:2px solid var(--accent-500)">' +
+            cols.map(c => {
+              const isKey = c.key;
+              const align = c.num ? 'text-align:right;' : '';
+              const keyStyle = isKey ? 'color:var(--accent-500);font-weight:800;' : 'color:var(--text-primary);';
+              return `<th style="${align}${keyStyle}min-width:${c.w||100}px;white-space:nowrap;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;padding:.65rem .85rem;font-family:var(--font-display)">${c.label}</th>`;
+            }).join('') +
+            '<th style="white-space:nowrap;color:var(--text-primary);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;padding:.65rem .85rem;font-family:var(--font-display)">Statut</th></tr>';
         }
         document.getElementById('pc-col-info').textContent = cols.length + ' / ' + this._COLS.length + ' colonnes affichées';
         this._cols = cols;
@@ -2577,6 +2585,8 @@
         const mergeEl2 = document.getElementById('pc-merge-toggle');
         const isMerged = mergeEl2 ? mergeEl2.checked : false;
         let data = isMerged ? this.mergePiecesData(this.pieces) : this.pieces;
+        // Filtrer les lignes vides (sans nom ni n° pièce)
+        data = data.filter(r => (r.nom && r.nom.trim()) || (r.npiece && r.npiece.trim()));
 
         const q = (document.getElementById('pc-search')?.value || '').toLowerCase().trim();
         const fEmpl = document.getElementById('pc-empl-filter')?.value || '';
@@ -2585,7 +2595,9 @@
         const fEtat = document.getElementById('pc-etat-filter')?.value || '';
 
         if (q) {
-          data = data.filter(r => Object.values(r).some(v => String(v||'').toLowerCase().includes(q)));
+          // Recherche ciblée sur les champs pertinents UNIQUEMENT (pas le code-barres ni le prix)
+          const SEARCHABLE = ['nom', 'nom2', 'npiece', 'empl', 'nstock', 'codeFour', 'nomFour', 'typePiece', 'groupePiece'];
+          data = data.filter(r => SEARCHABLE.some(k => String(r[k]||'').toLowerCase().includes(q)));
         }
         if (fEmpl) data = data.filter(r => (r.empl||'').includes(fEmpl));
         if (fFour) data = data.filter(r => (r.codeFour||r.nomFour||'') === fFour);
