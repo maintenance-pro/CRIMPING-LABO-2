@@ -2277,14 +2277,22 @@
       _COLS: [
         { k:'nom',         label:'Nom (Référence)',  w:140 },
         { k:'nom2',        label:'Désignation',      w:200 },
-        { k:'npiece',      label:'N° Pièce',         w:120 },
-        { k:'empl',        label:'Emplacement',      w:120 },
+        { k:'npiece',      label:'N° Pièce',         w:130 },
+        { k:'nstock',      label:'N° Stock',         w:100 },
+        { k:'empl',        label:'Emplacement',      w:140 },
         { k:'qty',         label:'Qté Phys.',        w:80, num:true },
         { k:'qmin',        label:'Qté Min',          w:70, num:true },
         { k:'qmax',        label:'Qté Max',          w:70, num:true },
-        { k:'codeFour',    label:'Fournisseur',      w:130 },
-        { k:'typePiece',   label:'Type',             w:120 },
-        { k:'prix',        label:'Prix Moyen',       w:90, num:true }
+        { k:'qdispo',      label:'Qté Dispon.',      w:90, num:true },
+        { k:'qreserv',     label:'Qté Réservée',     w:90, num:true },
+        { k:'qcommand',    label:'Qté Cmdée',        w:90, num:true },
+        { k:'codeFour',    label:'Code Fourn.',      w:130 },
+        { k:'nomFour',     label:'Nom Fourn.',       w:140 },
+        { k:'typePiece',   label:'Type Pièce',       w:130 },
+        { k:'groupePiece', label:'Groupe',           w:120 },
+        { k:'barcode',     label:'Code Barres',      w:130 },
+        { k:'prix',        label:'Prix Moyen',       w:90, num:true },
+        { k:'devise',      label:'Devise',           w:70 }
       ],
 
       mapRow(row) {
@@ -2532,12 +2540,13 @@
       },
 
       buildTable(data) {
-        const cols = this._COLS.filter(c => data.some(r => r[c.k]));
+        // Show only columns that have data in at least one row
+        const cols = this._COLS.filter(c => data.some(r => r[c.k] && String(r[c.k]).trim() !== ''));
         const thead = document.getElementById('pc-thead');
         if (thead) {
-          thead.innerHTML = '<tr>' + cols.map(c => `<th style="${c.num?'text-align:right;':''}">${c.label}</th>`).join('') + '<th>Statut</th></tr>';
+          thead.innerHTML = '<tr>' + cols.map(c => `<th style="${c.num?'text-align:right;':''}min-width:${c.w||100}px;white-space:nowrap">${c.label}</th>`).join('') + '<th style="white-space:nowrap">Statut</th></tr>';
         }
-        document.getElementById('pc-col-info').textContent = cols.length + ' colonnes';
+        document.getElementById('pc-col-info').textContent = cols.length + ' / ' + this._COLS.length + ' colonnes affichées';
         this._cols = cols;
       },
 
