@@ -2317,26 +2317,38 @@
       },
 
       mergePiecesData(rawData) {
+        // Fusion basée sur le NOM (référence) — comme demandé par Bilal
+        // Chaque pièce avec le même nom regroupe toutes ses occurrences (multi-stocks/emplacements)
         const groups = new Map();
         rawData.forEach(r => {
           const key = (r.nom || '').trim();
           if (!key) return;
           if (groups.has(key)) {
             const g = groups.get(key);
+            // Sommer les quantités de tous les stocks/emplacements
             ['qty','qdispo','qreserv','qcommand'].forEach(k => {
               const a = parseInt(g[k]) || 0, b = parseInt(r[k]) || 0;
               g[k] = String(a + b);
             });
+            // Max pour qmax (capacité totale)
             const gmax = parseInt(g.qmax) || 0, rmax = parseInt(r.qmax) || 0;
             g.qmax = String(Math.max(gmax, rmax));
+            // Somme des quantités min (seuil min global)
             const gmin = parseInt(g.qmin) || 0, rmin = parseInt(r.qmin) || 0;
-            if (gmin && rmin) g.qmin = String(Math.min(gmin, rmin));
-            else g.qmin = String(gmin || rmin);
+            g.qmin = String(gmin + rmin);
+            // Fusionner les emplacements (avec /)
             if (r.empl && r.empl.trim()) {
               const existing = (g.empl || '').split(' / ').map(s => s.trim()).filter(Boolean);
               const ne = r.empl.trim();
               if (!existing.includes(ne)) { existing.push(ne); g.empl = existing.join(' / '); }
             }
+            // Fusionner les n° stock (différents stocks pour une même pièce)
+            if (r.nstock && r.nstock.trim()) {
+              const existing = (g.nstock || '').split(' / ').map(s => s.trim()).filter(Boolean);
+              const ne = r.nstock.trim();
+              if (!existing.includes(ne)) { existing.push(ne); g.nstock = existing.join(' / '); }
+            }
+            // Garder les autres champs depuis la première occurrence
             Object.keys(r).forEach(k => { if (!g[k] && r[k]) g[k] = r[k]; });
             g._count = (g._count || 1) + 1;
           } else {
@@ -2441,7 +2453,8 @@
       render() {
         if (state.currentView !== 'magasin') return;
         const mergeEl = document.getElementById('pc-merge-toggle');
-        const isMerged = mergeEl && mergeEl.checked;
+        // Fusion par défaut activée — basée sur le NOM (référence)
+        const isMerged = mergeEl ? mergeEl.checked : true;
         const rawData = this.pieces;
         const data = isMerged ? this.mergePiecesData(rawData) : rawData;
         const hasData = data.length > 0;
@@ -2497,6 +2510,17 @@
           if (infoEl) infoEl.textContent = '';
         }
 
+        // Sort by 'nom' (Référence) — items with same Nom stay together
+        data = data.slice().sort((a, b) => {
+          const na = (a.nom || '').toString().trim();
+          const nb = (b.nom || '').toString().trim();
+          // Empty values go to the bottom
+          if (!na && nb) return 1;
+          if (na && !nb) return -1;
+          // Compare alphabetically/numerically
+          return na.localeCompare(nb, 'fr', { numeric: true, sensitivity: 'base' });
+        });
+
         // Build filter dropdowns
         this.buildFilters(data);
         this.buildEmplCards(data);
@@ -2551,7 +2575,8 @@
       },
 
       applyFilters() {
-        const isMerged = document.getElementById('pc-merge-toggle')?.checked;
+        const mergeEl2 = document.getElementById('pc-merge-toggle');
+        const isMerged = mergeEl2 ? mergeEl2.checked : true;
         let data = isMerged ? this.mergePiecesData(this.pieces) : this.pieces;
 
         const q = (document.getElementById('pc-search')?.value || '').toLowerCase().trim();
@@ -2571,6 +2596,15 @@
         if (fEtat === '__zero')  data = data.filter(r => parseInt(r.qty) === 0);
         if (fEtat === '__ok')    data = data.filter(r => { const q = parseInt(r.qty), m = parseInt(r.qmin); return !isNaN(q) && q > 0 && (isNaN(m) || q > m); });
 
+        // Sort filtered data by 'nom' too
+        data = data.slice().sort((a, b) => {
+          const na = (a.nom || '').toString().trim();
+          const nb = (b.nom || '').toString().trim();
+          if (!na && nb) return 1;
+          if (na && !nb) return -1;
+          return na.localeCompare(nb, 'fr', { numeric: true, sensitivity: 'base' });
+        });
+
         this.filtered = data;
         document.getElementById('pc-sct').textContent = data.length + ' réf.';
 
@@ -2586,25 +2620,49 @@
           return;
         }
 
-        tbody.innerHTML = data.slice(0, 200).map(r => {
+        // Count occurrences of each 'nom' to highlight grouped rows
+        const nomCounts = {};
+        data.forEach(r => { const n = (r.nom||'').trim(); if (n) nomCounts[n] = (nomCounts[n]||0) + 1; });
+
+        let prevNom = null;
+        tbody.innerHTML = data.slice(0, 500).map(r => {
           const qty = parseInt(r.qty);
           const qmin = parseInt(r.qmin);
           let status = '';
+          // Si fusionné depuis plusieurs stocks/emplacements, afficher un badge "fusionné"
+          const mergedBadge = (r._count && r._count > 1)
+            ? `<span style="display:inline-block;background:rgba(0,212,255,.12);color:var(--accent-500);font-size:.62rem;font-weight:700;padding:.08rem .35rem;border-radius:4px;margin-right:.3rem;border:1px solid rgba(0,212,255,.2)" title="Fusionné depuis ${r._count} stocks">🔗 ${r._count}×</span>`
+            : '';
           if (!isNaN(qty)) {
-            if (qty === 0) status = '<span class="badge" style="background:rgba(255,61,90,.15);color:#ff3d5a;border:1px solid rgba(255,61,90,.3);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">🔴 RUPTURE</span>';
-            else if (!isNaN(qmin) && qmin > 0 && qty <= qmin) status = '<span class="badge" style="background:rgba(255,181,71,.15);color:#ffb547;border:1px solid rgba(255,181,71,.3);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">⚠️ FAIBLE</span>';
-            else status = '<span class="badge" style="background:rgba(0,229,160,.13);color:#00e5a0;border:1px solid rgba(0,229,160,.28);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">✅ OK</span>';
+            if (qty === 0) status = mergedBadge + '<span class="badge" style="background:rgba(255,61,90,.15);color:#ff3d5a;border:1px solid rgba(255,61,90,.3);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">🔴 RUPTURE</span>';
+            else if (!isNaN(qmin) && qmin > 0 && qty <= qmin) status = mergedBadge + '<span class="badge" style="background:rgba(255,181,71,.15);color:#ffb547;border:1px solid rgba(255,181,71,.3);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">⚠️ FAIBLE</span>';
+            else status = mergedBadge + '<span class="badge" style="background:rgba(0,229,160,.13);color:#00e5a0;border:1px solid rgba(0,229,160,.28);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">✅ OK</span>';
           } else status = '<span style="color:var(--text-muted);font-size:.72rem">—</span>';
 
-          return '<tr>' + cols.map(c => {
-            const v = r[c.k] || '';
+          // Visual: same 'nom' rows have a left border accent
+          const currentNom = (r.nom||'').trim();
+          const isFirstOfGroup = currentNom !== prevNom;
+          const isInGroup = currentNom && nomCounts[currentNom] > 1;
+          prevNom = currentNom;
+
+          // Border: top accent on first occurrence of grouped item
+          const rowStyle = isInGroup ? (isFirstOfGroup
+            ? 'border-top:2px solid rgba(0,212,255,.3);'
+            : 'background:rgba(0,212,255,.025);') : '';
+
+          return '<tr style="' + rowStyle + '">' + cols.map(c => {
+            let v = r[c.k] || '';
             const style = c.num ? 'text-align:right;font-family:var(--font-mono)' : '';
-            return `<td style="${style}">${ui.escape(v)}</td>`;
+            // Highlight nom column if grouped
+            const tdExtra = (c.k === 'nom' && isInGroup)
+              ? 'border-left:3px solid var(--accent-500);font-weight:700;color:var(--accent-500);'
+              : '';
+            return `<td style="${style}${tdExtra}">${ui.escape(v)}</td>`;
           }).join('') + '<td>' + status + '</td></tr>';
         }).join('');
 
-        if (data.length > 200) {
-          tbody.innerHTML += '<tr><td colspan="' + (cols.length+1) + '" style="text-align:center;padding:.75rem;color:var(--text-muted);font-size:.78rem;font-style:italic">+ ' + (data.length - 200) + ' lignes supplémentaires (filtrer pour affiner)</td></tr>';
+        if (data.length > 500) {
+          tbody.innerHTML += '<tr><td colspan="' + (cols.length+1) + '" style="text-align:center;padding:.75rem;color:var(--text-muted);font-size:.78rem;font-style:italic">+ ' + (data.length - 500) + ' lignes supplémentaires (filtrer pour affiner)</td></tr>';
         }
       },
 
