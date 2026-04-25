@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>LEONI · Setup Magasinier</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#020408;color:#f0f4ff;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+.card{background:#0f1929;border:1px solid rgba(0,212,255,.15);border-radius:16px;padding:2rem;width:100%;max-width:560px;box-shadow:0 0 40px rgba(0,212,255,.05)}
+.logo{font-size:1.4rem;font-weight:800;color:#00d4ff;letter-spacing:.08em;font-family:monospace}
+.subtitle{font-size:.85rem;color:#7a9bb5;margin:.4rem 0 1.5rem}
+.warn{background:rgba(255,181,71,.07);border:1px solid rgba(255,181,71,.22);border-radius:9px;padding:.875rem 1rem;font-size:.82rem;color:#ffb547;margin-bottom:1.25rem}
+.warn strong{display:block;margin-bottom:.25rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-size:.75rem;color:#7a9bb5;margin-bottom:.4rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.field input{width:100%;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.15);border-radius:8px;padding:.65rem .875rem;color:#f0f4ff;font-size:.875rem;outline:none;transition:border-color .15s}
+.field input:focus{border-color:#00d4ff;box-shadow:0 0 0 3px rgba(0,212,255,.12)}
+.btn{width:100%;padding:.875rem;background:#00d4ff;color:#000;border:none;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;transition:all .2s;margin-top:.5rem}
+.btn:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 0 20px rgba(0,212,255,.4)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.log{background:#020508;border:1px solid rgba(0,212,255,.08);border-radius:9px;padding:.875rem;font-family:monospace;font-size:.76rem;max-height:200px;overflow-y:auto;margin-top:1rem;display:none}
+.log.v{display:block}
+.log-entry{padding:.15rem 0}
+.log-success{color:#00e5a0}
+.log-error{color:#ff3d5a}
+.log-info{color:#7a9bb5}
+.done-box{display:none;margin-top:1rem;padding:1.1rem;border-radius:9px;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.3);color:#6ee7b7;font-size:.85rem}
+.done-box.v{display:block}
+.done-box strong{display:block;font-size:1rem;margin-bottom:.4rem}
+.creds-box{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);border-radius:8px;padding:.875rem;margin-top:.75rem;font-family:monospace;font-size:.78rem;line-height:1.7}
+.creds-box span{color:#7a9bb5}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">LEONI · Setup Magasinier</div>
+  <div class="subtitle">Création du compte technicien magasinier (à exécuter une seule fois)</div>
+
+  <div class="warn">
+    <strong>⚠️ Important</strong>
+    Cette page crée le compte Firebase Auth + le profil RTDB pour le rôle magasinier.
+    Une fois créé, supprimez cette page de votre repo GitHub par sécurité.
+  </div>
+
+  <div class="field">
+    <label>Email du magasinier</label>
+    <input type="email" id="email" value="magasin@leoni.com"/>
+  </div>
+  <div class="field">
+    <label>Mot de passe (min. 8 caractères)</label>
+    <input type="text" id="password" value="Leoni@Magasin2025!"/>
+  </div>
+  <div class="field">
+    <label>Nom affiché</label>
+    <input type="text" id="displayName" value="Magasinier Principal"/>
+  </div>
+  <div class="field">
+    <label>Matricule</label>
+    <input type="text" id="matricule" value="LN-M-001"/>
+  </div>
+
+  <button class="btn" id="btn-create">🚀 Créer le compte magasinier</button>
+
+  <div class="log" id="log"></div>
+  <div class="done-box" id="done"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyBIW4I1DRqyqcmNEdajXbptQ5-RWFIG1V4",
+  authDomain:"leoni-sertissage-labo.firebaseapp.com",
+  databaseURL:"https://leoni-sertissage-labo-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"leoni-sertissage-labo",
+  storageBucket:"leoni-sertissage-labo.firebasestorage.app",
+  messagingSenderId:"432527114405",
+  appId:"1:432527114405:web:b141f6ae74f11b1cbb0d4c"
+});
+const auth = firebase.auth();
+const rtdb = firebase.database();
+const logEl = document.getElementById('log');
+
+function log(msg, cls) {
+  logEl.classList.add('v');
+  const d = document.createElement('div');
+  d.className = 'log-entry log-' + (cls || 'info');
+  d.textContent = '[' + new Date().toLocaleTimeString('fr-FR') + ']  ' + msg;
+  logEl.appendChild(d);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+document.getElementById('btn-create').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-create');
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const displayName = document.getElementById('displayName').value.trim();
+  const matricule = document.getElementById('matricule').value.trim();
+
+  if (!email || !password || !displayName) { log('Tous les champs sont obligatoires', 'error'); return; }
+  if (password.length < 8) { log('Mot de passe trop court (min. 8 caractères)', 'error'); return; }
+
+  btn.disabled = true; btn.textContent = 'Création en cours...';
+  log('Création du compte Firebase Auth pour ' + email + '...', 'info');
+
+  try {
+    let uid;
+    try {
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      uid = cred.user.uid;
+      log('✓ Compte Auth créé — UID: ' + uid, 'success');
+      await cred.user.updateProfile({ displayName });
+      log('✓ Display name défini', 'success');
+    } catch(e) {
+      if (e.code === 'auth/email-already-in-use') {
+        log('⚠ Email déjà existant — tentative de connexion...', 'info');
+        const cred = await auth.signInWithEmailAndPassword(email, password);
+        uid = cred.user.uid;
+        log('✓ Connecté avec succès — UID: ' + uid, 'success');
+      } else { throw e; }
+    }
+
+    // Profile RTDB
+    log('Création du profil RTDB...', 'info');
+    await rtdb.ref('users/' + uid).set({
+      uid, displayName, email, matricule,
+      role: 'magasinier',
+      password,  // Stockage en clair pour visibilité admin
+      active: true,
+      createdAt: Date.now(),
+      lastLoginAt: null
+    });
+    log('✓ Profil RTDB créé avec rôle "magasinier"', 'success');
+
+    // Done
+    document.getElementById('done').classList.add('v');
+    document.getElementById('done').innerHTML =
+      '<strong>✅ Compte magasinier créé avec succès !</strong>' +
+      '<div class="creds-box">' +
+        '<span>Email:</span> ' + email + '<br/>' +
+        '<span>Mot de passe:</span> ' + password + '<br/>' +
+        '<span>Rôle:</span> magasinier<br/>' +
+        '<span>UID:</span> ' + uid +
+      '</div>' +
+      '<div style="margin-top:.875rem">' +
+        '<a href="index.html" style="color:#00d4ff;font-weight:600;text-decoration:none">→ Page de connexion</a>' +
+      '</div>' +
+      '<div style="margin-top:.875rem;color:#ffb547;font-size:.78rem">⚠️ Supprimez cette page de votre repo GitHub par sécurité.</div>';
+
+    btn.textContent = '✅ Terminé';
+  } catch(e) {
+    log('❌ ERREUR : ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '🔄 Réessayer';
+  }
+});
+</script>
+</body>
+</html>

@@ -54,7 +54,9 @@
     },
     pagination: { page: 1, pageSize: 50 },
     sort: { field: 'numBon', dir: 'desc' },
-    listeners: []         // unsubscribe functions
+    listeners: [],        // unsubscribe functions
+    stock: {},            // stock items
+    stockMovements: [],   // movements log
   };
 
   /* ==========================================================================
@@ -346,6 +348,7 @@
         crimp:       ['intervention.create','intervention.edit'],
         crimping:    ['intervention.create','intervention.edit'],
         labo:        ['intervention.validate','intervention.reject','intervention.editLab'],
+        magasinier:  ['stock.read','stock.write','stock.import','intervention.read','perf.read'],
         viewer:      []
       };
       const userPerms = perms[state.role] || [];
@@ -397,9 +400,32 @@
         views.hub.render();
         if (state.currentView === 'history') views.history.render();
         if (state.currentView === 'queue')   views.queue.render();
+        if (state.currentView === 'performance') views.performance.render();
       };
       ref.on('value', handler);
       state.listeners.push(() => ref.off('value', handler));
+    },
+
+    /* --- stock --- */
+    listenStock() {
+      const ref = fbDb.ref('stock');
+      const handler = (snap) => {
+        state.stock = snap.val() || {};
+        if (state.currentView === 'magasin') views.magasin.render();
+        views.magasin.updateStockBadge();
+      };
+      ref.on('value', handler, () => {});
+      state.listeners.push(() => ref.off('value', handler));
+
+      // Movements
+      const movRef = fbDb.ref('stockMovements').orderByChild('timestamp').limitToLast(50);
+      const movHandler = (snap) => {
+        state.stockMovements = [];
+        snap.forEach(c => state.stockMovements.unshift({ id:c.key, ...c.val() }));
+        if (state.currentView === 'magasin') views.magasin.renderMovements();
+      };
+      movRef.on('value', movHandler, () => {});
+      state.listeners.push(() => movRef.off('value', movHandler));
     },
 
     async createIntervention(data) {
@@ -624,7 +650,19 @@
     handleHash() {
       const hash = window.location.hash.replace('#', '') || 'hub';
       const valid = ['hub','intervention','history','queue','catalog','users','stats','auditlog'];
-      const view = valid.includes(hash) ? hash : 'hub';
+      let view = valid.includes(hash) ? hash : 'hub';
+
+      // ── Restrictions par rôle ──
+      // Les techniciens LABO ne peuvent pas voir le catalogue ni créer un nouveau bon
+      if (state.role === 'labo') {
+        if (view === 'catalog' || view === 'users') {
+          view = 'queue';
+          window.location.hash = 'queue';
+          if (typeof ui !== 'undefined' && ui.toast) ui.toast('Accès non autorisé pour votre rôle', 'warn');
+          return;
+        }
+      }
+
       ui.showView(view);
       if (views[view] && views[view].render) views[view].render();
     }
@@ -1133,6 +1171,23 @@
           $('#int-type').value = data.crimping.type || '';
           $('#int-observation').value = data.crimping.observation || '';
           $('#obs-counter').textContent = `${(data.crimping.observation || '').length} / 1000`;
+          // Load duration
+          const durEl = $('#int-duration');
+          if (durEl) {
+            durEl.value = data.crimping.duration || '';
+            const display = document.getElementById('int-duration-display');
+            if (display) {
+              if (data.crimping.duration) {
+                const h = Math.floor(data.crimping.duration/60), m = data.crimping.duration%60;
+                display.textContent = h > 0 ? `≈ ${h}h ${m}min` : `≈ ${m}min`;
+              } else display.textContent = '—';
+            }
+            // Hide duration field for labo (read-only on this section)
+            const fieldDur = document.getElementById('field-duration');
+            if (fieldDur) {
+              fieldDur.style.display = (state.role === 'magasinier') ? 'none' : 'block';
+            }
+          }
           $$('input[name="piece"]').forEach(cb => {
             cb.checked = !!(data.crimping.piecesChanged && data.crimping.piecesChanged[cb.value]);
           });
@@ -2050,6 +2105,7 @@
                 <select class="field__input" id="edit-role">
                   <option value="admin"      ${u.role === 'admin'      ? 'selected' : ''}>🔴 Administrateur</option>
                   <option value="labo"       ${u.role === 'labo'       ? 'selected' : ''}>🔵 Technicien Labo</option>
+                  <option value="magasinier" ${u.role === 'magasinier' ? 'selected' : ''}>📦 Magasinier</option>
                   <option value="crimp"      ${u.role === 'crimp'      ? 'selected' : ''}>🟢 Technicien Crimping</option>
                   <option value="responsable"${u.role === 'responsable'? 'selected' : ''}>🟡 Responsable Maintenance</option>
                 </select>
@@ -2188,6 +2244,636 @@
         } catch(e) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:1.5rem;color:var(--danger-500)">Erreur: ${e.message}</td></tr>`; }
       },
       init() {}
+    },
+
+    /* ==========================================================================
+       MAGASIN — Gestion stock pièces
+       ========================================================================== */
+    magasin: {
+      _editingId: null,
+      _importMode: null,  // 'stock' | 'history'
+
+      render() {
+        if (state.currentView !== 'magasin') return;
+        const list = Object.values(state.stock);
+
+        // KPIs
+        const total = list.length;
+        const lowQty = list.filter(s => (s.quantity||0) > 0 && (s.quantity||0) < (s.minThreshold||5)).length;
+        const outQty = list.filter(s => (s.quantity||0) === 0).length;
+        const value = list.reduce((sum, s) => sum + ((s.quantity||0) * (s.unitPrice||0)), 0);
+
+        const elTot   = document.getElementById('stock-kpi-total');
+        const elVal   = document.getElementById('stock-kpi-value');
+        const elLow   = document.getElementById('stock-kpi-low');
+        const elOut   = document.getElementById('stock-kpi-out');
+        if (elTot) elTot.textContent = total;
+        if (elVal) elVal.textContent = value.toLocaleString('fr-FR');
+        if (elLow) elLow.textContent = lowQty;
+        if (elOut) elOut.textContent = outQty;
+
+        // Filter table
+        const q = (document.getElementById('stock-search')?.value || '').toLowerCase();
+        const sf = document.getElementById('stock-filter-status')?.value || 'all';
+        const cf = document.getElementById('stock-filter-cat')?.value || 'all';
+
+        let filtered = list;
+        if (q) filtered = filtered.filter(s =>
+          (s.ref||'').toLowerCase().includes(q) ||
+          (s.designation||'').toLowerCase().includes(q) ||
+          (s.supplier||'').toLowerCase().includes(q)
+        );
+        if (cf !== 'all') filtered = filtered.filter(s => s.category === cf);
+        if (sf === 'low') filtered = filtered.filter(s => (s.quantity||0) > 0 && (s.quantity||0) < (s.minThreshold||5));
+        if (sf === 'out') filtered = filtered.filter(s => (s.quantity||0) === 0);
+        if (sf === 'ok')  filtered = filtered.filter(s => (s.quantity||0) >= (s.minThreshold||5));
+
+        // Categories datalist
+        const cats = [...new Set(list.map(s => s.category).filter(Boolean))].sort();
+        const catSelect = document.getElementById('stock-filter-cat');
+        if (catSelect) {
+          const current = catSelect.value;
+          catSelect.innerHTML = '<option value="all">Toutes catégories</option>' +
+            cats.map(c => `<option value="${ui.escape(c)}" ${c===current?'selected':''}>${ui.escape(c)}</option>`).join('');
+        }
+        const catList = document.getElementById('stock-cat-list');
+        if (catList) catList.innerHTML = cats.map(c => `<option value="${ui.escape(c)}">`).join('');
+
+        // Render table
+        const tbody = document.getElementById('stock-body');
+        if (!tbody) return;
+        const sorted = filtered.sort((a,b) => (a.designation||'').localeCompare(b.designation||''));
+        tbody.innerHTML = sorted.length ? sorted.map(s => {
+          const qty = s.quantity || 0;
+          const min = s.minThreshold || 5;
+          let statusBadge;
+          if (qty === 0)        statusBadge = `<span class="badge" style="background:rgba(255,61,90,.15);color:#ff3d5a;border:1px solid rgba(255,61,90,.3);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">🚨 RUPTURE</span>`;
+          else if (qty < min)   statusBadge = `<span class="badge" style="background:rgba(255,181,71,.15);color:#ffb547;border:1px solid rgba(255,181,71,.3);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">⚠️ FAIBLE</span>`;
+          else                  statusBadge = `<span class="badge" style="background:rgba(0,229,160,.13);color:#00e5a0;border:1px solid rgba(0,229,160,.28);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">✅ OK</span>`;
+
+          const canWrite = auth.can('stock.write');
+          return `<tr>
+            <td style="font-family:var(--font-mono);font-size:.78rem">${ui.escape(s.ref||'—')}</td>
+            <td style="font-weight:500">${ui.escape(s.designation||'—')}</td>
+            <td><span style="font-size:.75rem;color:var(--text-secondary);background:var(--bg-2);padding:.1rem .45rem;border-radius:4px">${ui.escape(s.category||'—')}</span></td>
+            <td style="font-size:.78rem">${ui.escape(s.supplier||'—')}</td>
+            <td style="text-align:right;font-family:var(--font-mono);font-weight:600;color:${qty===0?'var(--danger-500)':qty<min?'var(--warn-500)':'var(--text-primary)'}">${qty}</td>
+            <td style="text-align:right;font-family:var(--font-mono);color:var(--text-muted)">${min}</td>
+            <td style="text-align:right;font-family:var(--font-mono)">${(s.unitPrice||0).toFixed(2)}</td>
+            <td>${statusBadge}</td>
+            <td>
+              ${canWrite ? `
+                <button class="btn-icon" title="Modifier" data-action="edit-stock" data-id="${s.id}" style="background:none;border:none;cursor:pointer;color:var(--accent-500);padding:.3rem">✏️</button>
+                <button class="btn-icon" title="Mouvement +/-" data-action="move-stock" data-id="${s.id}" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);padding:.3rem">📋</button>
+                <button class="btn-icon" title="Supprimer" data-action="del-stock" data-id="${s.id}" style="background:none;border:none;cursor:pointer;color:var(--danger-500);padding:.3rem">🗑</button>
+              ` : '<span style="color:var(--text-muted);font-size:.78rem">Lecture seule</span>'}
+            </td>
+          </tr>`;
+        }).join('') : '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted)">Aucune pièce — Importez un fichier Excel ou ajoutez une pièce manuellement.</td></tr>';
+
+        this.renderMovements();
+      },
+
+      renderMovements() {
+        const tbody = document.getElementById('stock-movements-body');
+        if (!tbody) return;
+        const list = state.stockMovements || [];
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted)">Aucun mouvement récent</td></tr>';
+          return;
+        }
+        tbody.innerHTML = list.slice(0,20).map(m => {
+          const piece = state.stock[m.stockId];
+          const sign = m.type === 'in' ? '+' : '−';
+          const color = m.type === 'in' ? 'var(--success-500)' : 'var(--danger-500)';
+          return `<tr>
+            <td style="font-family:var(--font-mono);font-size:.76rem;color:var(--text-muted)">${fmt.dateTime(m.timestamp)}</td>
+            <td style="font-weight:500">${ui.escape(piece?.designation || m.stockId || '—')}</td>
+            <td><span style="font-size:.72rem;font-weight:600;color:${color}">${m.type === 'in' ? '↗ Entrée' : '↘ Sortie'}</span></td>
+            <td style="text-align:right;font-family:var(--font-mono);font-weight:700;color:${color}">${sign}${m.quantity}</td>
+            <td style="font-size:.78rem">${ui.escape(m.userName || '—')}</td>
+            <td style="font-size:.78rem;color:var(--text-secondary)">${ui.escape(m.reason || '—')}</td>
+          </tr>`;
+        }).join('');
+      },
+
+      updateStockBadge() {
+        const list = Object.values(state.stock);
+        const alerts = list.filter(s => (s.quantity||0) === 0 || (s.quantity||0) < (s.minThreshold||5)).length;
+        const badge = document.getElementById('stock-alert-badge');
+        if (badge) {
+          badge.textContent = alerts;
+          badge.hidden = alerts === 0;
+        }
+      },
+
+      init() {
+        // Add piece button
+        $('#btn-stock-add')?.addEventListener('click', () => this.openModal());
+        $('#btn-stock-close')?.addEventListener('click', () => $('#modal-stock').hidden = true);
+        $('#btn-stock-cancel')?.addEventListener('click', () => $('#modal-stock').hidden = true);
+        $('#btn-stock-save')?.addEventListener('click', () => this.save());
+        document.querySelector('#modal-stock .modal__backdrop')?.addEventListener('click', () => $('#modal-stock').hidden = true);
+
+        // Search & filters
+        $('#stock-search')?.addEventListener('input', () => this.render());
+        $('#stock-filter-status')?.addEventListener('change', () => this.render());
+        $('#stock-filter-cat')?.addEventListener('change', () => this.render());
+
+        // Import buttons
+        $('#btn-stock-import')?.addEventListener('click', () => this.openImport('stock'));
+        $('#btn-stock-history-import')?.addEventListener('click', () => this.openImport('history'));
+        $('#btn-stock-export')?.addEventListener('click', () => this.exportExcel());
+
+        // Import modal handlers
+        $('#btn-import-close')?.addEventListener('click', () => $('#modal-import').hidden = true);
+        $('#btn-import-cancel')?.addEventListener('click', () => $('#modal-import').hidden = true);
+        document.querySelector('#modal-import .modal__backdrop')?.addEventListener('click', () => $('#modal-import').hidden = true);
+
+        // Dropzone
+        const dz = document.getElementById('dropzone');
+        const fi = document.getElementById('import-file');
+        if (dz && fi) {
+          dz.addEventListener('click', () => fi.click());
+          dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = 'var(--accent-500)'; dz.style.background = 'rgba(0,212,255,.06)'; });
+          dz.addEventListener('dragleave', () => { dz.style.borderColor = 'var(--border-strong)'; dz.style.background = 'rgba(0,212,255,.02)'; });
+          dz.addEventListener('drop', e => {
+            e.preventDefault();
+            dz.style.borderColor = 'var(--border-strong)'; dz.style.background = 'rgba(0,212,255,.02)';
+            if (e.dataTransfer.files[0]) this.handleImport(e.dataTransfer.files[0]);
+          });
+          fi.addEventListener('change', e => { if (e.target.files[0]) this.handleImport(e.target.files[0]); });
+        }
+
+        // Table actions delegation
+        document.addEventListener('click', (e) => {
+          const btn = e.target.closest('[data-action]');
+          if (!btn || !btn.dataset.id) return;
+          const id = btn.dataset.id;
+          const action = btn.dataset.action;
+          if (action === 'edit-stock') this.openModal(id);
+          else if (action === 'del-stock') this.deletePiece(id);
+          else if (action === 'move-stock') this.openMoveDialog(id);
+        });
+      },
+
+      openModal(id) {
+        this._editingId = id || null;
+        const piece = id ? state.stock[id] : null;
+        $('#modal-stock-title').textContent = piece ? '📦 Modifier la pièce' : '📦 Nouvelle pièce';
+        $('#stock-ref').value           = piece?.ref || '';
+        $('#stock-cat').value           = piece?.category || '';
+        $('#stock-desig').value         = piece?.designation || '';
+        $('#stock-supplier').value      = piece?.supplier || '';
+        $('#stock-supplier-ref').value  = piece?.supplierRef || '';
+        $('#stock-qty').value           = piece?.quantity ?? '';
+        $('#stock-min').value           = piece?.minThreshold ?? 5;
+        $('#stock-price').value         = piece?.unitPrice ?? '';
+        $('#stock-location').value      = piece?.location || '';
+        $('#modal-stock').hidden = false;
+      },
+
+      async save() {
+        if (!auth.can('stock.write')) return ui.toast('Permission refusée', 'danger');
+        const ref = $('#stock-ref').value.trim();
+        const desig = $('#stock-desig').value.trim();
+        if (!ref || !desig) return ui.toast('Référence et désignation obligatoires', 'warn');
+
+        const data = {
+          ref,
+          designation: desig,
+          category:    $('#stock-cat').value.trim() || 'Divers',
+          supplier:    $('#stock-supplier').value.trim() || '',
+          supplierRef: $('#stock-supplier-ref').value.trim() || '',
+          quantity:    parseInt($('#stock-qty').value) || 0,
+          minThreshold: parseInt($('#stock-min').value) || 5,
+          unitPrice:   parseFloat($('#stock-price').value) || 0,
+          location:    $('#stock-location').value.trim() || '',
+          updatedAt:   Date.now(),
+          updatedBy:   state.profile?.displayName || ''
+        };
+
+        try {
+          if (this._editingId) {
+            await fbDb.ref('stock/' + this._editingId).update(data);
+            ui.toast('Pièce modifiée ✅', 'success');
+          } else {
+            const id = ref.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+            data.id = id;
+            data.createdAt = Date.now();
+            await fbDb.ref('stock/' + id).set(data);
+            ui.toast('Pièce ajoutée ✅', 'success');
+            // Audit log
+            await fbDb.ref('auditLog').push({
+              timestamp: Date.now(), uid: state.user.uid, userName: state.profile?.displayName || '',
+              action: 'stock.create', entity: 'stock/' + id
+            });
+          }
+          $('#modal-stock').hidden = true;
+        } catch(e) {
+          ui.toast('Erreur: ' + e.message, 'danger');
+        }
+      },
+
+      async deletePiece(id) {
+        if (!auth.can('stock.write')) return ui.toast('Permission refusée', 'danger');
+        const piece = state.stock[id];
+        if (!piece) return;
+        if (!confirm(`Supprimer "${piece.designation}" du stock ?`)) return;
+        try {
+          await fbDb.ref('stock/' + id).remove();
+          await fbDb.ref('auditLog').push({
+            timestamp: Date.now(), uid: state.user.uid, userName: state.profile?.displayName || '',
+            action: 'stock.delete', entity: 'stock/' + id
+          });
+          ui.toast('Pièce supprimée', 'success');
+        } catch(e) { ui.toast('Erreur: ' + e.message, 'danger'); }
+      },
+
+      async openMoveDialog(id) {
+        const piece = state.stock[id];
+        if (!piece) return;
+        const qtyStr = prompt(`Mouvement stock pour "${piece.designation}"\nStock actuel: ${piece.quantity||0}\n\nEntrez la quantité :\n• Positif = entrée (+5)\n• Négatif = sortie (-3)`, '');
+        if (!qtyStr) return;
+        const qty = parseInt(qtyStr);
+        if (isNaN(qty) || qty === 0) return ui.toast('Quantité invalide', 'warn');
+        const reason = prompt('Motif du mouvement :', qty > 0 ? 'Réapprovisionnement' : 'Utilisation intervention') || '';
+        const newQty = (piece.quantity||0) + qty;
+        if (newQty < 0) return ui.toast('Stock insuffisant', 'danger');
+
+        try {
+          await fbDb.ref('stock/' + id).update({ quantity: newQty, updatedAt: Date.now() });
+          await fbDb.ref('stockMovements').push({
+            stockId: id, type: qty > 0 ? 'in' : 'out', quantity: Math.abs(qty),
+            reason, timestamp: Date.now(),
+            userId: state.user.uid, userName: state.profile?.displayName || ''
+          });
+          ui.toast(`${qty > 0 ? 'Entrée' : 'Sortie'} de ${Math.abs(qty)} ✅`, 'success');
+        } catch(e) { ui.toast('Erreur: ' + e.message, 'danger'); }
+      },
+
+      openImport(mode) {
+        this._importMode = mode;
+        const titles = {
+          stock:   '📥 Importer le stock (Excel)',
+          history: '📊 Importer historique interventions'
+        };
+        const cols = {
+          stock:   ['Référence', 'Désignation', 'Catégorie', 'Fournisseur', 'Quantité', 'Seuil min.', 'Prix unitaire'],
+          history: ['N° Bon', 'Outil', 'Technicien', 'Date', 'Type', 'Statut']
+        };
+        $('#modal-import-title').textContent = titles[mode];
+        $('#import-columns').textContent = cols[mode].join(' · ');
+        $('#import-progress').style.display = 'none';
+        $('#import-bar').style.width = '0%';
+        $('#import-file').value = '';
+        $('#modal-import').hidden = false;
+      },
+
+      async handleImport(file) {
+        $('#import-progress').style.display = 'block';
+        $('#import-status').textContent = 'Lecture du fichier…';
+        $('#import-bar').style.width = '20%';
+
+        // Load SheetJS
+        await this._loadXLSX();
+        try {
+          const data = await file.arrayBuffer();
+          const wb = XLSX.read(data, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+          $('#import-bar').style.width = '50%';
+          $('#import-status').textContent = `${rows.length} ligne(s) trouvée(s) — Import en cours…`;
+
+          if (this._importMode === 'stock') {
+            await this._importStock(rows);
+          } else {
+            await this._importHistory(rows);
+          }
+
+          $('#import-bar').style.width = '100%';
+          $('#import-status').textContent = '✅ Import terminé !';
+          setTimeout(() => $('#modal-import').hidden = true, 1500);
+        } catch(e) {
+          $('#import-status').textContent = '❌ Erreur: ' + e.message;
+          $('#import-bar').style.background = 'var(--danger-500)';
+        }
+      },
+
+      async _importStock(rows) {
+        let imported = 0, errors = 0;
+        for (const row of rows) {
+          const ref = String(row['Référence'] || row['Reference'] || row['ref'] || '').trim();
+          const desig = String(row['Désignation'] || row['Designation'] || row['designation'] || '').trim();
+          if (!ref || !desig) { errors++; continue; }
+          const id = ref.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+          await fbDb.ref('stock/' + id).set({
+            id,
+            ref,
+            designation: desig,
+            category:    String(row['Catégorie'] || row['Categorie'] || row['category'] || 'Divers').trim(),
+            supplier:    String(row['Fournisseur'] || row['supplier'] || '').trim(),
+            supplierRef: String(row['Réf. fournisseur'] || row['supplierRef'] || '').trim(),
+            quantity:    parseInt(row['Quantité'] || row['Quantite'] || row['quantity'] || 0) || 0,
+            minThreshold: parseInt(row['Seuil min.'] || row['Seuil'] || row['minThreshold'] || 5) || 5,
+            unitPrice:   parseFloat(row['Prix unitaire'] || row['Prix'] || row['unitPrice'] || 0) || 0,
+            location:    String(row['Emplacement'] || row['location'] || '').trim(),
+            updatedAt:   Date.now(),
+            updatedBy:   state.profile?.displayName || 'Import Excel'
+          });
+          imported++;
+        }
+        await fbDb.ref('auditLog').push({
+          timestamp: Date.now(), uid: state.user.uid, userName: state.profile?.displayName || '',
+          action: 'stock.import', entity: 'stock', meta: { imported, errors }
+        });
+        ui.toast(`${imported} pièce(s) importée(s) ✅ ${errors > 0 ? '(' + errors + ' erreurs)' : ''}`, 'success');
+      },
+
+      async _importHistory(rows) {
+        let imported = 0, errors = 0;
+        // Get next reg counter
+        const counterSnap = await fbDb.ref('counters/registre').once('value');
+        let counter = counterSnap.val() || 0;
+
+        for (const row of rows) {
+          try {
+            counter++;
+            const numBon = counter;
+            const tool = {
+              outilId:   String(row['Outil'] || row['outilId'] || '').trim(),
+              refOutil:  String(row['Réf. outil'] || row['refOutil'] || '').trim(),
+              fabricant: String(row['Fabricant'] || row['fabricant'] || '').trim(),
+            };
+            const dateStr = row['Date'] || row['date'] || '';
+            const date = dateStr ? new Date(dateStr).getTime() : Date.now();
+            const status = String(row['Statut'] || row['status'] || 'validated').toLowerCase();
+            const validStatus = ['draft','submitted','validated','rejected'].includes(status) ? status : 'validated';
+
+            await fbDb.ref('interventions/' + numBon).set({
+              numBon, status: validStatus, createdAt: date, updatedAt: date,
+              tool,
+              crimping: {
+                filledAt: date,
+                filledBy: { uid: 'import', name: String(row['Technicien'] || row['technicien'] || 'Import historique'), matricule: String(row['Matricule'] || '') },
+                date,
+                cycles: parseInt(row['Cycles'] || row['cycles'] || 0) || 0,
+                type: String(row['Type'] || row['type'] || 'preventive').toLowerCase(),
+                piecesChanged: {},
+                observation: String(row['Observation'] || row['observation'] || 'Importé depuis historique').trim(),
+                duration: parseInt(row['Durée'] || row['Duree'] || row['duration'] || 0) || null,
+              },
+              lab: validStatus === 'validated' ? { decision:'validated', filledAt:date, filledBy:{name:'Import'} } : null,
+              sla: { submittedAt: date, decidedAt: validStatus === 'validated' ? date+3600000 : null, durationMs: validStatus === 'validated' ? 3600000 : null },
+              _imported: true
+            });
+            imported++;
+          } catch(e) { errors++; }
+        }
+        await fbDb.ref('counters/registre').set(counter);
+        await fbDb.ref('auditLog').push({
+          timestamp: Date.now(), uid: state.user.uid, userName: state.profile?.displayName || '',
+          action: 'history.import', entity: 'interventions', meta: { imported, errors }
+        });
+        ui.toast(`${imported} bon(s) historique importé(s) ✅`, 'success');
+      },
+
+      async exportExcel() {
+        const list = Object.values(state.stock);
+        if (!list.length) return ui.toast('Aucune pièce à exporter', 'warn');
+        await this._loadXLSX();
+        const rows = list.map(s => ({
+          'Référence': s.ref || '',
+          'Désignation': s.designation || '',
+          'Catégorie': s.category || '',
+          'Fournisseur': s.supplier || '',
+          'Réf. fournisseur': s.supplierRef || '',
+          'Quantité': s.quantity || 0,
+          'Seuil min.': s.minThreshold || 0,
+          'Prix unitaire': s.unitPrice || 0,
+          'Valeur stock': (s.quantity||0) * (s.unitPrice||0),
+          'Emplacement': s.location || '',
+          'Statut': (s.quantity||0) === 0 ? 'RUPTURE' : (s.quantity||0) < (s.minThreshold||5) ? 'FAIBLE' : 'OK',
+        }));
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [{wch:14},{wch:30},{wch:14},{wch:14},{wch:14},{wch:10},{wch:10},{wch:12},{wch:14},{wch:18},{wch:10}];
+        XLSX.utils.book_append_sheet(wb, ws, 'Stock');
+        XLSX.writeFile(wb, 'LEONI_Stock_' + new Date().toISOString().slice(0,10) + '.xlsx');
+        ui.toast('Export Excel ✅', 'success');
+      },
+
+      _loadXLSX() {
+        return new Promise((res, rej) => {
+          if (window.XLSX) return res();
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s.onload = res; s.onerror = rej; document.head.appendChild(s);
+        });
+      }
+    },
+
+    /* ==========================================================================
+       PERFORMANCE — Diagrammes temps techniciens
+       ========================================================================== */
+    performance: {
+      _charts: {},
+
+      render() {
+        if (state.currentView !== 'performance') return;
+        const period = document.getElementById('perf-period')?.value || 'month';
+        const since = this._periodStart(period);
+        const list = Object.values(state.interventions || {})
+          .filter(i => i.crimping?.duration && (i.createdAt||0) >= since);
+
+        // Group by technician
+        const byTech = {};
+        list.forEach(i => {
+          const name = i.crimping?.filledBy?.name || 'Inconnu';
+          const mat  = i.crimping?.filledBy?.matricule || '';
+          const key = name + '|' + mat;
+          if (!byTech[key]) byTech[key] = { name, matricule: mat, total: 0, count: 0, durations: [] };
+          byTech[key].total += i.crimping.duration;
+          byTech[key].count++;
+          byTech[key].durations.push(i.crimping.duration);
+        });
+        const techs = Object.values(byTech).sort((a,b) => b.total - a.total);
+
+        // KPIs
+        const totalMin = list.reduce((s,i) => s + (i.crimping.duration || 0), 0);
+        const avgMin = list.length ? Math.round(totalMin / list.length) : 0;
+        const top = techs[0];
+
+        document.getElementById('perf-kpi-total').textContent = this._fmtMin(totalMin);
+        document.getElementById('perf-kpi-avg').textContent   = this._fmtMin(avgMin);
+        document.getElementById('perf-kpi-techs').textContent = techs.length;
+        document.getElementById('perf-kpi-top').textContent   = top ? top.name.split(' ')[0] : '—';
+        document.getElementById('perf-kpi-top-h').textContent = top ? this._fmtMin(top.total) : '—';
+
+        // Tech detail table
+        const tbody = document.getElementById('perf-tech-body');
+        if (tbody) {
+          tbody.innerHTML = techs.length ? techs.map(t => {
+            const max = Math.max(...t.durations);
+            const min = Math.min(...t.durations);
+            const avg = Math.round(t.total / t.count);
+            return `<tr>
+              <td style="font-weight:500">${ui.escape(t.name)}</td>
+              <td style="font-family:var(--font-mono);font-size:.78rem;color:var(--text-muted)">${ui.escape(t.matricule||'—')}</td>
+              <td style="text-align:right;font-family:var(--font-mono);font-weight:600">${t.count}</td>
+              <td style="text-align:right;font-family:var(--font-mono);color:var(--accent-500);font-weight:700">${this._fmtMin(t.total)}</td>
+              <td style="text-align:right;font-family:var(--font-mono)">${this._fmtMin(avg)}</td>
+              <td style="text-align:right;font-family:var(--font-mono);color:var(--danger-500)">${this._fmtMin(max)}</td>
+              <td style="text-align:right;font-family:var(--font-mono);color:var(--success-500)">${this._fmtMin(min)}</td>
+            </tr>`;
+          }).join('') : '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Aucune donnée — aucun technicien n\'a renseigné de temps d\'intervention sur cette période</td></tr>';
+        }
+
+        // Charts
+        this._loadChart().then(() => this._renderCharts(techs, list));
+      },
+
+      _periodStart(p) {
+        const now = Date.now();
+        if (p === 'week')    return now - 7*86400000;
+        if (p === 'month')   return now - 30*86400000;
+        if (p === 'quarter') return now - 90*86400000;
+        return 0;
+      },
+
+      _fmtMin(min) {
+        if (!min) return '0min';
+        const h = Math.floor(min/60), m = min%60;
+        return h > 0 ? `${h}h${m > 0 ? ' ' + m + 'min' : ''}` : m + 'min';
+      },
+
+      _renderCharts(techs, list) {
+        const COL = ['#00d4ff','#00e5a0','#ffb547','#ff3d5a','#8b5cf6','#06b6d4','#ec4899','#f59e0b'];
+        const labels = techs.map(t => t.name.split(' ')[0]);
+        const totals = techs.map(t => Math.round(t.total / 60 * 10) / 10);  // hours
+        const avgs   = techs.map(t => Math.round(t.total / t.count));        // minutes
+
+        const baseOpts = {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#7a9bb5', font:{size:11} }, grid: { color: 'rgba(0,212,255,.04)' } },
+            y: { ticks: { color: '#7a9bb5', font:{size:11} }, grid: { color: 'rgba(0,212,255,.06)' }, beginAtZero: true }
+          }
+        };
+
+        // Chart 1: Total hours
+        const c1 = document.getElementById('chart-perf-total');
+        if (c1) {
+          if (this._charts.total) this._charts.total.destroy();
+          this._charts.total = new Chart(c1, {
+            type: 'bar',
+            data: { labels, datasets: [{ label: 'Heures', data: totals,
+              backgroundColor: labels.map((_,i) => COL[i%COL.length] + '99'),
+              borderColor:    labels.map((_,i) => COL[i%COL.length]),
+              borderWidth: 1, borderRadius: 6 }] },
+            options: { ...baseOpts, scales: { ...baseOpts.scales, y: { ...baseOpts.scales.y,
+              title: { display: true, text: 'Heures', color: '#7a9bb5' } } } }
+          });
+        }
+
+        // Chart 2: Average per intervention
+        const c2 = document.getElementById('chart-perf-avg');
+        if (c2) {
+          if (this._charts.avg) this._charts.avg.destroy();
+          this._charts.avg = new Chart(c2, {
+            type: 'bar',
+            data: { labels, datasets: [{ label: 'Minutes', data: avgs,
+              backgroundColor: 'rgba(0,212,255,.55)',
+              borderColor: '#00d4ff', borderWidth: 1, borderRadius: 6 }] },
+            options: { ...baseOpts, scales: { ...baseOpts.scales, y: { ...baseOpts.scales.y,
+              title: { display: true, text: 'Minutes par bon', color: '#7a9bb5' } } } }
+          });
+        }
+
+        // Chart 3: Trend by week
+        const c3 = document.getElementById('chart-perf-trend');
+        if (c3) {
+          if (this._charts.trend) this._charts.trend.destroy();
+          // Group by week, by tech (top 5)
+          const weeks = 12;
+          const weekLabels = [];
+          for (let w = weeks-1; w >= 0; w--) {
+            const e = new Date(); e.setDate(e.getDate() - w*7);
+            const s = new Date(e); s.setDate(s.getDate() - 7);
+            weekLabels.push(s.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}));
+          }
+          const top5 = techs.slice(0, 5);
+          const datasets = top5.map((t, idx) => {
+            const data = [];
+            for (let w = weeks-1; w >= 0; w--) {
+              const e = new Date(); e.setDate(e.getDate() - w*7);
+              const s = new Date(e); s.setDate(s.getDate() - 7);
+              const wMin = list.filter(i =>
+                (i.createdAt||0) >= s.getTime() && (i.createdAt||0) < e.getTime() &&
+                (i.crimping?.filledBy?.name === t.name)
+              ).reduce((sum,i) => sum + (i.crimping.duration||0), 0);
+              data.push(Math.round(wMin/60 * 10) / 10);
+            }
+            return {
+              label: t.name.split(' ')[0],
+              data, borderColor: COL[idx%COL.length],
+              backgroundColor: COL[idx%COL.length] + '22',
+              borderWidth: 2, tension: 0.4, fill: false
+            };
+          });
+          this._charts.trend = new Chart(c3, {
+            type: 'line',
+            data: { labels: weekLabels, datasets },
+            options: { responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { labels: { color: '#7a9bb5', font:{size:11} } } },
+              scales: {
+                x: { ticks: { color: '#7a9bb5', font:{size:10} }, grid: { color: 'rgba(0,212,255,.04)' } },
+                y: { ticks: { color: '#7a9bb5', font:{size:11} }, grid: { color: 'rgba(0,212,255,.06)' },
+                     beginAtZero: true, title: { display: true, text: 'Heures', color: '#7a9bb5' } } }
+            }
+          });
+        }
+      },
+
+      _loadChart() {
+        return new Promise((res, rej) => {
+          if (window.Chart) return res();
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js';
+          s.onload = res; s.onerror = rej; document.head.appendChild(s);
+        });
+      },
+
+      init() {
+        $('#perf-period')?.addEventListener('change', () => this.render());
+        $('#btn-perf-export')?.addEventListener('click', () => this.exportExcel());
+      },
+
+      async exportExcel() {
+        const period = document.getElementById('perf-period')?.value || 'month';
+        const since = this._periodStart(period);
+        const list = Object.values(state.interventions || {})
+          .filter(i => i.crimping?.duration && (i.createdAt||0) >= since);
+        if (!list.length) return ui.toast('Aucune donnée à exporter', 'warn');
+
+        await views.magasin._loadXLSX();
+        const rows = list.map(i => ({
+          'N° Bon': i.numBon,
+          'Outil': i.tool?.outilId || '',
+          'Technicien': i.crimping?.filledBy?.name || '',
+          'Matricule': i.crimping?.filledBy?.matricule || '',
+          'Date': fmt.date(i.crimping?.date || i.createdAt),
+          'Type': i.crimping?.type || '',
+          'Durée (min)': i.crimping?.duration || 0,
+          'Durée (h)': ((i.crimping?.duration || 0) / 60).toFixed(2),
+        }));
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, 'Performance');
+        XLSX.writeFile(wb, 'LEONI_Performance_' + new Date().toISOString().slice(0,10) + '.xlsx');
+        ui.toast('Export ✅', 'success');
+      }
     },
 
     /* ========== STATS ========== */
@@ -2329,6 +3015,7 @@
       ui.showLoader('Chargement des données…');
       db.listenTools();
       db.listenInterventions();
+      db.listenStock();
       db.listenNotifications();
       ui.hideLoader();
     },
@@ -2586,6 +3273,42 @@
     btn.textContent = inp.type === 'password' ? '👁' : '🙈';
   }
 
+
+  /* ==========================================================================
+     TIME INTERVENTION FIELD — Saisie du temps par technicien
+     ========================================================================== */
+  function initDurationField() {
+    const btn = document.getElementById('btn-save-duration');
+    const input = document.getElementById('int-duration');
+    const display = document.getElementById('int-duration-display');
+
+    if (input && display) {
+      input.addEventListener('input', () => {
+        const min = parseInt(input.value) || 0;
+        if (min > 0) {
+          const h = Math.floor(min/60);
+          const m = min % 60;
+          display.textContent = h > 0 ? `≈ ${h}h ${m}min` : `≈ ${m}min`;
+        } else { display.textContent = '—'; }
+      });
+    }
+
+    if (btn) btn.addEventListener('click', async () => {
+      const reg = state.currentInterventionId;
+      if (!reg) return ui.toast('Ouvrez un bon d\u2019intervention', 'warn');
+      const min = parseInt(document.getElementById('int-duration').value);
+      if (!min || min < 1) return ui.toast('Saisissez un temps valide en minutes', 'warn');
+      try {
+        await fbDb.ref('interventions/' + reg + '/crimping/duration').set(min);
+        await fbDb.ref('auditLog').push({
+          timestamp: Date.now(), uid: state.user.uid, userName: state.profile?.displayName || '',
+          action: 'intervention.duration', entity: 'interventions/' + reg, meta: { duration: min }
+        });
+        ui.toast('Temps enregistré : ' + min + ' min ✅', 'success');
+      } catch(e) { ui.toast('Erreur: ' + e.message, 'danger'); }
+    });
+  }
+
   /* ==========================================================================
      15. BOOTSTRAP
      ========================================================================== */
@@ -2601,7 +3324,10 @@
     views.users.init();
     views.notifications.init();
     views.auditLog.init();
+    views.magasin.init();
+    views.performance.init();
     userActions.initModals();
+    initDurationField();
 
     // Stats period change triggers re-render
     const statsPeriod = document.getElementById('stats-period');

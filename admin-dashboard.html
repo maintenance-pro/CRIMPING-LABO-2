@@ -78,7 +78,7 @@
       </div>
 
       <div class="topbar__actions">
-        <button class="topbar__btn topbar__btn--quick" id="btn-quick-new" title="Nouveau bon (N)">＋ Nouveau bon</button>
+        <button class="topbar__btn topbar__btn--quick" id="btn-quick-new" title="Nouveau bon (N)" data-requires-role="admin,super_admin,responsable,crimp,crimping">＋ Nouveau bon</button>
 
         <button class="topbar__btn topbar__btn--icon" id="btn-notifications" aria-label="Notifications">
           🔔
@@ -129,7 +129,7 @@
               <span class="sidebar__pill sidebar__pill--warn" id="nav-queue-count">0</span>
             </button>
           </li>
-          <li class="sidebar__item">
+          <li class="sidebar__item" data-requires-role="admin,super_admin,responsable,crimp,crimping">
             <button class="sidebar__link" data-nav="catalog">
               <span class="sidebar__icon">🛠</span><span class="sidebar__label">Catalogue outils</span>
             </button>
@@ -147,6 +147,19 @@
           <li class="sidebar__item sidebar__item--admin" data-requires-role="admin,super_admin">
             <button class="sidebar__link" data-nav="auditlog">
               <span class="sidebar__icon">📜</span><span class="sidebar__label">Journal d'audit</span>
+            </button>
+          </li>
+
+          <!-- ═══ NOUVEAU : MODULES MAGASIN ═══ -->
+          <li class="sidebar__item" data-requires-role="admin,super_admin,magasinier,responsable">
+            <button class="sidebar__link" data-nav="magasin">
+              <span class="sidebar__icon">📦</span><span class="sidebar__label">Magasin Stock</span>
+              <span class="sidebar__badge sidebar__badge--danger" id="stock-alert-badge" hidden>0</span>
+            </button>
+          </li>
+          <li class="sidebar__item" data-requires-role="admin,super_admin,magasinier,responsable">
+            <button class="sidebar__link" data-nav="performance">
+              <span class="sidebar__icon">📊</span><span class="sidebar__label">Performance équipe</span>
             </button>
           </li>
         </ul>
@@ -439,6 +452,24 @@
               <label class="field__label" for="int-observation">Observation</label>
               <textarea class="field__input field__input--area" id="int-observation" name="observation" rows="4" maxlength="1000" placeholder="Ex: Requalification + bon n° 410034"></textarea>
               <span class="field__counter" id="obs-counter">0 / 1000</span>
+            </div>
+
+            <!-- ═══ TEMPS D'INTERVENTION (visible quand bon en cours/terminé) ═══ -->
+            <div class="field" id="field-duration" style="background:rgba(0,212,255,.05);border:1px solid var(--border-base);border-radius:10px;padding:.875rem 1rem;margin-top:1rem">
+              <label class="field__label" for="int-duration" style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+                ⏱ Temps réel d'intervention (en minutes)
+                <span style="font-size:.7rem;color:var(--text-muted);font-weight:normal">— Saisi par le technicien après l'intervention</span>
+              </label>
+              <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+                <input class="field__input" id="int-duration" name="duration" type="number" min="1" max="9999"
+                  placeholder="Ex: 45" style="flex:1;min-width:140px;max-width:200px"/>
+                <span style="color:var(--text-muted);font-size:.85rem;font-family:var(--font-mono)" id="int-duration-display">—</span>
+                <button type="button" class="btn btn--secondary" id="btn-save-duration" style="padding:.5rem 1rem;font-size:.8rem">
+                  💾 Enregistrer le temps
+                </button>
+              </div>
+              <span style="color:var(--text-muted);font-size:.72rem;margin-top:.4rem;display:block">
+                Renseignez le temps réellement passé sur cette intervention pour le suivi de performance équipe.
             </div>
 
             <div class="field field--full">
@@ -880,6 +911,239 @@
         </div>
       </section>
 
+
+      <!-- ================================================================= -->
+      <!-- VIEW MAGASIN — Stock & Inventaire                                 -->
+      <!-- ================================================================= -->
+      <section class="history" id="view-magasin" data-view="magasin" hidden>
+        <header class="history__header">
+          <div>
+            <h1 class="history__title">📦 Magasin Stock</h1>
+            <p style="color:var(--text-secondary);font-size:.875rem">Gestion de l'inventaire des pièces et consommables</p>
+          </div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <button class="btn btn--secondary" id="btn-stock-import" data-requires-role="admin,super_admin,magasinier">
+              📥 Importer stock Excel
+            </button>
+            <button class="btn btn--secondary" id="btn-stock-history-import" data-requires-role="admin,super_admin,magasinier">
+              📊 Importer historique interv.
+            </button>
+            <button class="btn btn--secondary" id="btn-stock-export">
+              📤 Exporter Excel
+            </button>
+            <button class="btn btn--primary" id="btn-stock-add" data-requires-role="admin,super_admin,magasinier">
+              ＋ Nouvelle pièce
+            </button>
+          </div>
+        </header>
+
+        <!-- KPIs Stock -->
+        <div class="hub__kpis" style="margin-bottom:1.5rem">
+          <article class="kpi kpi--primary">
+            <div class="kpi__icon">📦</div>
+            <div class="kpi__body">
+              <div class="kpi__label">Total pièces</div>
+              <div class="kpi__value" id="stock-kpi-total">—</div>
+              <div class="kpi__delta">références enregistrées</div>
+            </div>
+          </article>
+          <article class="kpi kpi--success">
+            <div class="kpi__icon">✅</div>
+            <div class="kpi__body">
+              <div class="kpi__label">Valeur stock</div>
+              <div class="kpi__value" id="stock-kpi-value">—</div>
+              <div class="kpi__delta">DH (estimé)</div>
+            </div>
+          </article>
+          <article class="kpi kpi--warn">
+            <div class="kpi__icon">⚠️</div>
+            <div class="kpi__body">
+              <div class="kpi__label">Sous seuil min.</div>
+              <div class="kpi__value" id="stock-kpi-low">—</div>
+              <div class="kpi__delta">à réapprovisionner</div>
+            </div>
+          </article>
+          <article class="kpi kpi--danger">
+            <div class="kpi__icon">🚨</div>
+            <div class="kpi__body">
+              <div class="kpi__label">Rupture stock</div>
+              <div class="kpi__value" id="stock-kpi-out">—</div>
+              <div class="kpi__delta">qté = 0</div>
+            </div>
+          </article>
+        </div>
+
+        <!-- Filtres -->
+        <div class="filter" style="margin-bottom:1rem;display:flex;gap:.75rem;flex-wrap:wrap">
+          <input class="filter__input" id="stock-search" type="search" placeholder="🔍 Rechercher (référence, désignation, fournisseur…)" style="flex:1;min-width:240px"/>
+          <select class="filter__input" id="stock-filter-status">
+            <option value="all">Tous les statuts</option>
+            <option value="ok">✅ Stock OK</option>
+            <option value="low">⚠️ Sous seuil</option>
+            <option value="out">🚨 Rupture</option>
+          </select>
+          <select class="filter__input" id="stock-filter-cat">
+            <option value="all">Toutes catégories</option>
+          </select>
+        </div>
+
+        <!-- Table Stock -->
+        <div class="history__tablewrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Référence</th>
+                <th>Désignation</th>
+                <th>Catégorie</th>
+                <th>Fournisseur</th>
+                <th style="text-align:right">Qté actuelle</th>
+                <th style="text-align:right">Seuil min.</th>
+                <th style="text-align:right">Prix unit. (DH)</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="stock-body">
+              <tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted)">Chargement du stock…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Section Mouvements de stock -->
+        <article class="card" style="margin-top:1.5rem;padding:1.5rem">
+          <header class="card__header" style="margin-bottom:1rem">
+            <h2 class="card__title">📋 Derniers mouvements stock</h2>
+          </header>
+          <div class="history__tablewrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Pièce</th>
+                  <th>Type</th>
+                  <th style="text-align:right">Quantité</th>
+                  <th>Utilisateur</th>
+                  <th>Motif</th>
+                </tr>
+              </thead>
+              <tbody id="stock-movements-body">
+                <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted)">Aucun mouvement récent</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- VIEW PERFORMANCE — Diagramme temps techniciens                    -->
+      <!-- ================================================================= -->
+      <section class="history" id="view-performance" data-view="performance" hidden>
+        <header class="history__header">
+          <div>
+            <h1 class="history__title">📊 Performance Équipe</h1>
+            <p style="color:var(--text-secondary);font-size:.875rem">Temps de travail des techniciens crimping par intervention</p>
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <select class="filter__input" id="perf-period" style="min-width:160px">
+              <option value="week">7 derniers jours</option>
+              <option value="month" selected>30 derniers jours</option>
+              <option value="quarter">3 derniers mois</option>
+              <option value="all">Tout l'historique</option>
+            </select>
+            <button class="btn btn--secondary" id="btn-perf-export">📤 Excel</button>
+          </div>
+        </header>
+
+        <!-- KPIs Performance -->
+        <div class="hub__kpis" style="margin-bottom:1.5rem">
+          <article class="kpi kpi--primary">
+            <div class="kpi__icon">⏱</div>
+            <div class="kpi__body">
+              <div class="kpi__label">Total heures équipe</div>
+              <div class="kpi__value" id="perf-kpi-total">—</div>
+              <div class="kpi__delta">sur la période</div>
+            </div>
+          </article>
+          <article class="kpi kpi--success">
+            <div class="kpi__icon">📈</div>
+            <div class="kpi__body">
+              <div class="kpi__label">Temps moyen / interv.</div>
+              <div class="kpi__value" id="perf-kpi-avg">—</div>
+              <div class="kpi__delta">par bon</div>
+            </div>
+          </article>
+          <article class="kpi kpi--warn">
+            <div class="kpi__icon">👤</div>
+            <div class="kpi__body">
+              <div class="kpi__label">Techniciens actifs</div>
+              <div class="kpi__value" id="perf-kpi-techs">—</div>
+              <div class="kpi__delta">avec interv. saisies</div>
+            </div>
+          </article>
+          <article class="kpi kpi--info">
+            <div class="kpi__icon">🏆</div>
+            <div class="kpi__body">
+              <div class="kpi__label">Top performer</div>
+              <div class="kpi__value" id="perf-kpi-top" style="font-size:1.1rem;line-height:1.2">—</div>
+              <div class="kpi__delta" id="perf-kpi-top-h">—</div>
+            </div>
+          </article>
+        </div>
+
+        <!-- Charts grid -->
+        <div class="hub__grid" style="grid-template-columns:1fr 1fr;gap:1.25rem">
+          <article class="card" style="padding:1.5rem">
+            <header class="card__header" style="margin-bottom:1rem">
+              <h2 class="card__title">📊 Heures totales par technicien</h2>
+            </header>
+            <div style="height:280px;position:relative">
+              <canvas id="chart-perf-total"></canvas>
+            </div>
+          </article>
+          <article class="card" style="padding:1.5rem">
+            <header class="card__header" style="margin-bottom:1rem">
+              <h2 class="card__title">⏱ Temps moyen par intervention</h2>
+            </header>
+            <div style="height:280px;position:relative">
+              <canvas id="chart-perf-avg"></canvas>
+            </div>
+          </article>
+          <article class="card" style="padding:1.5rem;grid-column:1/-1">
+            <header class="card__header" style="margin-bottom:1rem">
+              <h2 class="card__title">📈 Évolution des heures travaillées (par semaine)</h2>
+            </header>
+            <div style="height:300px;position:relative">
+              <canvas id="chart-perf-trend"></canvas>
+            </div>
+          </article>
+        </div>
+
+        <!-- Tableau détaillé -->
+        <article class="card" style="margin-top:1.5rem;padding:1.5rem">
+          <header class="card__header" style="margin-bottom:1rem">
+            <h2 class="card__title">📋 Détail par technicien</h2>
+          </header>
+          <div class="history__tablewrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Technicien</th>
+                  <th>Matricule</th>
+                  <th style="text-align:right">Bons traités</th>
+                  <th style="text-align:right">Temps total</th>
+                  <th style="text-align:right">Temps moyen</th>
+                  <th style="text-align:right">Plus long</th>
+                  <th style="text-align:right">Plus court</th>
+                </tr>
+              </thead>
+              <tbody id="perf-tech-body">
+                <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Chargement…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
     </main>
 
 
@@ -997,6 +1261,106 @@
     </div>
   </div>
 
+
+
+  <!-- ================================================================== -->
+  <!-- MODAL STOCK — Add/Edit pièce                                        -->
+  <!-- ================================================================== -->
+  <div class="modal" id="modal-stock" role="dialog" aria-modal="true" hidden>
+    <div class="modal__backdrop"></div>
+    <div class="modal__panel" style="max-width:520px">
+      <div class="modal__header">
+        <h2 class="modal__title" id="modal-stock-title">📦 Nouvelle pièce</h2>
+        <button class="modal__close" id="btn-stock-close" type="button">✕</button>
+      </div>
+      <div class="modal__body">
+        <div class="intervention__grid intervention__grid--2">
+          <div class="field">
+            <label class="field__label">Référence *</label>
+            <input class="field__input" id="stock-ref" type="text" placeholder="Ex: P-WZ-2158-001" required/>
+          </div>
+          <div class="field">
+            <label class="field__label">Catégorie</label>
+            <input class="field__input" id="stock-cat" type="text" placeholder="Ex: Poinçon, Enclume, Lame" list="stock-cat-list"/>
+            <datalist id="stock-cat-list"></datalist>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__label">Désignation *</label>
+          <input class="field__input" id="stock-desig" type="text" placeholder="Description de la pièce" required/>
+        </div>
+        <div class="intervention__grid intervention__grid--2">
+          <div class="field">
+            <label class="field__label">Fournisseur</label>
+            <input class="field__input" id="stock-supplier" type="text" placeholder="Ex: WEZAG"/>
+          </div>
+          <div class="field">
+            <label class="field__label">Réf. fournisseur</label>
+            <input class="field__input" id="stock-supplier-ref" type="text"/>
+          </div>
+        </div>
+        <div class="intervention__grid intervention__grid--3">
+          <div class="field">
+            <label class="field__label">Quantité actuelle *</label>
+            <input class="field__input" id="stock-qty" type="number" min="0" required/>
+          </div>
+          <div class="field">
+            <label class="field__label">Seuil minimum *</label>
+            <input class="field__input" id="stock-min" type="number" min="0" placeholder="5" required/>
+          </div>
+          <div class="field">
+            <label class="field__label">Prix unit. (DH)</label>
+            <input class="field__input" id="stock-price" type="number" step="0.01" min="0"/>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__label">Emplacement</label>
+          <input class="field__input" id="stock-location" type="text" placeholder="Ex: Étagère A3-12"/>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--ghost" id="btn-stock-cancel" type="button">Annuler</button>
+        <button class="btn btn--primary" id="btn-stock-save" type="button">💾 Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- MODAL IMPORT EXCEL                                                  -->
+  <!-- ================================================================== -->
+  <div class="modal" id="modal-import" role="dialog" aria-modal="true" hidden>
+    <div class="modal__backdrop"></div>
+    <div class="modal__panel" style="max-width:520px">
+      <div class="modal__header">
+        <h2 class="modal__title" id="modal-import-title">📥 Importer un fichier Excel</h2>
+        <button class="modal__close" id="btn-import-close" type="button">✕</button>
+      </div>
+      <div class="modal__body">
+        <p style="color:var(--text-secondary);font-size:.85rem;margin-bottom:1rem" id="modal-import-desc">
+          Sélectionnez un fichier <code>.xlsx</code> contenant les données à importer.
+        </p>
+        <div id="import-template-info" style="background:rgba(0,212,255,.05);border:1px solid var(--border-base);border-radius:8px;padding:.875rem;font-size:.78rem;color:var(--text-secondary);margin-bottom:1rem">
+          <strong style="color:var(--text-primary)">Format attendu :</strong>
+          <div id="import-columns" style="margin-top:.4rem;font-family:var(--font-mono);font-size:.72rem"></div>
+        </div>
+        <div id="dropzone" style="border:2px dashed var(--border-strong);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all .15s;background:rgba(0,212,255,.02)">
+          <div style="font-size:2.5rem;margin-bottom:.5rem">📂</div>
+          <div style="font-weight:600;color:var(--text-primary);margin-bottom:.25rem">Cliquez ou glissez votre fichier ici</div>
+          <div style="color:var(--text-muted);font-size:.78rem">Format accepté : .xlsx</div>
+          <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none"/>
+        </div>
+        <div id="import-progress" style="display:none;margin-top:1rem">
+          <div style="background:var(--bg-2);border-radius:6px;height:8px;overflow:hidden">
+            <div id="import-bar" style="background:var(--accent-500);height:100%;width:0%;transition:width .3s"></div>
+          </div>
+          <div id="import-status" style="margin-top:.5rem;font-size:.78rem;color:var(--text-secondary)"></div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--ghost" id="btn-import-cancel" type="button">Fermer</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ===================================================================== -->
   <!-- SESSION WARNING MODAL                                                  -->

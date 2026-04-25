@@ -2348,3 +2348,46 @@ legend { padding: 0; }
 [data-theme="light"] .status-pill--rejected  { background: rgba(200,40,60,.12) !important;  color: #8a0020 !important; }
 [data-theme="light"] .status-pill--draft     { background: rgba(0,0,0,.06) !important;      color: #4a6580 !important; }
 
+
+/* ============================================================================
+   MAGASIN MODULE — Sidebar badges + Stock styles
+   ============================================================================ */
+.sidebar__badge {
+  margin-left: auto;
+  background: var(--accent-500);
+  color: #000;
+  font-size: .65rem;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: .12rem .4rem;
+  min-width: 18px;
+  text-align: center;
+  font-family: var(--font-mono);
+}
+.sidebar__badge--danger {
+  background: var(--danger-500);
+  color: #fff;
+  box-shadow: 0 0 8px rgba(255,61,90,.45);
+  animation: pulse-badge 1.6s ease-in-out infinite;
+}
+@keyframes pulse-badge {
+  0%,100% { opacity:1; }
+  50%      { opacity:.55; }
+}
+
+/* Dropzone hover */
+#dropzone:hover {
+  border-color: var(--accent-500) !important;
+  background: rgba(0,212,255,.06) !important;
+}
+
+/* Stock alerts row highlights */
+.data-table tr.stock-low td  { background: rgba(255,181,71,.05); }
+.data-table tr.stock-out td  { background: rgba(255,61,90,.05);  }
+
+/* Modal stock */
+#modal-stock .modal__panel,
+#modal-import .modal__panel {
+  max-height: 85vh;
+  overflow-y: auto;
+}
