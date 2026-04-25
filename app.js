@@ -649,7 +649,7 @@
     },
     handleHash() {
       const hash = window.location.hash.replace('#', '') || 'hub';
-      const valid = ['hub','intervention','history','queue','catalog','users','stats','auditlog'];
+      const valid = ['hub','intervention','history','queue','catalog','users','stats','auditlog','magasin','performance'];
       let view = valid.includes(hash) ? hash : 'hub';
 
       // ── Restrictions par rôle ──
@@ -2247,119 +2247,364 @@
     },
 
     /* ==========================================================================
-       MAGASIN — Gestion stock pièces
+       MAGASIN — Pièces & Stock (port from index.html)
        ========================================================================== */
     magasin: {
-      _editingId: null,
-      _importMode: null,  // 'stock' | 'history'
+      pieces: [],
+      piecesFile: null,
+      piecesXL: false,
+      filtered: [],
+
+      // Mapping des colonnes Excel reconnues
+      _COLMAP: {
+        "N° DE PIÈCE":"npiece","N° DE PIECE":"npiece","N° PIÈCE":"npiece","NPIECE":"npiece",
+        "NOM":"nom","NOM 2":"nom2","DÉSIGNATION":"nom2","DESIGNATION":"nom2","DESCRIPTION":"nom2",
+        "N° STOCK":"nstock",
+        "QUANTITÉ PHYSIQ.":"qty","QUANTITE PHYSIQ.":"qty","QUANTITÉ PHYSIQ":"qty","QUANTITE PHYSIQ":"qty","QUANTITÉ PHYSIQUE":"qty","QTÉ PHYSIQ":"qty","QUANTITÉ":"qty","QUANTITE":"qty","QTY":"qty",
+        "QUANTITÉ MINIMUM":"qmin","QUANTITE MINIMUM":"qmin","QTÉ MINIMUM":"qmin","QTE MINIMUM":"qmin",
+        "QUANTITÉ MAXIMUM":"qmax","QUANTITE MAXIMUM":"qmax","QTÉ MAXIMUM":"qmax","QTE MAXIMUM":"qmax",
+        "CODE FOURNISSEUR":"codeFour","NOM FOURNISSEUR":"nomFour","FOURNISSEUR":"codeFour",
+        "EMPLACEM. MAG. PRINCIPAL":"empl","EMPLACEM MAG PRINCIPAL":"empl","EMPLACEMENT MAG PRINCIPAL":"empl","EMPLACEMENT":"empl","EMPLACEM.":"empl",
+        "TYPE PIÈCES":"typePiece","TYPE PIECES":"typePiece","TYPE PIÈCE":"typePiece",
+        "GROUPE PIÈCES":"groupePiece","GROUPE PIECES":"groupePiece",
+        "CODE À BARRES":"barcode","CODE A BARRES":"barcode","CODE BARRES":"barcode",
+        "QTÉ. DISPON.":"qdispo","QTE DISPON":"qdispo",
+        "QTÉ. RÉSERVÉE":"qreserv","QTE RESERVEE":"qreserv",
+        "QTÉ. COMMANDÉE":"qcommand","QTE COMMANDEE":"qcommand",
+        "PRIX MOYEN":"prix","DEVISE":"devise"
+      },
+
+      _COLS: [
+        { k:'nom',         label:'Nom (Référence)',  w:140 },
+        { k:'nom2',        label:'Désignation',      w:200 },
+        { k:'npiece',      label:'N° Pièce',         w:120 },
+        { k:'empl',        label:'Emplacement',      w:120 },
+        { k:'qty',         label:'Qté Phys.',        w:80, num:true },
+        { k:'qmin',        label:'Qté Min',          w:70, num:true },
+        { k:'qmax',        label:'Qté Max',          w:70, num:true },
+        { k:'codeFour',    label:'Fournisseur',      w:130 },
+        { k:'typePiece',   label:'Type',             w:120 },
+        { k:'prix',        label:'Prix Moyen',       w:90, num:true }
+      ],
+
+      mapRow(row) {
+        const out = {};
+        Object.keys(row).forEach(k => {
+          const n = String(k).trim().toUpperCase();
+          let mk = this._COLMAP[n];
+          if (!mk) {
+            const f = Object.keys(this._COLMAP).find(c => n.includes(c) || c.includes(n));
+            if (f) mk = this._COLMAP[f];
+          }
+          if (mk) {
+            let v = String(row[k] ?? '').trim();
+            if ((mk === 'qty' || mk === 'qmin' || mk === 'qmax') && v) {
+              const num = parseFloat(v.replace(',', '.'));
+              if (!isNaN(num)) v = String(Math.round(num));
+            }
+            out[mk] = v;
+          }
+        });
+        return out;
+      },
+
+      mergePiecesData(rawData) {
+        const groups = new Map();
+        rawData.forEach(r => {
+          const key = (r.nom || '').trim();
+          if (!key) return;
+          if (groups.has(key)) {
+            const g = groups.get(key);
+            ['qty','qdispo','qreserv','qcommand'].forEach(k => {
+              const a = parseInt(g[k]) || 0, b = parseInt(r[k]) || 0;
+              g[k] = String(a + b);
+            });
+            const gmax = parseInt(g.qmax) || 0, rmax = parseInt(r.qmax) || 0;
+            g.qmax = String(Math.max(gmax, rmax));
+            const gmin = parseInt(g.qmin) || 0, rmin = parseInt(r.qmin) || 0;
+            if (gmin && rmin) g.qmin = String(Math.min(gmin, rmin));
+            else g.qmin = String(gmin || rmin);
+            if (r.empl && r.empl.trim()) {
+              const existing = (g.empl || '').split(' / ').map(s => s.trim()).filter(Boolean);
+              const ne = r.empl.trim();
+              if (!existing.includes(ne)) { existing.push(ne); g.empl = existing.join(' / '); }
+            }
+            Object.keys(r).forEach(k => { if (!g[k] && r[k]) g[k] = r[k]; });
+            g._count = (g._count || 1) + 1;
+          } else {
+            groups.set(key, { ...r, _count: 1 });
+          }
+        });
+        return [...groups.values()];
+      },
+
+      async _loadXLSX() {
+        return new Promise((res, rej) => {
+          if (window.XLSX) return res();
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s.onload = res; s.onerror = rej; document.head.appendChild(s);
+        });
+      },
+
+      async importExcel(event) {
+        if (!auth.can('stock.write')) {
+          ui.toast('Import réservé aux admins/magasiniers', 'danger');
+          event.target.value = ''; return;
+        }
+        const file = event.target.files[0];
+        if (!file) return;
+        await this._loadXLSX();
+        const r = new FileReader();
+        r.onload = (e) => {
+          try {
+            const wb = XLSX.read(new Uint8Array(e.target.result), { type:'array' });
+            const sn = wb.SheetNames.find(n => /pièce|piece|stock|rechange|spare/i.test(n)) || wb.SheetNames[0];
+            const raw = XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval:'', raw:false });
+            if (!raw.length) { ui.toast('Fichier vide', 'warn'); return; }
+            const mapped = raw.map(row => this.mapRow(row)).filter(r => r.nom || r.empl || r.qty);
+            if (!mapped.length) { ui.toast('Aucune colonne reconnue — vérifiez les en-têtes', 'warn'); return; }
+            this.pieces = mapped;
+            this.piecesXL = true;
+            this.piecesFile = { name:file.name, rows:mapped.length, date:new Date().toLocaleDateString('fr-FR'), sheet:sn };
+            this.persist();
+            this.render();
+            event.target.value = '';
+            ui.toast('✅ ' + mapped.length + ' pièces importées', 'success');
+            // Push to Firebase for cross-device sync
+            this.syncToFirebase();
+          } catch(err) {
+            ui.toast('Erreur : ' + err.message, 'danger');
+          }
+        };
+        r.readAsArrayBuffer(file);
+      },
+
+      async syncToFirebase() {
+        try {
+          await fbDb.ref('stockPieces').set({
+            pieces: this.pieces,
+            file: this.piecesFile,
+            updatedAt: Date.now(),
+            updatedBy: state.profile?.displayName || 'system'
+          });
+          await fbDb.ref('auditLog').push({
+            timestamp: Date.now(), uid: state.user.uid,
+            userName: state.profile?.displayName || '',
+            action: 'stock.import',
+            entity: 'stockPieces',
+            meta: { rows: this.pieces.length, file: this.piecesFile?.name }
+          });
+        } catch(e) { console.warn('[Magasin] Firebase sync failed:', e.message); }
+      },
+
+      persist() {
+        try {
+          localStorage.setItem('leoni-stock-pieces', JSON.stringify({
+            pieces: this.pieces, file: this.piecesFile, xl: this.piecesXL
+          }));
+        } catch(e) {}
+      },
+
+      restore() {
+        try {
+          const saved = localStorage.getItem('leoni-stock-pieces');
+          if (saved) {
+            const data = JSON.parse(saved);
+            this.pieces = data.pieces || [];
+            this.piecesFile = data.file || null;
+            this.piecesXL = data.xl || false;
+          }
+        } catch(e) {}
+      },
+
+      clear() {
+        if (!confirm('Effacer toutes les données stock ? Cette action est irréversible.')) return;
+        this.pieces = [];
+        this.piecesFile = null;
+        this.piecesXL = false;
+        this.persist();
+        this.render();
+        // Remove from Firebase
+        fbDb.ref('stockPieces').remove().catch(()=>{});
+        ui.toast('Stock effacé', 'warn');
+      },
 
       render() {
         if (state.currentView !== 'magasin') return;
-        const list = Object.values(state.stock);
+        const mergeEl = document.getElementById('pc-merge-toggle');
+        const isMerged = mergeEl && mergeEl.checked;
+        const rawData = this.pieces;
+        const data = isMerged ? this.mergePiecesData(rawData) : rawData;
+        const hasData = data.length > 0;
 
-        // KPIs
-        const total = list.length;
-        const lowQty = list.filter(s => (s.quantity||0) > 0 && (s.quantity||0) < (s.minThreshold||5)).length;
-        const outQty = list.filter(s => (s.quantity||0) === 0).length;
-        const value = list.reduce((sum, s) => sum + ((s.quantity||0) * (s.unitPrice||0)), 0);
+        const empty = document.getElementById('pc-empty');
+        const zone  = document.getElementById('pc-data-zone');
+        const clrBtn = document.getElementById('pc-clr-btn');
+        const injBar = document.getElementById('pc-inj-bar');
+        const lbl = document.getElementById('pc-lbl');
 
-        const elTot   = document.getElementById('stock-kpi-total');
-        const elVal   = document.getElementById('stock-kpi-value');
-        const elLow   = document.getElementById('stock-kpi-low');
-        const elOut   = document.getElementById('stock-kpi-out');
-        if (elTot) elTot.textContent = total;
-        if (elVal) elVal.textContent = value.toLocaleString('fr-FR');
-        if (elLow) elLow.textContent = lowQty;
-        if (elOut) elOut.textContent = outQty;
+        if (empty) empty.style.display = hasData ? 'none' : 'block';
+        if (zone)  zone.style.display  = hasData ? 'flex' : 'none';
+        if (clrBtn) clrBtn.style.display = (hasData && auth.can('stock.write')) ? 'inline-flex' : 'none';
 
-        // Filter table
-        const q = (document.getElementById('stock-search')?.value || '').toLowerCase();
-        const sf = document.getElementById('stock-filter-status')?.value || 'all';
-        const cf = document.getElementById('stock-filter-cat')?.value || 'all';
-
-        let filtered = list;
-        if (q) filtered = filtered.filter(s =>
-          (s.ref||'').toLowerCase().includes(q) ||
-          (s.designation||'').toLowerCase().includes(q) ||
-          (s.supplier||'').toLowerCase().includes(q)
-        );
-        if (cf !== 'all') filtered = filtered.filter(s => s.category === cf);
-        if (sf === 'low') filtered = filtered.filter(s => (s.quantity||0) > 0 && (s.quantity||0) < (s.minThreshold||5));
-        if (sf === 'out') filtered = filtered.filter(s => (s.quantity||0) === 0);
-        if (sf === 'ok')  filtered = filtered.filter(s => (s.quantity||0) >= (s.minThreshold||5));
-
-        // Categories datalist
-        const cats = [...new Set(list.map(s => s.category).filter(Boolean))].sort();
-        const catSelect = document.getElementById('stock-filter-cat');
-        if (catSelect) {
-          const current = catSelect.value;
-          catSelect.innerHTML = '<option value="all">Toutes catégories</option>' +
-            cats.map(c => `<option value="${ui.escape(c)}" ${c===current?'selected':''}>${ui.escape(c)}</option>`).join('');
+        // Inject info bar
+        if (this.piecesFile && hasData) {
+          if (injBar) {
+            injBar.style.display = 'flex';
+            document.getElementById('pc-inj-info').textContent = this.piecesFile.rows + ' pièces depuis "' + this.piecesFile.name + '"';
+            document.getElementById('pc-inj-sheet').textContent = 'Feuille : ' + this.piecesFile.sheet + ' · ' + this.piecesFile.date;
+          }
+          if (lbl) lbl.textContent = '— ' + this.piecesFile.name + ' · ' + this.piecesFile.rows + ' réf.';
+        } else {
+          if (injBar) injBar.style.display = 'none';
+          if (lbl) lbl.textContent = '— Aucun fichier chargé';
         }
-        const catList = document.getElementById('stock-cat-list');
-        if (catList) catList.innerHTML = cats.map(c => `<option value="${ui.escape(c)}">`).join('');
 
-        // Render table
-        const tbody = document.getElementById('stock-body');
-        if (!tbody) return;
-        const sorted = filtered.sort((a,b) => (a.designation||'').localeCompare(b.designation||''));
-        tbody.innerHTML = sorted.length ? sorted.map(s => {
-          const qty = s.quantity || 0;
-          const min = s.minThreshold || 5;
-          let statusBadge;
-          if (qty === 0)        statusBadge = `<span class="badge" style="background:rgba(255,61,90,.15);color:#ff3d5a;border:1px solid rgba(255,61,90,.3);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">🚨 RUPTURE</span>`;
-          else if (qty < min)   statusBadge = `<span class="badge" style="background:rgba(255,181,71,.15);color:#ffb547;border:1px solid rgba(255,181,71,.3);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">⚠️ FAIBLE</span>`;
-          else                  statusBadge = `<span class="badge" style="background:rgba(0,229,160,.13);color:#00e5a0;border:1px solid rgba(0,229,160,.28);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">✅ OK</span>`;
-
-          const canWrite = auth.can('stock.write');
-          return `<tr>
-            <td style="font-family:var(--font-mono);font-size:.78rem">${ui.escape(s.ref||'—')}</td>
-            <td style="font-weight:500">${ui.escape(s.designation||'—')}</td>
-            <td><span style="font-size:.75rem;color:var(--text-secondary);background:var(--bg-2);padding:.1rem .45rem;border-radius:4px">${ui.escape(s.category||'—')}</span></td>
-            <td style="font-size:.78rem">${ui.escape(s.supplier||'—')}</td>
-            <td style="text-align:right;font-family:var(--font-mono);font-weight:600;color:${qty===0?'var(--danger-500)':qty<min?'var(--warn-500)':'var(--text-primary)'}">${qty}</td>
-            <td style="text-align:right;font-family:var(--font-mono);color:var(--text-muted)">${min}</td>
-            <td style="text-align:right;font-family:var(--font-mono)">${(s.unitPrice||0).toFixed(2)}</td>
-            <td>${statusBadge}</td>
-            <td>
-              ${canWrite ? `
-                <button class="btn-icon" title="Modifier" data-action="edit-stock" data-id="${s.id}" style="background:none;border:none;cursor:pointer;color:var(--accent-500);padding:.3rem">✏️</button>
-                <button class="btn-icon" title="Mouvement +/-" data-action="move-stock" data-id="${s.id}" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);padding:.3rem">📋</button>
-                <button class="btn-icon" title="Supprimer" data-action="del-stock" data-id="${s.id}" style="background:none;border:none;cursor:pointer;color:var(--danger-500);padding:.3rem">🗑</button>
-              ` : '<span style="color:var(--text-muted);font-size:.78rem">Lecture seule</span>'}
-            </td>
-          </tr>`;
-        }).join('') : '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted)">Aucune pièce — Importez un fichier Excel ou ajoutez une pièce manuellement.</td></tr>';
-
-        this.renderMovements();
-      },
-
-      renderMovements() {
-        const tbody = document.getElementById('stock-movements-body');
-        if (!tbody) return;
-        const list = state.stockMovements || [];
-        if (!list.length) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted)">Aucun mouvement récent</td></tr>';
+        if (!hasData) {
+          ['rk1','rk2','rk3','rk4'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
           return;
         }
-        tbody.innerHTML = list.slice(0,20).map(m => {
-          const piece = state.stock[m.stockId];
-          const sign = m.type === 'in' ? '+' : '−';
-          const color = m.type === 'in' ? 'var(--success-500)' : 'var(--danger-500)';
-          return `<tr>
-            <td style="font-family:var(--font-mono);font-size:.76rem;color:var(--text-muted)">${fmt.dateTime(m.timestamp)}</td>
-            <td style="font-weight:500">${ui.escape(piece?.designation || m.stockId || '—')}</td>
-            <td><span style="font-size:.72rem;font-weight:600;color:${color}">${m.type === 'in' ? '↗ Entrée' : '↘ Sortie'}</span></td>
-            <td style="text-align:right;font-family:var(--font-mono);font-weight:700;color:${color}">${sign}${m.quantity}</td>
-            <td style="font-size:.78rem">${ui.escape(m.userName || '—')}</td>
-            <td style="font-size:.78rem;color:var(--text-secondary)">${ui.escape(m.reason || '—')}</td>
-          </tr>`;
+
+        // KPIs
+        const total = data.length;
+        const empls = new Set(data.map(r => r.empl).filter(Boolean));
+        const enStock = data.filter(r => { const q = parseInt(r.qty); return !isNaN(q) && q > 0; }).length;
+        const alerts = data.filter(r => { const q = parseInt(r.qty), m = parseInt(r.qmin); return !isNaN(q) && !isNaN(m) && m > 0 && q <= m; }).length;
+
+        document.getElementById('rk1').textContent = total;
+        document.getElementById('rk2').textContent = empls.size;
+        document.getElementById('rk3').textContent = enStock;
+        document.getElementById('rk4').textContent = alerts;
+
+        // Merge info
+        if (isMerged) {
+          const before = rawData.length;
+          const after = data.length;
+          const merged = data.filter(r => r._count > 1).length;
+          const infoEl = document.getElementById('pc-merge-info');
+          if (infoEl) infoEl.textContent = before + ' lignes → ' + after + ' références (' + merged + ' fusionnées)';
+        } else {
+          const infoEl = document.getElementById('pc-merge-info');
+          if (infoEl) infoEl.textContent = '';
+        }
+
+        // Build filter dropdowns
+        this.buildFilters(data);
+        this.buildEmplCards(data);
+        this.buildTable(data);
+
+        this.applyFilters();
+      },
+
+      buildFilters(data) {
+        const empls = [...new Set(data.map(r => r.empl).filter(Boolean))].sort();
+        const fours = [...new Set(data.map(r => r.codeFour || r.nomFour).filter(Boolean))].sort();
+        const types = [...new Set(data.map(r => r.typePiece || r.groupePiece).filter(Boolean))].sort();
+
+        const fillSelect = (id, items, label) => {
+          const sel = document.getElementById(id);
+          if (!sel) return;
+          const cur = sel.value;
+          sel.innerHTML = '<option value="">' + label + '</option>' +
+            items.map(v => `<option value="${ui.escape(v)}" ${v===cur?'selected':''}>${ui.escape(v)}</option>`).join('');
+        };
+        fillSelect('pc-empl-filter', empls, 'Tous emplacements');
+        fillSelect('pc-four-filter', fours, 'Tous fournisseurs');
+        fillSelect('pc-type-filter', types, 'Tous types');
+      },
+
+      buildEmplCards(data) {
+        const empls = {};
+        data.forEach(r => {
+          if (!r.empl) return;
+          empls[r.empl] = (empls[r.empl] || 0) + 1;
+        });
+        const sorted = Object.entries(empls).sort((a,b) => b[1] - a[1]).slice(0, 10);
+        const cards = document.getElementById('pc-empl-cards');
+        if (!cards) return;
+        cards.innerHTML = sorted.map(([e, n]) => `
+          <button onclick="document.getElementById('pc-empl-filter').value='${ui.escape(e)}';views.magasin.applyFilters();"
+                  style="background:rgba(0,212,255,.06);border:1px solid var(--border-base);border-radius:7px;padding:.4rem .75rem;font-size:.74rem;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:.4rem;font-family:var(--font-mono)">
+            📍 ${ui.escape(e)} <span style="background:var(--accent-500);color:#000;border-radius:9px;padding:.05rem .4rem;font-weight:700;font-size:.68rem">${n}</span>
+          </button>
+        `).join('');
+      },
+
+      buildTable(data) {
+        const cols = this._COLS.filter(c => data.some(r => r[c.k]));
+        const thead = document.getElementById('pc-thead');
+        if (thead) {
+          thead.innerHTML = '<tr>' + cols.map(c => `<th style="${c.num?'text-align:right;':''}">${c.label}</th>`).join('') + '<th>Statut</th></tr>';
+        }
+        document.getElementById('pc-col-info').textContent = cols.length + ' colonnes';
+        this._cols = cols;
+      },
+
+      applyFilters() {
+        const isMerged = document.getElementById('pc-merge-toggle')?.checked;
+        let data = isMerged ? this.mergePiecesData(this.pieces) : this.pieces;
+
+        const q = (document.getElementById('pc-search')?.value || '').toLowerCase().trim();
+        const fEmpl = document.getElementById('pc-empl-filter')?.value || '';
+        const fFour = document.getElementById('pc-four-filter')?.value || '';
+        const fType = document.getElementById('pc-type-filter')?.value || '';
+        const fEtat = document.getElementById('pc-etat-filter')?.value || '';
+
+        if (q) {
+          data = data.filter(r => Object.values(r).some(v => String(v||'').toLowerCase().includes(q)));
+        }
+        if (fEmpl) data = data.filter(r => (r.empl||'').includes(fEmpl));
+        if (fFour) data = data.filter(r => (r.codeFour||r.nomFour||'') === fFour);
+        if (fType) data = data.filter(r => (r.typePiece||r.groupePiece||'') === fType);
+
+        if (fEtat === '__alert') data = data.filter(r => { const q = parseInt(r.qty), m = parseInt(r.qmin); return !isNaN(q) && !isNaN(m) && m > 0 && q <= m; });
+        if (fEtat === '__zero')  data = data.filter(r => parseInt(r.qty) === 0);
+        if (fEtat === '__ok')    data = data.filter(r => { const q = parseInt(r.qty), m = parseInt(r.qmin); return !isNaN(q) && q > 0 && (isNaN(m) || q > m); });
+
+        this.filtered = data;
+        document.getElementById('pc-sct').textContent = data.length + ' réf.';
+
+        this.renderRows(data);
+      },
+
+      renderRows(data) {
+        const tbody = document.getElementById('pc-tbody');
+        if (!tbody) return;
+        const cols = this._cols || this._COLS;
+        if (!data.length) {
+          tbody.innerHTML = '<tr><td colspan="' + (cols.length+1) + '" style="text-align:center;padding:2rem;color:var(--text-muted)">Aucun résultat</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.slice(0, 200).map(r => {
+          const qty = parseInt(r.qty);
+          const qmin = parseInt(r.qmin);
+          let status = '';
+          if (!isNaN(qty)) {
+            if (qty === 0) status = '<span class="badge" style="background:rgba(255,61,90,.15);color:#ff3d5a;border:1px solid rgba(255,61,90,.3);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">🔴 RUPTURE</span>';
+            else if (!isNaN(qmin) && qmin > 0 && qty <= qmin) status = '<span class="badge" style="background:rgba(255,181,71,.15);color:#ffb547;border:1px solid rgba(255,181,71,.3);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">⚠️ FAIBLE</span>';
+            else status = '<span class="badge" style="background:rgba(0,229,160,.13);color:#00e5a0;border:1px solid rgba(0,229,160,.28);padding:.18rem .55rem;border-radius:5px;font-size:.7rem;font-weight:700">✅ OK</span>';
+          } else status = '<span style="color:var(--text-muted);font-size:.72rem">—</span>';
+
+          return '<tr>' + cols.map(c => {
+            const v = r[c.k] || '';
+            const style = c.num ? 'text-align:right;font-family:var(--font-mono)' : '';
+            return `<td style="${style}">${ui.escape(v)}</td>`;
+          }).join('') + '<td>' + status + '</td></tr>';
         }).join('');
+
+        if (data.length > 200) {
+          tbody.innerHTML += '<tr><td colspan="' + (cols.length+1) + '" style="text-align:center;padding:.75rem;color:var(--text-muted);font-size:.78rem;font-style:italic">+ ' + (data.length - 200) + ' lignes supplémentaires (filtrer pour affiner)</td></tr>';
+        }
       },
 
       updateStockBadge() {
-        const list = Object.values(state.stock);
-        const alerts = list.filter(s => (s.quantity||0) === 0 || (s.quantity||0) < (s.minThreshold||5)).length;
+        const data = this.pieces;
+        const alerts = data.filter(r => {
+          const q = parseInt(r.qty), m = parseInt(r.qmin);
+          return !isNaN(q) && (q === 0 || (!isNaN(m) && m > 0 && q <= m));
+        }).length;
         const badge = document.getElementById('stock-alert-badge');
         if (badge) {
           badge.textContent = alerts;
@@ -2367,313 +2612,50 @@
         }
       },
 
+      async loadFromFirebase() {
+        try {
+          const snap = await fbDb.ref('stockPieces').once('value');
+          const data = snap.val();
+          if (data && data.pieces && Array.isArray(data.pieces)) {
+            this.pieces = data.pieces;
+            this.piecesFile = data.file;
+            this.piecesXL = true;
+            this.persist();
+            this.updateStockBadge();
+            if (state.currentView === 'magasin') this.render();
+          }
+        } catch(e) { console.warn('[Magasin] Cannot load from Firebase:', e.message); }
+      },
+
       init() {
-        // Add piece button
-        $('#btn-stock-add')?.addEventListener('click', () => this.openModal());
-        $('#btn-stock-close')?.addEventListener('click', () => $('#modal-stock').hidden = true);
-        $('#btn-stock-cancel')?.addEventListener('click', () => $('#modal-stock').hidden = true);
-        $('#btn-stock-save')?.addEventListener('click', () => this.save());
-        document.querySelector('#modal-stock .modal__backdrop')?.addEventListener('click', () => $('#modal-stock').hidden = true);
+        this.restore();
+        this.loadFromFirebase();
 
-        // Search & filters
-        $('#stock-search')?.addEventListener('input', () => this.render());
-        $('#stock-filter-status')?.addEventListener('change', () => this.render());
-        $('#stock-filter-cat')?.addEventListener('change', () => this.render());
+        // Imports
+        const i1 = document.getElementById('pc-xl-input');
+        const i2 = document.getElementById('pc-xl-input-empty');
+        if (i1) i1.addEventListener('change', e => this.importExcel(e));
+        if (i2) i2.addEventListener('change', e => this.importExcel(e));
 
-        // Import buttons
-        $('#btn-stock-import')?.addEventListener('click', () => this.openImport('stock'));
-        $('#btn-stock-history-import')?.addEventListener('click', () => this.openImport('history'));
-        $('#btn-stock-export')?.addEventListener('click', () => this.exportExcel());
+        // Buttons
+        document.getElementById('pc-clr-btn')?.addEventListener('click', () => this.clear());
+        document.getElementById('pc-refresh-btn')?.addEventListener('click', () => this.render());
 
-        // Import modal handlers
-        $('#btn-import-close')?.addEventListener('click', () => $('#modal-import').hidden = true);
-        $('#btn-import-cancel')?.addEventListener('click', () => $('#modal-import').hidden = true);
-        document.querySelector('#modal-import .modal__backdrop')?.addEventListener('click', () => $('#modal-import').hidden = true);
+        // Filters
+        document.getElementById('pc-search')?.addEventListener('input', () => this.applyFilters());
+        document.getElementById('pc-empl-filter')?.addEventListener('change', () => this.applyFilters());
+        document.getElementById('pc-four-filter')?.addEventListener('change', () => this.applyFilters());
+        document.getElementById('pc-type-filter')?.addEventListener('change', () => this.applyFilters());
+        document.getElementById('pc-etat-filter')?.addEventListener('change', () => this.applyFilters());
 
-        // Dropzone
-        const dz = document.getElementById('dropzone');
-        const fi = document.getElementById('import-file');
-        if (dz && fi) {
-          dz.addEventListener('click', () => fi.click());
-          dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = 'var(--accent-500)'; dz.style.background = 'rgba(0,212,255,.06)'; });
-          dz.addEventListener('dragleave', () => { dz.style.borderColor = 'var(--border-strong)'; dz.style.background = 'rgba(0,212,255,.02)'; });
-          dz.addEventListener('drop', e => {
-            e.preventDefault();
-            dz.style.borderColor = 'var(--border-strong)'; dz.style.background = 'rgba(0,212,255,.02)';
-            if (e.dataTransfer.files[0]) this.handleImport(e.dataTransfer.files[0]);
-          });
-          fi.addEventListener('change', e => { if (e.target.files[0]) this.handleImport(e.target.files[0]); });
-        }
-
-        // Table actions delegation
-        document.addEventListener('click', (e) => {
-          const btn = e.target.closest('[data-action]');
-          if (!btn || !btn.dataset.id) return;
-          const id = btn.dataset.id;
-          const action = btn.dataset.action;
-          if (action === 'edit-stock') this.openModal(id);
-          else if (action === 'del-stock') this.deletePiece(id);
-          else if (action === 'move-stock') this.openMoveDialog(id);
-        });
+        // Merge toggle
+        document.getElementById('pc-merge-toggle')?.addEventListener('change', () => this.render());
       },
 
-      openModal(id) {
-        this._editingId = id || null;
-        const piece = id ? state.stock[id] : null;
-        $('#modal-stock-title').textContent = piece ? '📦 Modifier la pièce' : '📦 Nouvelle pièce';
-        $('#stock-ref').value           = piece?.ref || '';
-        $('#stock-cat').value           = piece?.category || '';
-        $('#stock-desig').value         = piece?.designation || '';
-        $('#stock-supplier').value      = piece?.supplier || '';
-        $('#stock-supplier-ref').value  = piece?.supplierRef || '';
-        $('#stock-qty').value           = piece?.quantity ?? '';
-        $('#stock-min').value           = piece?.minThreshold ?? 5;
-        $('#stock-price').value         = piece?.unitPrice ?? '';
-        $('#stock-location').value      = piece?.location || '';
-        $('#modal-stock').hidden = false;
-      },
-
-      async save() {
-        if (!auth.can('stock.write')) return ui.toast('Permission refusée', 'danger');
-        const ref = $('#stock-ref').value.trim();
-        const desig = $('#stock-desig').value.trim();
-        if (!ref || !desig) return ui.toast('Référence et désignation obligatoires', 'warn');
-
-        const data = {
-          ref,
-          designation: desig,
-          category:    $('#stock-cat').value.trim() || 'Divers',
-          supplier:    $('#stock-supplier').value.trim() || '',
-          supplierRef: $('#stock-supplier-ref').value.trim() || '',
-          quantity:    parseInt($('#stock-qty').value) || 0,
-          minThreshold: parseInt($('#stock-min').value) || 5,
-          unitPrice:   parseFloat($('#stock-price').value) || 0,
-          location:    $('#stock-location').value.trim() || '',
-          updatedAt:   Date.now(),
-          updatedBy:   state.profile?.displayName || ''
-        };
-
-        try {
-          if (this._editingId) {
-            await fbDb.ref('stock/' + this._editingId).update(data);
-            ui.toast('Pièce modifiée ✅', 'success');
-          } else {
-            const id = ref.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
-            data.id = id;
-            data.createdAt = Date.now();
-            await fbDb.ref('stock/' + id).set(data);
-            ui.toast('Pièce ajoutée ✅', 'success');
-            // Audit log
-            await fbDb.ref('auditLog').push({
-              timestamp: Date.now(), uid: state.user.uid, userName: state.profile?.displayName || '',
-              action: 'stock.create', entity: 'stock/' + id
-            });
-          }
-          $('#modal-stock').hidden = true;
-        } catch(e) {
-          ui.toast('Erreur: ' + e.message, 'danger');
-        }
-      },
-
-      async deletePiece(id) {
-        if (!auth.can('stock.write')) return ui.toast('Permission refusée', 'danger');
-        const piece = state.stock[id];
-        if (!piece) return;
-        if (!confirm(`Supprimer "${piece.designation}" du stock ?`)) return;
-        try {
-          await fbDb.ref('stock/' + id).remove();
-          await fbDb.ref('auditLog').push({
-            timestamp: Date.now(), uid: state.user.uid, userName: state.profile?.displayName || '',
-            action: 'stock.delete', entity: 'stock/' + id
-          });
-          ui.toast('Pièce supprimée', 'success');
-        } catch(e) { ui.toast('Erreur: ' + e.message, 'danger'); }
-      },
-
-      async openMoveDialog(id) {
-        const piece = state.stock[id];
-        if (!piece) return;
-        const qtyStr = prompt(`Mouvement stock pour "${piece.designation}"\nStock actuel: ${piece.quantity||0}\n\nEntrez la quantité :\n• Positif = entrée (+5)\n• Négatif = sortie (-3)`, '');
-        if (!qtyStr) return;
-        const qty = parseInt(qtyStr);
-        if (isNaN(qty) || qty === 0) return ui.toast('Quantité invalide', 'warn');
-        const reason = prompt('Motif du mouvement :', qty > 0 ? 'Réapprovisionnement' : 'Utilisation intervention') || '';
-        const newQty = (piece.quantity||0) + qty;
-        if (newQty < 0) return ui.toast('Stock insuffisant', 'danger');
-
-        try {
-          await fbDb.ref('stock/' + id).update({ quantity: newQty, updatedAt: Date.now() });
-          await fbDb.ref('stockMovements').push({
-            stockId: id, type: qty > 0 ? 'in' : 'out', quantity: Math.abs(qty),
-            reason, timestamp: Date.now(),
-            userId: state.user.uid, userName: state.profile?.displayName || ''
-          });
-          ui.toast(`${qty > 0 ? 'Entrée' : 'Sortie'} de ${Math.abs(qty)} ✅`, 'success');
-        } catch(e) { ui.toast('Erreur: ' + e.message, 'danger'); }
-      },
-
-      openImport(mode) {
-        this._importMode = mode;
-        const titles = {
-          stock:   '📥 Importer le stock (Excel)',
-          history: '📊 Importer historique interventions'
-        };
-        const cols = {
-          stock:   ['Référence', 'Désignation', 'Catégorie', 'Fournisseur', 'Quantité', 'Seuil min.', 'Prix unitaire'],
-          history: ['N° Bon', 'Outil', 'Technicien', 'Date', 'Type', 'Statut']
-        };
-        $('#modal-import-title').textContent = titles[mode];
-        $('#import-columns').textContent = cols[mode].join(' · ');
-        $('#import-progress').style.display = 'none';
-        $('#import-bar').style.width = '0%';
-        $('#import-file').value = '';
-        $('#modal-import').hidden = false;
-      },
-
-      async handleImport(file) {
-        $('#import-progress').style.display = 'block';
-        $('#import-status').textContent = 'Lecture du fichier…';
-        $('#import-bar').style.width = '20%';
-
-        // Load SheetJS
-        await this._loadXLSX();
-        try {
-          const data = await file.arrayBuffer();
-          const wb = XLSX.read(data, { type: 'array' });
-          const ws = wb.Sheets[wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-          $('#import-bar').style.width = '50%';
-          $('#import-status').textContent = `${rows.length} ligne(s) trouvée(s) — Import en cours…`;
-
-          if (this._importMode === 'stock') {
-            await this._importStock(rows);
-          } else {
-            await this._importHistory(rows);
-          }
-
-          $('#import-bar').style.width = '100%';
-          $('#import-status').textContent = '✅ Import terminé !';
-          setTimeout(() => $('#modal-import').hidden = true, 1500);
-        } catch(e) {
-          $('#import-status').textContent = '❌ Erreur: ' + e.message;
-          $('#import-bar').style.background = 'var(--danger-500)';
-        }
-      },
-
-      async _importStock(rows) {
-        let imported = 0, errors = 0;
-        for (const row of rows) {
-          const ref = String(row['Référence'] || row['Reference'] || row['ref'] || '').trim();
-          const desig = String(row['Désignation'] || row['Designation'] || row['designation'] || '').trim();
-          if (!ref || !desig) { errors++; continue; }
-          const id = ref.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
-          await fbDb.ref('stock/' + id).set({
-            id,
-            ref,
-            designation: desig,
-            category:    String(row['Catégorie'] || row['Categorie'] || row['category'] || 'Divers').trim(),
-            supplier:    String(row['Fournisseur'] || row['supplier'] || '').trim(),
-            supplierRef: String(row['Réf. fournisseur'] || row['supplierRef'] || '').trim(),
-            quantity:    parseInt(row['Quantité'] || row['Quantite'] || row['quantity'] || 0) || 0,
-            minThreshold: parseInt(row['Seuil min.'] || row['Seuil'] || row['minThreshold'] || 5) || 5,
-            unitPrice:   parseFloat(row['Prix unitaire'] || row['Prix'] || row['unitPrice'] || 0) || 0,
-            location:    String(row['Emplacement'] || row['location'] || '').trim(),
-            updatedAt:   Date.now(),
-            updatedBy:   state.profile?.displayName || 'Import Excel'
-          });
-          imported++;
-        }
-        await fbDb.ref('auditLog').push({
-          timestamp: Date.now(), uid: state.user.uid, userName: state.profile?.displayName || '',
-          action: 'stock.import', entity: 'stock', meta: { imported, errors }
-        });
-        ui.toast(`${imported} pièce(s) importée(s) ✅ ${errors > 0 ? '(' + errors + ' erreurs)' : ''}`, 'success');
-      },
-
-      async _importHistory(rows) {
-        let imported = 0, errors = 0;
-        // Get next reg counter
-        const counterSnap = await fbDb.ref('counters/registre').once('value');
-        let counter = counterSnap.val() || 0;
-
-        for (const row of rows) {
-          try {
-            counter++;
-            const numBon = counter;
-            const tool = {
-              outilId:   String(row['Outil'] || row['outilId'] || '').trim(),
-              refOutil:  String(row['Réf. outil'] || row['refOutil'] || '').trim(),
-              fabricant: String(row['Fabricant'] || row['fabricant'] || '').trim(),
-            };
-            const dateStr = row['Date'] || row['date'] || '';
-            const date = dateStr ? new Date(dateStr).getTime() : Date.now();
-            const status = String(row['Statut'] || row['status'] || 'validated').toLowerCase();
-            const validStatus = ['draft','submitted','validated','rejected'].includes(status) ? status : 'validated';
-
-            await fbDb.ref('interventions/' + numBon).set({
-              numBon, status: validStatus, createdAt: date, updatedAt: date,
-              tool,
-              crimping: {
-                filledAt: date,
-                filledBy: { uid: 'import', name: String(row['Technicien'] || row['technicien'] || 'Import historique'), matricule: String(row['Matricule'] || '') },
-                date,
-                cycles: parseInt(row['Cycles'] || row['cycles'] || 0) || 0,
-                type: String(row['Type'] || row['type'] || 'preventive').toLowerCase(),
-                piecesChanged: {},
-                observation: String(row['Observation'] || row['observation'] || 'Importé depuis historique').trim(),
-                duration: parseInt(row['Durée'] || row['Duree'] || row['duration'] || 0) || null,
-              },
-              lab: validStatus === 'validated' ? { decision:'validated', filledAt:date, filledBy:{name:'Import'} } : null,
-              sla: { submittedAt: date, decidedAt: validStatus === 'validated' ? date+3600000 : null, durationMs: validStatus === 'validated' ? 3600000 : null },
-              _imported: true
-            });
-            imported++;
-          } catch(e) { errors++; }
-        }
-        await fbDb.ref('counters/registre').set(counter);
-        await fbDb.ref('auditLog').push({
-          timestamp: Date.now(), uid: state.user.uid, userName: state.profile?.displayName || '',
-          action: 'history.import', entity: 'interventions', meta: { imported, errors }
-        });
-        ui.toast(`${imported} bon(s) historique importé(s) ✅`, 'success');
-      },
-
-      async exportExcel() {
-        const list = Object.values(state.stock);
-        if (!list.length) return ui.toast('Aucune pièce à exporter', 'warn');
-        await this._loadXLSX();
-        const rows = list.map(s => ({
-          'Référence': s.ref || '',
-          'Désignation': s.designation || '',
-          'Catégorie': s.category || '',
-          'Fournisseur': s.supplier || '',
-          'Réf. fournisseur': s.supplierRef || '',
-          'Quantité': s.quantity || 0,
-          'Seuil min.': s.minThreshold || 0,
-          'Prix unitaire': s.unitPrice || 0,
-          'Valeur stock': (s.quantity||0) * (s.unitPrice||0),
-          'Emplacement': s.location || '',
-          'Statut': (s.quantity||0) === 0 ? 'RUPTURE' : (s.quantity||0) < (s.minThreshold||5) ? 'FAIBLE' : 'OK',
-        }));
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(rows);
-        ws['!cols'] = [{wch:14},{wch:30},{wch:14},{wch:14},{wch:14},{wch:10},{wch:10},{wch:12},{wch:14},{wch:18},{wch:10}];
-        XLSX.utils.book_append_sheet(wb, ws, 'Stock');
-        XLSX.writeFile(wb, 'LEONI_Stock_' + new Date().toISOString().slice(0,10) + '.xlsx');
-        ui.toast('Export Excel ✅', 'success');
-      },
-
-      _loadXLSX() {
-        return new Promise((res, rej) => {
-          if (window.XLSX) return res();
-          const s = document.createElement('script');
-          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-          s.onload = res; s.onerror = rej; document.head.appendChild(s);
-        });
-      }
+      renderMovements() { /* compat */ }
     },
 
-    /* ==========================================================================
+        /* ==========================================================================
        PERFORMANCE — Diagrammes temps techniciens
        ========================================================================== */
     performance: {
