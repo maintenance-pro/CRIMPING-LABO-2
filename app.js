@@ -2541,12 +2541,28 @@
 
       async syncToFirebase() {
         try {
+          // 1. Sauvegarder les données stock complètes
           await fbDb.ref('stockPieces').set({
             pieces: this.pieces,
             file: this.piecesFile,
             updatedAt: Date.now(),
-            updatedBy: state.profile?.displayName || 'system'
+            updatedBy: state.profile?.displayName || state.user?.email || 'system',
+            updatedByUid: state.user?.uid || ''
           });
+
+          // 2. Ajouter à l'historique des imports
+          await fbDb.ref('stockImportHistory').push({
+            timestamp: Date.now(),
+            userId: state.user?.uid || '',
+            userName: state.profile?.displayName || state.user?.email || 'inconnu',
+            userEmail: state.user?.email || '',
+            fileName: this.piecesFile?.name || '',
+            rows: this.pieces.length,
+            sheet: this.piecesFile?.sheet || '',
+            date: this.piecesFile?.date || ''
+          });
+
+          // 3. Audit log
           await fbDb.ref('auditLog').push({
             timestamp: Date.now(), uid: state.user.uid,
             userName: state.profile?.displayName || '',
@@ -2554,7 +2570,12 @@
             entity: 'stockPieces',
             meta: { rows: this.pieces.length, file: this.piecesFile?.name }
           });
-        } catch(e) { console.warn('[Magasin] Firebase sync failed:', e.message); }
+
+          ui.toast('✅ Stock synchronisé sur Firebase — visible sur tous les appareils', 'success');
+        } catch(e) {
+          console.error('[Magasin] Firebase sync failed:', e.message);
+          ui.toast('⚠️ Sauvegarde Firebase refusée — vos données restent en local. Vérifiez les règles Firebase', 'warn');
+        }
       },
 
       persist() {
@@ -2636,6 +2657,14 @@
         document.getElementById('rk2').textContent = empls.size;
         document.getElementById('rk3').textContent = enStock;
         document.getElementById('rk4').textContent = alerts;
+
+        // Mettre à jour les sous-textes des KPIs
+        const rk4Delta = document.getElementById('rk4-delta');
+        if (rk4Delta) rk4Delta.textContent = alerts > 0 ? '⚠ ' + alerts + ' alertes' : '✅ Aucune alerte';
+
+        // Mettre à jour le compteur historique
+        const histCount = document.getElementById('pc-history-count');
+        if (histCount) histCount.textContent = (this.importHistory?.length || 0) + ' enregistrement(s)';
 
         // Merge info
         if (isMerged) {
@@ -2850,17 +2879,56 @@
 
       async loadFromFirebase() {
         try {
-          const snap = await fbDb.ref('stockPieces').once('value');
-          const data = snap.val();
-          if (data && data.pieces && Array.isArray(data.pieces)) {
-            this.pieces = data.pieces;
-            this.piecesFile = data.file;
-            this.piecesXL = true;
-            this.persist();
-            this.updateStockBadge();
-            if (state.currentView === 'magasin') this.render();
-          }
-        } catch(e) { console.warn('[Magasin] Cannot load from Firebase:', e.message); }
+          // ─── Listener temps réel : tous les utilisateurs voient les mêmes données ───
+          const ref = fbDb.ref('stockPieces');
+          ref.on('value', snap => {
+            const data = snap.val();
+            if (data && data.pieces && Array.isArray(data.pieces) && data.pieces.length > 0) {
+              this.pieces = data.pieces;
+              this.piecesFile = data.file;
+              this.piecesXL = true;
+              this.persist();
+              this.updateStockBadge();
+              if (state.currentView === 'magasin') this.render();
+            }
+          }, err => {
+            console.warn('[Magasin] Firebase read error:', err.code);
+            ui.toast('⚠️ Lecture Firebase refusée — vérifiez les règles de sécurité', 'warn');
+          });
+
+          // ─── Charger l'historique des imports ───
+          fbDb.ref('stockImportHistory').orderByChild('timestamp').limitToLast(10)
+            .on('value', snap => {
+              this.importHistory = [];
+              snap.forEach(c => this.importHistory.unshift({ id:c.key, ...c.val() }));
+              if (state.currentView === 'magasin') this.renderImportHistory();
+            }, () => {});
+        } catch(e) { console.warn('[Magasin] Listener init failed:', e.message); }
+      },
+
+      importHistory: [],
+
+      renderImportHistory() {
+        const container = document.getElementById('pc-history');
+        if (!container) return;
+        if (!this.importHistory.length) {
+          container.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--text-muted);font-size:.78rem">Aucun import enregistré</div>';
+          return;
+        }
+        container.innerHTML = this.importHistory.map(h => {
+          const dt = new Date(h.timestamp);
+          return `<div style="display:flex;align-items:center;gap:.65rem;padding:.6rem .8rem;border-bottom:1px solid var(--border-soft);font-size:.78rem">
+            <span style="font-size:1rem">📂</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ui.escape(h.fileName||'—')}</div>
+              <div style="color:var(--text-muted);font-size:.72rem">${h.rows||0} lignes · feuille "${ui.escape(h.sheet||'—')}"</div>
+            </div>
+            <div style="text-align:right;font-size:.7rem;color:var(--text-muted)">
+              <div>${ui.escape(h.userName||'inconnu')}</div>
+              <div style="font-family:var(--font-mono)">${dt.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
+            </div>
+          </div>`;
+        }).join('');
       },
 
       init() {

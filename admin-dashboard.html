@@ -980,10 +980,20 @@
             <div class="kpi__body">
               <div class="kpi__label">Alertes Stock</div>
               <div class="kpi__value" id="rk4">—</div>
-              <div class="kpi__delta">sous seuil min</div>
+              <div class="kpi__delta" id="rk4-delta">sous seuil min</div>
             </div>
           </article>
         </div>
+
+        <!-- Historique des injections (collapsible) -->
+        <details id="pc-history-block" style="background:rgba(0,212,255,.04);border:1px solid var(--border-base);border-radius:10px;margin-bottom:1rem">
+          <summary style="cursor:pointer;padding:.7rem 1rem;font-size:.82rem;font-weight:600;color:var(--accent-500);display:flex;align-items:center;gap:.5rem;list-style:none">
+            <span>📋</span>
+            <span>Historique des injections</span>
+            <span style="margin-left:auto;color:var(--text-muted);font-weight:400;font-size:.72rem" id="pc-history-count">— enregistrements</span>
+          </summary>
+          <div id="pc-history" style="padding:.4rem .2rem"></div>
+        </details>
 
         <!-- Empty state -->
         <div id="pc-empty" style="text-align:center;padding:3rem 1.5rem;background:var(--glass);border:1px solid var(--border-base);border-radius:12px">
