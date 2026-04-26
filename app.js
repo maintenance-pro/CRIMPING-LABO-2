@@ -776,7 +776,8 @@
 
     listenNotifications() {
       if (!state.user) return;
-      const ref = fbDb.ref(`notifications/${state.user.uid}`).orderByChild('createdAt').limitToLast(20);
+      // Pas d'orderByChild — tri côté client pour éviter le warning d'index Firebase
+      const ref = fbDb.ref(`notifications/${state.user.uid}`).limitToLast(20);
       const handler = (snap) => {
         const notifs = [];
         snap.forEach(child => notifs.push({ id: child.key, ...child.val() }));
@@ -3930,6 +3931,24 @@
     views.performance.init();
     userActions.initModals();
     initDurationField();
+    // Désactiver autocomplete sur tous les password fields (warnings DOM)
+    document.querySelectorAll('input[type="password"]').forEach(input => {
+      input.setAttribute('autocomplete', 'new-password');
+    });
+        // ── FIX warnings DOM : envelopper les password fields dans des forms ──
+    document.querySelectorAll('input[type="password"]').forEach(input => {
+      // Si déjà dans un form, on skip
+      if (input.closest('form')) return;
+      // Sinon, on l'enveloppe dans un mini form invisible
+      const wrapper = document.createElement('form');
+      wrapper.setAttribute('autocomplete', 'off');
+      wrapper.setAttribute('onsubmit', 'return false;');
+      wrapper.style.display = 'contents';
+      const parent = input.parentNode;
+      parent.insertBefore(wrapper, input);
+      wrapper.appendChild(input);
+    });
+
     Shortcuts.init();
     ConnMonitor.init();
     console.log('[LEONI] Raccourcis : Alt+H Hub · Alt+N Nouveau · Alt+M Magasin · Alt+P Performance');
