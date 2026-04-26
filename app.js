@@ -2611,39 +2611,15 @@
       },
 
       _COLS: [
-        // ── Ordre EXACT du fichier Excel exporté ──
-        { k:'npiece',       label:'N° de Pièce',              w:140 },
-        { k:'nom',          label:'Nom',                      w:160, key:true },  // ⭐ Référence cherchée
-        { k:'nstock',       label:'N° Stock',                 w:240 },
-        { k:'qty',          label:'Quantité Physiq.',         w:120, num:true },
-        { k:'qmin',         label:'Quantité Minimum',         w:120, num:true },
-        { k:'qmax',         label:'Quantité Maximum',         w:120, num:true },
-        { k:'codeFour',     label:'Code Fournisseur',         w:130 },
-        { k:'recomm',       label:'ReCommand.maint.',         w:120 },
-        { k:'abc',          label:'ABC',                      w:70 },
-        { k:'barcode',      label:'Code à Barres',            w:140 },
-        { k:'typePiece',    label:'Type Pièces',              w:160 },
-        { k:'groupePiece',  label:'Groupe Pièces',            w:120 },
-        { k:'typeCout',     label:'Type de Coût',             w:110 },
-        { k:'barcodePerso', label:'Code Bar. Person',         w:130 },
-        { k:'compte',       label:'N° Compte',                w:110 },
-        { k:'nom2',         label:'Nom 2 (Désignation)',      w:180 },
-        { k:'qeco',         label:'Qté. Economique',          w:100, num:true },
-        { k:'qdispo',       label:'Qté. Dispon.',             w:100, num:true },
-        { k:'qreserv',      label:'Qté. Réservée',            w:100, num:true },
-        { k:'qcommand',     label:'Qté. Commandée',           w:100, num:true },
-        { k:'qpick',        label:'Qté. Pick Liste',          w:110, num:true },
-        { k:'qdemande',     label:'Qté. Demande',             w:110, num:true },
-        { k:'site',         label:'Site',                     w:90 },
-        { k:'empl',         label:'Emplacem. Mag. Principal', w:160 },
-        { k:'nomFour',      label:'Nom Fournisseur',          w:140 },
-        { k:'miseJour',     label:'Mise à Jr. Autom',         w:120 },
-        { k:'surListe',     label:'Sur Liste de Pièces',      w:130 },
-        { k:'prix',         label:'Prix Moyen',               w:100, num:true },
-        { k:'unite',        label:'Unité Juridique',          w:120 },
-        { k:'devise',       label:'Devise',                   w:80 },
-        { k:'entreprise',   label:'Entreprise',               w:110 }
+        // ── Affichage simplifié — 6 colonnes essentielles ──
+        { k:'nom',     label:'Nom (Référence)',          w:160, key:true },  // ⭐ Référence cherchée
+        { k:'nstock',  label:'N° Stock',                 w:200 },
+        { k:'empl',    label:'Emplacement',              w:140 },
+        { k:'qty',     label:'Qté Physique',             w:110, num:true },
+        { k:'qmin',    label:'Qté Min',                  w:90,  num:true },
+        { k:'qmax',    label:'Qté Max',                  w:90,  num:true }
       ],
+
 
       mapRow(row) {
         const out = {};
