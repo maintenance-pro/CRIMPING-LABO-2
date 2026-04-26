@@ -232,6 +232,8 @@
         const inp = $('#login-password');
         inp.type = inp.type === 'password' ? 'text' : 'password';
       });
+      // Anonymous login button
+      $('#btn-anon-login')?.addEventListener('click', this.handleAnonLogin.bind(this));
       fbAuth.onAuthStateChanged(this.handleAuthChange.bind(this));
     },
 
@@ -246,6 +248,31 @@
         await fbAuth.signInWithEmailAndPassword(email, password);
       } catch (err) {
         errEl.textContent = this.translateError(err.code);
+        errEl.hidden = false;
+        ui.hideLoader();
+      }
+    },
+
+    /* ── Connexion anonyme (lecture seule) ── */
+    async handleAnonLogin() {
+      const errEl = $('#login-error');
+      errEl.hidden = true;
+      ui.showLoader('Connexion invité…');
+      try {
+        const cred = await fbAuth.signInAnonymously();
+        // Création d'un profil anonyme minimal en RTDB
+        await fbDb.ref('users/' + cred.user.uid).update({
+          uid:         cred.user.uid,
+          displayName: 'Invité',
+          email:       'anon-' + cred.user.uid.substring(0,6) + '@guest',
+          role:        'guest',
+          active:      true,
+          isAnonymous: true,
+          createdAt:   Date.now(),
+          lastLoginAt: Date.now()
+        });
+      } catch (err) {
+        errEl.textContent = 'Connexion anonyme refusée. Activez "Anonymous" dans Firebase Auth.';
         errEl.hidden = false;
         ui.hideLoader();
       }
@@ -348,6 +375,7 @@
         crimp:       ['intervention.create','intervention.edit'],
         crimping:    ['intervention.create','intervention.edit'],
         labo:        ['intervention.validate','intervention.reject','intervention.editLab'],
+        guest:       ['intervention.read','stock.read','perf.read'],
         magasinier:  ['stock.read','stock.write','stock.import','intervention.read','perf.read'],
         viewer:      []
       };
@@ -1962,7 +1990,9 @@
           const active = btn.dataset.active === 'true';
           if (action === 'edit')          this.openEditModal(uid);
           if (action === 'reset-pass')    this.sendPasswordReset(email);
+          if (action === 'set-pass')      this.setPasswordDirect(uid, email, btn.dataset.name);
           if (action === 'toggle-active') this.toggleActive(uid, active);
+          if (action === 'delete-user')   this.deleteUser(uid, btn.dataset.name);
           if (action === 'toggle-pass') {
             const spanId  = btn.dataset.id;
             const passVal = btn.dataset.pass;
@@ -2024,16 +2054,94 @@
               <div style="display:flex;gap:.35rem;flex-wrap:wrap">
                 <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem"
                   data-action="edit" data-uid="${ui.escape(u.uid || '')}">✏️ Modifier</button>
-                <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem;color:var(--warn-500)"
-                  data-action="reset-pass" data-email="${ui.escape(u.email || '')}">🔑 Reset MDP</button>
+                <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem;color:var(--accent-500)"
+                  data-action="set-pass" data-uid="${ui.escape(u.uid || '')}" data-email="${ui.escape(u.email || '')}" data-name="${ui.escape(u.displayName || u.email || '')}">🔑 Changer MDP</button>
                 <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem;color:${isActive ? 'var(--danger-500)' : 'var(--success-500)'}"
                   data-action="toggle-active" data-uid="${ui.escape(u.uid || '')}" data-active="${isActive}">
                   ${isActive ? '⛔ Désactiver' : '✅ Activer'}
                 </button>
+                <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem;color:#ff3d5a;border:1px solid rgba(255,61,90,.3)"
+                  data-action="delete-user" data-uid="${ui.escape(u.uid || '')}" data-name="${ui.escape(u.displayName || u.email || u.uid || '')}">🗑 Supprimer</button>
               </div>
             </td>
           </tr>`;
         }).join('');
+      },
+
+      /* ── Changer mot de passe directement (super admin) ── */
+      async setPasswordDirect(uid, email, name) {
+        if (state.role !== 'admin' && state.role !== 'super_admin') {
+          return ui.toast('Permission refusée', 'danger');
+        }
+        const newPass = prompt(`Définir un nouveau mot de passe pour :\n${name} (${email})\n\nMin. 8 caractères :`, '');
+        if (!newPass) return;
+        if (newPass.length < 8) return ui.toast('Mot de passe trop court (min 8 caractères)', 'warn');
+
+        try {
+          // Sauvegarder dans RTDB (visible aux admins)
+          await fbDb.ref('users/' + uid + '/password').set(newPass);
+          await fbDb.ref('users/' + uid + '/passwordChangedAt').set(Date.now());
+          await fbDb.ref('users/' + uid + '/passwordChangedBy').set(state.profile?.displayName || state.user?.email || '');
+
+          // Audit log
+          await fbDb.ref('auditLog').push({
+            timestamp: Date.now(),
+            uid: state.user.uid,
+            userName: state.profile?.displayName || '',
+            action: 'user.setPassword',
+            entity: 'users/' + uid,
+            meta: { targetEmail: email, targetName: name }
+          });
+
+          ui.toast(`Mot de passe modifié pour ${name} ✅`, 'success');
+          ui.toast(`Note: l'utilisateur doit se reconnecter — utiliser ce nouveau mdp côté Firebase Auth nécessite un Cloud Function. Pour l'instant, le mdp est mis à jour en RTDB.`, 'info');
+          this.render();
+        } catch (e) {
+          ui.toast('Erreur : ' + e.message, 'danger');
+        }
+      },
+
+      /* ── Supprimer un utilisateur ── */
+      async deleteUser(uid, name) {
+        if (state.role !== 'admin' && state.role !== 'super_admin') {
+          return ui.toast('Permission refusée', 'danger');
+        }
+        if (!uid) {
+          // Compte orphelin sans UID → essayer de le supprimer
+          if (!confirm('Cet utilisateur n\'a pas d\'UID (compte orphelin). Le supprimer du RTDB ?')) return;
+          // Find by displayName or email
+          const allUsers = this._allUsers || {};
+          const orphans = Object.entries(allUsers).filter(([k, v]) => !v.uid || v.role === 'undefined');
+          for (const [key] of orphans) {
+            try { await fbDb.ref('users/' + key).remove(); } catch(e) {}
+          }
+          ui.toast('Comptes orphelins supprimés ✅', 'success');
+          this.render();
+          return;
+        }
+
+        const ok = confirm(`Supprimer définitivement l\'utilisateur "${name}" ?\n\n⚠️ Cette action supprime son profil de la base de données.\n(Le compte Firebase Auth doit être supprimé séparément depuis la Console Firebase.)`);
+        if (!ok) return;
+
+        try {
+          // Supprimer le profil RTDB
+          await fbDb.ref('users/' + uid).remove();
+
+          // Audit log
+          await fbDb.ref('auditLog').push({
+            timestamp: Date.now(),
+            uid: state.user.uid,
+            userName: state.profile?.displayName || '',
+            action: 'user.delete',
+            entity: 'users/' + uid,
+            meta: { deletedName: name }
+          });
+
+          ui.toast(`Utilisateur "${name}" supprimé ✅`, 'success');
+          this.render();
+        } catch (e) {
+          ui.toast('Erreur : ' + e.message, 'danger');
+        }
       },
 
       /* ── Réinitialisation mot de passe ── */
@@ -2257,41 +2365,73 @@
 
       // Mapping des colonnes Excel reconnues
       _COLMAP: {
-        "N° DE PIÈCE":"npiece","N° DE PIECE":"npiece","N° PIÈCE":"npiece","NPIECE":"npiece",
-        "NOM":"nom","NOM 2":"nom2","DÉSIGNATION":"nom2","DESIGNATION":"nom2","DESCRIPTION":"nom2",
+        // ── Colonnes EXACTES du fichier Bilal (31 colonnes) ──
+        "N° DE PIÈCE":"npiece", "N° DE PIECE":"npiece", "N° PIÈCE":"npiece", "NPIECE":"npiece",
+        "NOM":"nom",
         "N° STOCK":"nstock",
-        "QUANTITÉ PHYSIQ.":"qty","QUANTITE PHYSIQ.":"qty","QUANTITÉ PHYSIQ":"qty","QUANTITE PHYSIQ":"qty","QUANTITÉ PHYSIQUE":"qty","QTÉ PHYSIQ":"qty","QUANTITÉ":"qty","QUANTITE":"qty","QTY":"qty",
-        "QUANTITÉ MINIMUM":"qmin","QUANTITE MINIMUM":"qmin","QTÉ MINIMUM":"qmin","QTE MINIMUM":"qmin",
-        "QUANTITÉ MAXIMUM":"qmax","QUANTITE MAXIMUM":"qmax","QTÉ MAXIMUM":"qmax","QTE MAXIMUM":"qmax",
-        "CODE FOURNISSEUR":"codeFour","NOM FOURNISSEUR":"nomFour","FOURNISSEUR":"codeFour",
-        "EMPLACEM. MAG. PRINCIPAL":"empl","EMPLACEM MAG PRINCIPAL":"empl","EMPLACEMENT MAG PRINCIPAL":"empl","EMPLACEMENT":"empl","EMPLACEM.":"empl",
-        "TYPE PIÈCES":"typePiece","TYPE PIECES":"typePiece","TYPE PIÈCE":"typePiece",
-        "GROUPE PIÈCES":"groupePiece","GROUPE PIECES":"groupePiece",
-        "CODE À BARRES":"barcode","CODE A BARRES":"barcode","CODE BARRES":"barcode",
-        "QTÉ. DISPON.":"qdispo","QTE DISPON":"qdispo",
-        "QTÉ. RÉSERVÉE":"qreserv","QTE RESERVEE":"qreserv",
-        "QTÉ. COMMANDÉE":"qcommand","QTE COMMANDEE":"qcommand",
-        "PRIX MOYEN":"prix","DEVISE":"devise"
+        "QUANTITÉ PHYSIQ.":"qty", "QUANTITE PHYSIQ.":"qty", "QUANTITÉ PHYSIQ":"qty", "QUANTITE PHYSIQ":"qty", "QUANTITÉ":"qty", "QTY":"qty",
+        "QUANTITÉ MINIMUM":"qmin", "QUANTITE MINIMUM":"qmin", "QTÉ MINIMUM":"qmin",
+        "QUANTITÉ MAXIMUM":"qmax", "QUANTITE MAXIMUM":"qmax", "QTÉ MAXIMUM":"qmax",
+        "CODE FOURNISSEUR":"codeFour",
+        "RECOMMAND.MAINT.":"recomm", "RECOMMEND.MAINT.":"recomm",
+        "ABC":"abc",
+        "CODE À BARRES":"barcode", "CODE A BARRES":"barcode", "CODE BARRES":"barcode",
+        "TYPE PIÈCES":"typePiece", "TYPE PIECES":"typePiece",
+        "GROUPE PIÈCES":"groupePiece", "GROUPE PIECES":"groupePiece",
+        "TYPE DE COÛT":"typeCout", "TYPE DE COUT":"typeCout",
+        "CODE BAR. PERSON":"barcodePerso", "CODE BAR PERSON":"barcodePerso",
+        "N° COMPTE":"compte",
+        "NOM 2":"nom2", "DÉSIGNATION":"nom2", "DESIGNATION":"nom2",
+        "QTÉ. ECONOMIQUE":"qeco", "QTE ECONOMIQUE":"qeco", "QUANTITÉ ECONOMIQUE":"qeco",
+        "QTÉ. DISPON.":"qdispo", "QTE DISPON":"qdispo", "QUANTITÉ DISPONIBLE":"qdispo",
+        "QTÉ. RÉSERVÉE":"qreserv", "QTE RESERVEE":"qreserv",
+        "QTÉ. COMMANDÉE":"qcommand", "QTE COMMANDEE":"qcommand",
+        "QTÉ. PICK LISTE":"qpick", "QTE PICK LISTE":"qpick",
+        "QTÉ. DEMANDE":"qdemande", "QTE DEMANDE":"qdemande",
+        "SITE":"site",
+        "EMPLACEM. MAG. PRINCIPAL":"empl", "EMPLACEM MAG PRINCIPAL":"empl", "EMPLACEMENT MAG PRINCIPAL":"empl", "EMPLACEMENT":"empl",
+        "NOM FOURNISSEUR":"nomFour",
+        "MISE À JR. AUTOM":"miseJour", "MISE A JR AUTOM":"miseJour",
+        "SUR LISTE DE PIÈCES":"surListe", "SUR LISTE DE PIECES":"surListe",
+        "PRIX MOYEN":"prix",
+        "UNITÉ JURIDIQUE":"unite", "UNITE JURIDIQUE":"unite",
+        "DEVISE":"devise",
+        "ENTREPRISE":"entreprise"
       },
 
       _COLS: [
-        { k:'nom',         label:'Nom (Référence)',             w:160, key:true },
-        { k:'nom2',        label:'Désignation',                 w:200 },
-        { k:'empl',        label:'Emplacement',                 w:160 },
-        { k:'qty',         label:'Stock Nominal',               w:120, num:true },
-        { k:'qmin',        label:'Stock Min',                   w:100, num:true },
-        { k:'qmax',        label:'Stock Max',                   w:100, num:true },
-        { k:'npiece',      label:'N° de Pièce',                 w:140 },
-        { k:'nstock',      label:'N° Stock',                    w:200 },
-        { k:'nomFour',     label:'Fournisseur',                 w:130 },
-        { k:'codeFour',    label:'Code Fourn.',                 w:120 },
-        { k:'typePiece',   label:'Type',                        w:130 },
-        { k:'groupePiece', label:'Groupe',                      w:120 },
-        { k:'qdispo',      label:'Dispon.',                     w:90, num:true },
-        { k:'qreserv',     label:'Réservée',                    w:90, num:true },
-        { k:'qcommand',    label:'Cmdée',                       w:90, num:true },
-        { k:'barcode',     label:'Code Barres',                 w:130 },
-        { k:'prix',        label:'Prix',                        w:80, num:true }
+        // ── Ordre EXACT du fichier Excel exporté ──
+        { k:'npiece',       label:'N° de Pièce',              w:140 },
+        { k:'nom',          label:'Nom',                      w:160, key:true },  // ⭐ Référence cherchée
+        { k:'nstock',       label:'N° Stock',                 w:240 },
+        { k:'qty',          label:'Quantité Physiq.',         w:120, num:true },
+        { k:'qmin',         label:'Quantité Minimum',         w:120, num:true },
+        { k:'qmax',         label:'Quantité Maximum',         w:120, num:true },
+        { k:'codeFour',     label:'Code Fournisseur',         w:130 },
+        { k:'recomm',       label:'ReCommand.maint.',         w:120 },
+        { k:'abc',          label:'ABC',                      w:70 },
+        { k:'barcode',      label:'Code à Barres',            w:140 },
+        { k:'typePiece',    label:'Type Pièces',              w:160 },
+        { k:'groupePiece',  label:'Groupe Pièces',            w:120 },
+        { k:'typeCout',     label:'Type de Coût',             w:110 },
+        { k:'barcodePerso', label:'Code Bar. Person',         w:130 },
+        { k:'compte',       label:'N° Compte',                w:110 },
+        { k:'nom2',         label:'Nom 2 (Désignation)',      w:180 },
+        { k:'qeco',         label:'Qté. Economique',          w:100, num:true },
+        { k:'qdispo',       label:'Qté. Dispon.',             w:100, num:true },
+        { k:'qreserv',      label:'Qté. Réservée',            w:100, num:true },
+        { k:'qcommand',     label:'Qté. Commandée',           w:100, num:true },
+        { k:'qpick',        label:'Qté. Pick Liste',          w:110, num:true },
+        { k:'qdemande',     label:'Qté. Demande',             w:110, num:true },
+        { k:'site',         label:'Site',                     w:90 },
+        { k:'empl',         label:'Emplacem. Mag. Principal', w:160 },
+        { k:'nomFour',      label:'Nom Fournisseur',          w:140 },
+        { k:'miseJour',     label:'Mise à Jr. Autom',         w:120 },
+        { k:'surListe',     label:'Sur Liste de Pièces',      w:130 },
+        { k:'prix',         label:'Prix Moyen',               w:100, num:true },
+        { k:'unite',        label:'Unité Juridique',          w:120 },
+        { k:'devise',       label:'Devise',                   w:80 },
+        { k:'entreprise',   label:'Entreprise',               w:110 }
       ],
 
       mapRow(row) {
@@ -2529,9 +2669,10 @@
       },
 
       buildFilters(data) {
-        const empls = [...new Set(data.map(r => r.empl).filter(Boolean))].sort();
-        const fours = [...new Set(data.map(r => r.codeFour || r.nomFour).filter(Boolean))].sort();
-        const types = [...new Set(data.map(r => r.typePiece || r.groupePiece).filter(Boolean))].sort();
+        const empls   = [...new Set(data.map(r => r.empl).filter(Boolean))].sort();
+        const stocks  = [...new Set(data.map(r => r.nstock).filter(Boolean))].sort();
+        const fours   = [...new Set(data.map(r => r.codeFour || r.nomFour).filter(Boolean))].sort();
+        const types   = [...new Set(data.map(r => r.typePiece || r.groupePiece).filter(Boolean))].sort();
 
         const fillSelect = (id, items, label) => {
           const sel = document.getElementById(id);
@@ -2540,9 +2681,10 @@
           sel.innerHTML = '<option value="">' + label + '</option>' +
             items.map(v => `<option value="${ui.escape(v)}" ${v===cur?'selected':''}>${ui.escape(v)}</option>`).join('');
         };
-        fillSelect('pc-empl-filter', empls, 'Tous emplacements');
-        fillSelect('pc-four-filter', fours, 'Tous fournisseurs');
-        fillSelect('pc-type-filter', types, 'Tous types');
+        fillSelect('pc-empl-filter',  empls,  'Tous emplacements');
+        fillSelect('pc-stock-filter', stocks, 'Tous N° Stock');
+        fillSelect('pc-four-filter',  fours,  'Tous fournisseurs');
+        fillSelect('pc-type-filter',  types,  'Tous types');
       },
 
       buildEmplCards(data) {
@@ -2595,13 +2737,15 @@
         const fEtat = document.getElementById('pc-etat-filter')?.value || '';
 
         if (q) {
-          // Recherche ciblée sur les champs pertinents UNIQUEMENT (pas le code-barres ni le prix)
-          const SEARCHABLE = ['nom', 'nom2', 'npiece', 'empl', 'nstock', 'codeFour', 'nomFour', 'typePiece', 'groupePiece'];
+          // Recherche ciblée sur les champs textuels pertinents
+          const SEARCHABLE = ['nom', 'nom2', 'npiece', 'empl', 'nstock', 'codeFour', 'nomFour', 'typePiece', 'groupePiece', 'site'];
           data = data.filter(r => SEARCHABLE.some(k => String(r[k]||'').toLowerCase().includes(q)));
         }
-        if (fEmpl) data = data.filter(r => (r.empl||'').includes(fEmpl));
-        if (fFour) data = data.filter(r => (r.codeFour||r.nomFour||'') === fFour);
-        if (fType) data = data.filter(r => (r.typePiece||r.groupePiece||'') === fType);
+        const fStock = document.getElementById('pc-stock-filter')?.value || '';
+        if (fEmpl)  data = data.filter(r => (r.empl||'').includes(fEmpl));
+        if (fStock) data = data.filter(r => (r.nstock||'') === fStock);
+        if (fFour)  data = data.filter(r => (r.codeFour||r.nomFour||'') === fFour);
+        if (fType)  data = data.filter(r => (r.typePiece||r.groupePiece||'') === fType);
 
         if (fEtat === '__alert') data = data.filter(r => { const q = parseInt(r.qty), m = parseInt(r.qmin); return !isNaN(q) && !isNaN(m) && m > 0 && q <= m; });
         if (fEtat === '__zero')  data = data.filter(r => parseInt(r.qty) === 0);
@@ -2736,6 +2880,7 @@
         // Filters
         document.getElementById('pc-search')?.addEventListener('input', () => this.applyFilters());
         document.getElementById('pc-empl-filter')?.addEventListener('change', () => this.applyFilters());
+        document.getElementById('pc-stock-filter')?.addEventListener('change', () => this.applyFilters());
         document.getElementById('pc-four-filter')?.addEventListener('change', () => this.applyFilters());
         document.getElementById('pc-type-filter')?.addEventListener('change', () => this.applyFilters());
         document.getElementById('pc-etat-filter')?.addEventListener('change', () => this.applyFilters());

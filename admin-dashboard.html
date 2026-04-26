@@ -48,6 +48,17 @@
 
         <button class="login__submit" type="submit" id="btn-login">Se connecter</button>
         <p class="login__error" id="login-error" hidden></p>
+
+        <!-- Séparateur + Connexion anonyme -->
+        <div style="display:flex;align-items:center;gap:.6rem;margin:1rem 0 .75rem">
+          <div style="flex:1;height:1px;background:var(--border-base)"></div>
+          <span style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">ou</span>
+          <div style="flex:1;height:1px;background:var(--border-base)"></div>
+        </div>
+        <button type="button" class="login__submit" id="btn-anon-login"
+          style="background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);font-weight:500">
+          👁 Connexion invité (lecture seule)
+        </button>
       </form>
 
       <footer class="login__footer">
@@ -1006,9 +1017,10 @@
           <!-- Search + filters row -->
           <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
             <input class="filter__input" id="pc-search" placeholder="🔍 Rechercher une référence (ex: 37 2 0765 20 0) · emplacement · fournisseur…" style="flex:1;min-width:280px;height:42px;font-size:.9rem;font-family:var(--font-mono);font-weight:500"/>
-            <select class="filter__input" id="pc-empl-filter" style="min-width:160px;height:38px"><option value="">Tous emplacements</option></select>
-            <select class="filter__input" id="pc-four-filter" style="min-width:140px;height:38px"><option value="">Tous fournisseurs</option></select>
-            <select class="filter__input" id="pc-type-filter" style="min-width:160px;height:38px"><option value="">Tous types</option></select>
+            <select class="filter__input" id="pc-empl-filter" style="min-width:140px;height:38px"><option value="">Tous emplacements</option></select>
+            <select class="filter__input" id="pc-stock-filter" style="min-width:160px;height:38px"><option value="">Tous N° Stock</option></select>
+            <select class="filter__input" id="pc-four-filter" style="min-width:130px;height:38px"><option value="">Tous fournisseurs</option></select>
+            <select class="filter__input" id="pc-type-filter" style="min-width:140px;height:38px"><option value="">Tous types</option></select>
             <select class="filter__input" id="pc-etat-filter" style="min-width:130px;height:38px">
               <option value="">Tous états</option>
               <option value="__alert">⚠ Alertes stock</option>
@@ -1247,10 +1259,11 @@
         <div class="field">
           <label class="field__label">Rôle</label>
           <select class="field__input" name="role" required>
-            <option value="crimp">Technicien Crimping</option>
-            <option value="labo">Technicien Laboratoire</option>
-            <option value="responsable">Responsable Maintenance</option>
-            <option value="admin">Administrateur</option>
+            <option value="crimp">🟢 Technicien Crimping</option>
+            <option value="labo">🔵 Technicien Laboratoire</option>
+            <option value="magasinier">📦 Magasinier</option>
+            <option value="responsable">🟡 Responsable Maintenance</option>
+            <option value="admin">🔴 Administrateur</option>
           </select>
         </div>
         <div class="field"><label class="field__label">Mot de passe initial</label><input class="field__input" name="password" type="text" required placeholder="Min. 8 caractères" /></div>
