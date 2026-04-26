@@ -2827,7 +2827,7 @@
         // Fusion DÉSACTIVÉE par défaut — affiche toutes les lignes du fichier Excel
         const isMerged = mergeEl ? mergeEl.checked : false;
         const rawData = this.pieces;
-        const data = isMerged ? this.mergePiecesData(rawData) : rawData;
+        let data = isMerged ? this.mergePiecesData(rawData) : rawData;
         const hasData = data.length > 0;
 
         const empty = document.getElementById('pc-empty');
@@ -2891,8 +2891,8 @@
 
         // Sort by 'nom' (Référence) — items with same Nom stay together
         data = data.slice().sort((a, b) => {
-          let na = (a.nom || '').toString().trim();
-          let nb = (b.nom || '').toString().trim();
+          const na = (a.nom || '').toString().trim();
+          const nb = (b.nom || '').toString().trim();
           // Empty values go to the bottom
           if (!na && nb) return 1;
           if (na && !nb) return -1;
