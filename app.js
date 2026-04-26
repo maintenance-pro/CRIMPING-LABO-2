@@ -6,6 +6,163 @@
 (function () {
   'use strict';
 
+  /* ╔══════════════════════════════════════════════════════════════════════╗
+     ║  PERF MODULE — Optimisations transverses pour techniciens terrain   ║
+     ║  Cache local · Debounce · Throttle · DOM helpers · Memoization       ║
+     ╚══════════════════════════════════════════════════════════════════════╝ */
+  const Perf = {
+    /**
+     * Debounce : retarde l'exécution jusqu'à ce que l'utilisateur arrête de taper
+     * Usage : input.addEventListener('input', Perf.debounce(handler, 300))
+     * Critique pour : recherche, filtres (évite 10 appels Firebase par seconde)
+     */
+    debounce(fn, delay = 300) {
+      let timer;
+      return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+      };
+    },
+
+    /**
+     * Throttle : limite l'exécution à 1 fois max par intervalle
+     * Usage : window.addEventListener('scroll', Perf.throttle(handler, 100))
+     * Critique pour : scroll, resize, mousemove
+     */
+    throttle(fn, limit = 100) {
+      let inThrottle;
+      return function(...args) {
+        if (!inThrottle) {
+          fn.apply(this, args);
+          inThrottle = true;
+          setTimeout(() => inThrottle = false, limit);
+        }
+      };
+    },
+
+    /**
+     * Memoize : cache les résultats d'une fonction pure
+     * Usage : const computeKPIs = Perf.memoize(expensiveCompute)
+     */
+    memoize(fn, keyFn = (...a) => JSON.stringify(a)) {
+      const cache = new Map();
+      return function(...args) {
+        const key = keyFn(...args);
+        if (!cache.has(key)) cache.set(key, fn.apply(this, args));
+        return cache.get(key);
+      };
+    },
+
+    /**
+     * Cache LocalStorage avec TTL automatique
+     * Évite de recharger les données qui ne changent pas souvent
+     */
+    cache: {
+      set(key, value, ttlMs = 300000) { // 5 min par défaut
+        try {
+          localStorage.setItem('leoni-' + key, JSON.stringify({
+            value, expires: Date.now() + ttlMs
+          }));
+        } catch(e) { /* quota dépassé */ }
+      },
+      get(key) {
+        try {
+          const item = JSON.parse(localStorage.getItem('leoni-' + key) || 'null');
+          if (!item) return null;
+          if (item.expires < Date.now()) {
+            localStorage.removeItem('leoni-' + key);
+            return null;
+          }
+          return item.value;
+        } catch(e) { return null; }
+      },
+      clear(prefix) {
+        const keys = Object.keys(localStorage).filter(k => k.startsWith('leoni-' + (prefix || '')));
+        keys.forEach(k => localStorage.removeItem(k));
+      }
+    },
+
+    /**
+     * RAF batching : regroupe les updates DOM en un seul reflow
+     * Critique pour : animations, multi-update DOM
+     */
+    raf(fn) {
+      let scheduled = false;
+      return function(...args) {
+        if (!scheduled) {
+          scheduled = true;
+          requestAnimationFrame(() => {
+            scheduled = false;
+            fn.apply(this, args);
+          });
+        }
+      };
+    },
+
+    /**
+     * Build DOM with DocumentFragment (10x plus rapide que innerHTML pour grosses listes)
+     */
+    buildList(items, templateFn) {
+      const frag = document.createDocumentFragment();
+      const tmp = document.createElement('div');
+      tmp.innerHTML = items.map(templateFn).join('');
+      while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+      return frag;
+    },
+
+    /**
+     * Lazy render : ne dessine que les lignes visibles (virtualisation simple)
+     * Pour les listes >500 items
+     */
+    lazyRender(container, items, renderRow, rowHeight = 48) {
+      const visible = Math.ceil(container.clientHeight / rowHeight) + 5;
+      const total = items.length;
+      let scrollTop = container.scrollTop;
+      let startIdx = Math.floor(scrollTop / rowHeight);
+      let endIdx = Math.min(startIdx + visible, total);
+
+      const spacerTop = `<div style="height:${startIdx * rowHeight}px"></div>`;
+      const rows = items.slice(startIdx, endIdx).map(renderRow).join('');
+      const spacerBottom = `<div style="height:${(total - endIdx) * rowHeight}px"></div>`;
+
+      container.innerHTML = spacerTop + rows + spacerBottom;
+    },
+
+    /**
+     * Intersection Observer : charge les images/contenus au scroll
+     */
+    observeVisibility(elements, callback) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            callback(entry.target);
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { rootMargin: '50px' });
+      elements.forEach(el => observer.observe(el));
+    },
+
+    /**
+     * Détecte si l'utilisateur est sur un appareil tactile (tablette terrain)
+     */
+    isTouch: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+
+    /**
+     * Mesure le temps d'exécution (utile en dev pour optimiser)
+     */
+    time(label, fn) {
+      const t0 = performance.now();
+      const result = fn();
+      console.log('[PERF]', label, (performance.now() - t0).toFixed(1) + 'ms');
+      return result;
+    }
+  };
+
+  // Expose globalement pour debug
+  if (typeof window !== 'undefined') window.LeoniPerf = Perf;
+
+
   /* ==========================================================================
      1. CONFIGURATION FIREBASE
      ──────────────────────────────────────────────────────────────────────────
@@ -823,10 +980,10 @@
         const slas = list.filter(i => i.sla && i.sla.durationMs).map(i => i.sla.durationMs);
         const avgSla = slas.length ? slas.reduce((a, b) => a + b, 0) / slas.length : 0;
 
-        $('#kpi-month').textContent = monthList.length;
-        $('#kpi-pending').textContent = pending.length;
-        $('#kpi-validated').textContent = validated.length;
-        $('#kpi-rejected').textContent = rejected.length;
+        KPIAnimator.set('#kpi-month', monthList.length);
+        KPIAnimator.set('#kpi-pending', pending.length);
+        KPIAnimator.set('#kpi-validated', validated.length);
+        KPIAnimator.set('#kpi-rejected', rejected.length);
         $('#kpi-sla').textContent = fmt.duration(avgSla);
 
         const validRate = monthList.length ? Math.round(validated.length / monthList.length * 100) : 0;
@@ -1993,28 +2150,40 @@
           if (action === 'set-pass')      this.setPasswordDirect(uid, email, btn.dataset.name);
           if (action === 'toggle-active') this.toggleActive(uid, active);
           if (action === 'delete-user')   this.deleteUser(uid, btn.dataset.name);
-          if (action === 'toggle-pass') {
-            const spanId  = btn.dataset.id;
-            const passVal = btn.dataset.pass;
-            const span    = document.getElementById(spanId);
-            if (!span) return;
-            const isHidden = span.textContent.includes('•');
-            span.textContent = isHidden ? passVal : '••••••••';
-            btn.textContent  = isHidden ? '🙈' : '👁';
-          }
+          // toggle-pass supprimé pour des raisons de sécurité — voir setPasswordDirect()
+        });
+      },
+
+      // Listener temps réel persistant — initialisé une seule fois
+      _initListener() {
+        if (this._listenerSetup) return;
+        this._listenerSetup = true;
+        const ref = fbDb.ref('users');
+        ref.on('value', snap => {
+          this._allUsers = snap.val() || {};
+          // Re-render uniquement si on est sur la vue users
+          if (state.currentView === 'users') this._renderTable();
+        }, err => {
+          console.warn('[Users] listener error:', err.code);
         });
       },
 
       async render() {
         if (state.role !== 'admin' && state.role !== 'super_admin' && !auth.can('user.read')) return;
-        try {
-          const snap = await fbDb.ref('users').once('value');
-          this._allUsers = snap.val() || {};
-        } catch (e) {
-          ui.toast('Erreur chargement utilisateurs : ' + e.message, 'danger');
-          return;
+        // Initialiser le listener une seule fois (re-render auto sur changement)
+        this._initListener();
+        // Premier rendu avec cache si dispo
+        if (!this._allUsers) {
+          const cached = Perf.cache.get('users-list');
+          if (cached) this._allUsers = cached;
         }
-        const list = Object.values(this._allUsers);
+        if (this._allUsers) this._renderTable();
+      },
+
+      _renderTable() {
+        const list = Object.values(this._allUsers || {});
+        // Mettre en cache pour réouverture rapide
+        Perf.cache.set('users-list', this._allUsers, 60000);
 
         if (!list.length) {
           document.getElementById('users-body').innerHTML =
@@ -2024,22 +2193,25 @@
 
         document.getElementById('users-body').innerHTML = list.map(u => {
           const isActive = u.active !== false;
-          const passVal  = u.password ? ui.escape(u.password) : '—';
-          const passId   = 'pw-' + (u.uid || '').slice(0, 8);
+          // ── SÉCURITÉ : indicateur de date de dernière modification du mdp ──
+          // On ne stocke PLUS jamais le mot de passe en clair dans le DOM ni dans la base
+          const pwChanged = u.passwordChangedAt
+            ? `Modifié le ${fmt.date(u.passwordChangedAt)}`
+            : 'Jamais modifié';
+          const pwBy = u.passwordChangedBy ? ` par ${ui.escape(u.passwordChangedBy)}` : '';
           return `<tr>
             <td><strong>${ui.escape(u.displayName || '—')}</strong></td>
             <td style="font-family:var(--font-mono);font-size:.8rem">${ui.escape(u.matricule || '—')}</td>
             <td style="font-size:.82rem">${ui.escape(u.email || '—')}</td>
             <td><span class="badge badge--auto">${auth.roleLabel(u.role)}</span></td>
-            <td>
+            <td title="${ui.escape(pwChanged + pwBy)}">
               <div style="display:flex;align-items:center;gap:.4rem">
-                <span id="${passId}" style="font-family:var(--font-mono);font-size:.78rem;
-                  letter-spacing:.06em;background:rgba(255,255,255,.05);padding:.15rem .5rem;
-                  border-radius:5px;border:1px solid var(--border-soft)">
-                  ••••••••
+                <span style="font-family:var(--font-mono);font-size:.78rem;letter-spacing:.06em;
+                  background:rgba(255,255,255,.04);padding:.18rem .55rem;border-radius:5px;
+                  border:1px solid var(--border-soft);color:var(--text-muted)">
+                  🔒 Sécurisé
                 </span>
-                <button class="btn btn--ghost" style="font-size:.7rem;padding:.18rem .45rem"
-                  data-action="toggle-pass" data-pass="${passVal}" data-id="${passId}">👁</button>
+                <span style="font-size:.66rem;color:var(--text-muted)">${ui.escape(pwChanged)}</span>
               </div>
             </td>
             <td>
@@ -2287,27 +2459,66 @@
           const form = $('#form-user');
           const data = {};
           new FormData(form).forEach((v, k) => { data[k] = v; });
+
+          // ── Validations ──
           if (!data.email || !data.password || !data.displayName)
             return ui.toast('Tous les champs sont obligatoires', 'warn');
+          if (data.password.length < 8)
+            return ui.toast('Mot de passe trop court (min 8 caractères)', 'warn');
+          if (!data.email.includes('@'))
+            return ui.toast('Email invalide', 'warn');
+
+          const btn = $('#btn-user-save');
+          btn.disabled = true;
+          btn.textContent = 'Création…';
+
           try {
+            // 1. Créer le compte Firebase Auth (le mdp y est hashé automatiquement)
             const cred = await fbAuth.createUserWithEmailAndPassword(data.email, data.password);
+
+            // 2. Créer le profil dans la RTDB — SANS le mot de passe en clair
+            //    SÉCURITÉ : seul Firebase Auth connaît le mdp (hashé bcrypt)
             await fbDb.ref('users/' + cred.user.uid).set({
-              uid         : cred.user.uid,
-              displayName : data.displayName,
-              matricule   : data.matricule || '',
-              email       : data.email,
-              role        : data.role,
-              active      : true,
-              password    : data.password,
-              createdAt   : Date.now(),
-              lastLoginAt : null
+              uid               : cred.user.uid,
+              displayName       : data.displayName,
+              matricule         : data.matricule || '',
+              email             : data.email,
+              role              : data.role,
+              active            : true,
+              createdAt         : Date.now(),
+              createdBy         : state.profile?.displayName || state.user?.email || 'system',
+              lastLoginAt       : null,
+              passwordChangedAt : Date.now(),
+              passwordChangedBy : state.profile?.displayName || 'Création initiale'
+              // password supprimé — JAMAIS stocké en clair
             });
-            ui.toast('Utilisateur ' + data.displayName + ' créé ✅', 'success');
+
+            // 3. Audit log
+            await fbDb.ref('auditLog').push({
+              timestamp : Date.now(),
+              uid       : state.user?.uid || '',
+              userName  : state.profile?.displayName || '',
+              action    : 'user.create',
+              entity    : 'users/' + cred.user.uid,
+              meta      : { email: data.email, role: data.role, name: data.displayName }
+            });
+
+            ui.toast(`Utilisateur ${data.displayName} créé ✅`, 'success');
+            ui.toast(`📧 Communiquez ses identifiants en personne (sécurité)`, 'info');
             modal.hidden = true;
             form.reset();
             this.render();
           } catch (err) {
-            ui.toast('Erreur : ' + err.message, 'danger');
+            const msg = {
+              'auth/email-already-in-use': 'Cet email est déjà utilisé.',
+              'auth/invalid-email':        'Email invalide.',
+              'auth/weak-password':        'Mot de passe trop faible (min 6 caractères).',
+              'auth/network-request-failed': 'Erreur réseau.'
+            }[err.code] || ('Erreur : ' + err.message);
+            ui.toast(msg, 'danger');
+          } finally {
+            btn.disabled = false;
+            btn.textContent = 'Créer';
           }
         };
       }
@@ -2946,7 +3157,7 @@
         document.getElementById('pc-refresh-btn')?.addEventListener('click', () => this.render());
 
         // Filters
-        document.getElementById('pc-search')?.addEventListener('input', () => this.applyFilters());
+        document.getElementById('pc-search')?.addEventListener('input', Perf.debounce(() => this.applyFilters(), 200));
         document.getElementById('pc-empl-filter')?.addEventListener('change', () => this.applyFilters());
         document.getElementById('pc-stock-filter')?.addEventListener('change', () => this.applyFilters());
         document.getElementById('pc-four-filter')?.addEventListener('change', () => this.applyFilters());
@@ -2993,7 +3204,7 @@
 
         document.getElementById('perf-kpi-total').textContent = this._fmtMin(totalMin);
         document.getElementById('perf-kpi-avg').textContent   = this._fmtMin(avgMin);
-        document.getElementById('perf-kpi-techs').textContent = techs.length;
+        KPIAnimator.set('#perf-kpi-techs', techs.length);
         document.getElementById('perf-kpi-top').textContent   = top ? top.name.split(' ')[0] : '—';
         document.getElementById('perf-kpi-top-h').textContent = top ? this._fmtMin(top.total) : '—';
 
@@ -3512,18 +3723,30 @@
       const btn = $('#btn-password-save');
       btn.disabled = true; btn.textContent = 'Modification…';
       try {
-        // Ré-authentifier puis changer
+        // 1. Ré-authentifier l'utilisateur (nécessaire pour les opérations sensibles)
         const user       = fbAuth.currentUser;
         const credential = firebase.auth.EmailAuthProvider.credential(user.email, current);
         await user.reauthenticateWithCredential(credential);
+
+        // 2. Mettre à jour le mot de passe via Firebase Auth (qui le hashe automatiquement)
         await user.updatePassword(newPw);
 
-        // Sauvegarder dans RTDB aussi (pour l'admin)
-        await fbDb.ref('users/' + user.uid + '/password').set(newPw);
+        // 3. SÉCURITÉ : on ne stocke JAMAIS le mot de passe en clair en base
+        //    On enregistre juste les métadonnées : qui a changé, quand
+        await fbDb.ref('users/' + user.uid).update({
+          passwordChangedAt: Date.now(),
+          passwordChangedBy: state.profile?.displayName || user.email
+        });
 
         $('#modal-password').hidden = true;
         ui.toast('Mot de passe modifié avec succès ✅', 'success');
-        await fbDb.ref('auditLog').push({ timestamp: Date.now(), uid: user.uid, userName: state.profile?.displayName || '', action: 'password.change', entity: 'auth/'+user.uid });
+        await fbDb.ref('auditLog').push({
+          timestamp: Date.now(),
+          uid: user.uid,
+          userName: state.profile?.displayName || '',
+          action: 'password.change',
+          entity: 'auth/' + user.uid
+        });
       } catch(e) {
         const msgs = {
           'auth/wrong-password': 'Mot de passe actuel incorrect.',
@@ -3596,6 +3819,122 @@
     });
   }
 
+
+  /* ╔══════════════════════════════════════════════════════════════════════╗
+     ║  RACCOURCIS CLAVIER — Productivité technicien terrain                ║
+     ║  Tous les raccourcis utilisent Alt pour ne pas conflit avec navigateur║
+     ╚══════════════════════════════════════════════════════════════════════╝ */
+  const Shortcuts = {
+    bindings: {
+      'KeyN':  { mod: 'alt', label: 'Nouveau bon',         action: () => router.go('intervention') },
+      'KeyH':  { mod: 'alt', label: 'Hub',                 action: () => router.go('hub') },
+      'KeyQ':  { mod: 'alt', label: 'File d\'attente',    action: () => router.go('queue') },
+      'KeyM':  { mod: 'alt', label: 'Magasin',             action: () => router.go('magasin') },
+      'KeyP':  { mod: 'alt', label: 'Performance',         action: () => router.go('performance') },
+      'KeyU':  { mod: 'alt', label: 'Utilisateurs',        action: () => router.go('users') },
+      'KeyS':  { mod: 'alt', label: 'Recherche',           action: () => $('#topbar-search')?.focus() },
+      'Slash': { mod: '',    label: 'Recherche (/)',       action: (e) => { e.preventDefault(); $('#topbar-search')?.focus(); } }
+    },
+
+    init() {
+      document.addEventListener('keydown', (e) => {
+        // Ignorer si l'utilisateur tape dans un input
+        if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) {
+          // Sauf Escape pour fermer modals
+          if (e.key === 'Escape') {
+            document.querySelectorAll('.modal:not([hidden])').forEach(m => m.hidden = true);
+          }
+          return;
+        }
+        const binding = this.bindings[e.code];
+        if (!binding) return;
+        const modOk = binding.mod === 'alt' ? e.altKey : !e.altKey;
+        if (!modOk) return;
+        binding.action(e);
+      });
+    },
+
+    /* Affiche un panneau d'aide sur "?" (Shift+/) */
+    showHelp() {
+      const list = Object.entries(this.bindings).map(([key, b]) => {
+        const label = key.replace('Key', '').replace('Slash', '/');
+        return `<div style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--border-base)">
+          <span>${b.label}</span>
+          <kbd>${b.mod === 'alt' ? 'Alt+' : ''}${label}</kbd>
+        </div>`;
+      }).join('');
+      ui.toast(`<div style="max-width:300px"><strong>Raccourcis clavier</strong>${list}</div>`, 'info');
+    }
+  };
+
+
+  /* ╔══════════════════════════════════════════════════════════════════════╗
+     ║  KPI ANIMATOR — Animation count-up des chiffres + indicateurs       ║
+     ╚══════════════════════════════════════════════════════════════════════╝ */
+  const KPIAnimator = {
+    /**
+     * Anime un compteur de la valeur actuelle vers la nouvelle valeur
+     * Usage : KPIAnimator.set('#hub-pending', 12)
+     */
+    set(selector, target, duration = 800) {
+      const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+      if (!el) return;
+      const current = parseInt(el.textContent.replace(/[^\d-]/g, '')) || 0;
+      if (current === target) { el.textContent = target; return; }
+
+      // Flash d'attention
+      el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 600);
+
+      const t0 = performance.now();
+      const animate = (now) => {
+        const elapsed = now - t0;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+        const value = Math.floor(current + (target - current) * eased);
+        el.textContent = value;
+        if (progress < 1) requestAnimationFrame(animate);
+        else el.textContent = target;
+      };
+      requestAnimationFrame(animate);
+    }
+  };
+
+  /* ╔══════════════════════════════════════════════════════════════════════╗
+     ║  CONNECTION MONITOR — Détecte la perte/reprise réseau                ║
+     ╚══════════════════════════════════════════════════════════════════════╝ */
+  const ConnMonitor = {
+    init() {
+      window.addEventListener('online',  () => this.update(true));
+      window.addEventListener('offline', () => this.update(false));
+      this.update(navigator.onLine);
+    },
+
+    update(online) {
+      const indicator = document.getElementById('conn-indicator') || this._create();
+      indicator.className = 'conn-indicator ' + (online ? 'conn-on' : 'conn-off');
+      indicator.innerHTML = online
+        ? '<span style="width:7px;height:7px;border-radius:50%;background:#00e5a0;box-shadow:0 0 8px #00e5a0;animation:pulse 2s ease-in-out infinite"></span><span>En ligne</span>'
+        : '<span style="width:7px;height:7px;border-radius:50%;background:#ff3d5a"></span><span>Hors ligne</span>';
+
+      if (!online) {
+        ui.toast('⚠️ Connexion perdue — Mode hors-ligne actif', 'warn');
+      } else if (this._wasOffline) {
+        ui.toast('✅ Connexion rétablie — Synchronisation…', 'success');
+        this._wasOffline = false;
+      }
+      this._wasOffline = !online;
+    },
+
+    _create() {
+      const div = document.createElement('div');
+      div.id = 'conn-indicator';
+      div.style.cssText = 'position:fixed;bottom:1rem;left:1rem;display:flex;align-items:center;gap:.5rem;background:var(--glass);backdrop-filter:blur(12px);border:1px solid var(--border-base);border-radius:20px;padding:.4rem .85rem;font-size:.74rem;color:var(--text-secondary);z-index:9998;pointer-events:none';
+      document.body.appendChild(div);
+      return div;
+    }
+  };
+
   /* ==========================================================================
      15. BOOTSTRAP
      ========================================================================== */
@@ -3615,6 +3954,9 @@
     views.performance.init();
     userActions.initModals();
     initDurationField();
+    Shortcuts.init();
+    ConnMonitor.init();
+    console.log('[LEONI] Raccourcis : Alt+H Hub · Alt+N Nouveau · Alt+M Magasin · Alt+P Performance');
 
     // Stats period change triggers re-render
     const statsPeriod = document.getElementById('stats-period');

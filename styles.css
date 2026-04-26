@@ -2391,3 +2391,224 @@ legend { padding: 0; }
   max-height: 85vh;
   overflow-y: auto;
 }
+
+
+/* ╔══════════════════════════════════════════════════════════════════════╗
+   ║  AMÉLIORATIONS PRO — Optimisations terrain                           ║
+   ║  Loading skeletons · Animations · Touch · Tablette                   ║
+   ╚══════════════════════════════════════════════════════════════════════╝ */
+
+/* ── 1. SKELETONS DE CHARGEMENT (perception instantanée) ── */
+.skeleton {
+  background: linear-gradient(90deg,
+    rgba(0,212,255,.04) 0%,
+    rgba(0,212,255,.10) 50%,
+    rgba(0,212,255,.04) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+@keyframes skeleton-pulse {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton--text   { height: 14px; margin: .35rem 0; }
+.skeleton--title  { height: 24px; width: 60%; margin: .5rem 0; }
+.skeleton--card   { height: 80px; margin-bottom: .75rem; }
+.skeleton--row    { height: 56px; margin-bottom: .25rem; }
+
+/* ── 2. ANIMATIONS DE TRANSITION ENTRE PAGES ── */
+.view-fade-in {
+  animation: viewFadeIn .35s cubic-bezier(.4, 0, .2, 1);
+}
+@keyframes viewFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.row-fade-in {
+  animation: rowFadeIn .25s ease;
+}
+@keyframes rowFadeIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── 3. MICRO-INTERACTIONS BOUTONS (feedback immédiat) ── */
+.btn, .topbar__btn, .sidebar__link {
+  transition: all .15s cubic-bezier(.4, 0, .2, 1);
+  position: relative;
+  overflow: hidden;
+}
+.btn:active, .topbar__btn:active {
+  transform: scale(.96);
+}
+/* Ripple effect au clic */
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,.18) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity .25s;
+  pointer-events: none;
+}
+.btn:active::after { opacity: 1; }
+
+/* ── 4. KPI CARDS — transition fluide des chiffres ── */
+.kpi__value {
+  transition: color .3s, transform .15s;
+  font-variant-numeric: tabular-nums;
+}
+.kpi:hover .kpi__value { transform: scale(1.04); }
+
+/* Animation count-up sur changement de valeur */
+.kpi__value.flash {
+  animation: kpiFlash .6s ease;
+}
+@keyframes kpiFlash {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.15); color: var(--accent-500); }
+  100% { transform: scale(1); }
+}
+
+/* ── 5. TOUCH OPTIMIZATIONS — tablettes terrain ── */
+@media (hover: none) and (pointer: coarse) {
+  /* Boutons plus gros sur tablette tactile */
+  .btn { min-height: 44px; padding: .65rem 1.2rem; }
+  .sidebar__link { min-height: 48px; padding: .75rem 1rem; }
+  .field__input { min-height: 44px; font-size: 16px; /* évite zoom iOS */ }
+  /* Désactiver les hover qui n'ont pas de sens sur tactile */
+  .kpi:hover { transform: none; }
+  /* Zone de tap plus grande */
+  .data-table td, .data-table th { padding: .85rem .9rem; }
+  /* Scroll inertiel naturel */
+  .history__tablewrap, .cnt {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
+/* ── 6. PULL-TO-REFRESH (visual hint) ── */
+.refresh-hint {
+  position: sticky;
+  top: 0;
+  height: 0;
+  overflow: hidden;
+  transition: height .2s;
+  background: var(--accent-100);
+  text-align: center;
+  font-size: .78rem;
+  color: var(--accent-500);
+}
+.refresh-hint.active { height: 32px; line-height: 32px; }
+
+/* ── 7. SCROLLBAR CUSTOM (UX premium) ── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-base);
+  border-radius: 4px;
+  transition: background .2s;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--accent-500); }
+
+/* ── 8. TOAST AMÉLIORÉS — feedback visuel premium ── */
+.toast {
+  animation: toastSlideIn .35s cubic-bezier(.4, 0, .2, 1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .35), 0 0 0 1px var(--border-base);
+  backdrop-filter: blur(20px) saturate(1.5);
+}
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(20px) scale(.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+.toast.toast--leave {
+  animation: toastSlideOut .3s ease forwards;
+}
+@keyframes toastSlideOut {
+  to { opacity: 0; transform: translateX(20px) scale(.95); }
+}
+
+/* ── 9. ACTIVE STATE GLOW (focus visuel terrain) ── */
+.field__input:focus,
+button:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 2px;
+}
+
+/* ── 10. EMPTY STATE PROFESSIONNEL ── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background: var(--bg-1);
+  border: 1px dashed var(--border-base);
+  border-radius: 12px;
+  margin: 1rem 0;
+}
+.empty-state__icon { font-size: 3rem; margin-bottom: 1rem; opacity: .5; }
+.empty-state__title { font-family: var(--font-display); font-size: 1rem; color: var(--text-primary); margin-bottom: .5rem; }
+.empty-state__desc  { font-size: .85rem; color: var(--text-muted); max-width: 360px; }
+
+/* ── 11. BADGES STATUS PULSE (alertes urgentes visibles) ── */
+.badge--urgent, .status-pill--rejected {
+  animation: badgePulse 1.8s ease-in-out infinite;
+}
+@keyframes badgePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 61, 90, .4); }
+  50%      { box-shadow: 0 0 0 6px rgba(255, 61, 90, 0); }
+}
+
+/* ── 12. TABLE — surlignage ligne au survol (lecture facile) ── */
+.data-table tbody tr {
+  transition: background .12s, transform .12s;
+}
+.data-table tbody tr:hover {
+  background: rgba(0, 212, 255, .04);
+  cursor: pointer;
+}
+
+/* ── 13. RACCOURCIS CLAVIER VISIBLES ── */
+kbd {
+  background: var(--bg-2);
+  border: 1px solid var(--border-base);
+  border-radius: 4px;
+  padding: .1rem .4rem;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  color: var(--text-secondary);
+  box-shadow: 0 1px 0 var(--border-base);
+}
+
+/* ── 14. PROGRESS BAR (chargement Firebase) ── */
+.progress-top {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent-500);
+  transform-origin: left;
+  z-index: 9999;
+  animation: progressLoad 2s ease-in-out infinite;
+}
+@keyframes progressLoad {
+  0%   { transform: scaleX(0); }
+  50%  { transform: scaleX(.7); }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+
+/* ── 15. RESPONSIVE TABLETTE (1024px max — typique iPad/Android tablette) ── */
+@media (max-width: 1024px) {
+  .hub__kpis { grid-template-columns: repeat(2, 1fr); }
+  .topbar__btn--quick span { display: none; } /* Garde juste l'icône "+" */
+  .data-table { font-size: .82rem; }
+  .data-table td, .data-table th { padding: .55rem .7rem; }
+}
+
+/* ── 16. SAFE AREA iOS (iPhone notches) ── */
+@supports (padding: env(safe-area-inset-top)) {
+  .topbar  { padding-top: env(safe-area-inset-top); }
+  .sidebar { padding-bottom: env(safe-area-inset-bottom); }
+}

@@ -8,6 +8,13 @@
   <title>LEONI · Admin Dashboard</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>" />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <!-- Optimisation chargement réseau (Firebase + CDN) -->
+  <link rel="preconnect" href="https://leoni-sertissage-labo-default-rtdb.europe-west1.firebasedatabase.app" crossorigin/>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin/>
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+
   <link rel="stylesheet" href="styles.css" />
 </head>
 
@@ -860,7 +867,7 @@
               <th>Matricule</th>
               <th>Email</th>
               <th>Rôle</th>
-              <th>🔑 Mot de passe</th>
+              <th>🔒 Sécurité MDP</th>
               <th>Statut</th>
               <th>Dernière connexion</th>
               <th>Actions</th>
@@ -1276,7 +1283,14 @@
             <option value="admin">🔴 Administrateur</option>
           </select>
         </div>
-        <div class="field"><label class="field__label">Mot de passe initial</label><input class="field__input" name="password" type="text" required placeholder="Min. 8 caractères" /></div>
+        <div class="field">
+            <label class="field__label">Mot de passe initial</label>
+            <input class="field__input" name="password" type="text" required placeholder="Min. 8 caractères" minlength="8" />
+            <span class="field__counter" style="color:var(--warn-500);font-size:.7rem">
+              ⚠️ Notez ce mot de passe — il ne sera plus visible après création (sécurité).
+              Communiquez-le en personne à l'utilisateur.
+            </span>
+          </div>
       </form>
       <footer class="modal__footer">
         <button class="btn btn--ghost" data-close>Annuler</button>
@@ -1526,5 +1540,16 @@
     </div>
   </div>
 
+
+  <!-- ── Service Worker pour mode hors-ligne (terrain) ── -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('[LEONI] Service Worker actif — Mode hors-ligne dispo'))
+          .catch(err => console.log('[LEONI] SW non disponible:', err.message));
+      });
+    }
+  </script>
 </body>
 </html>
