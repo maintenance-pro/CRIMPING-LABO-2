@@ -1636,8 +1636,11 @@ legend { padding: 0; }
   background: var(--bg-2);
   border: 1px solid var(--border-base);
   border-radius: var(--r-lg);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
   box-shadow: var(--sh-md);
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 .data-table {
   width: 100%;
@@ -2591,6 +2594,7 @@ kbd {
   background: var(--accent-500);
   transform-origin: left;
   z-index: 9999;
+  pointer-events: none;
   animation: progressLoad 2s ease-in-out infinite;
 }
 @keyframes progressLoad {
@@ -2611,4 +2615,55 @@ kbd {
 @supports (padding: env(safe-area-inset-top)) {
   .topbar  { padding-top: env(safe-area-inset-top); }
   .sidebar { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+
+/* ── FIX SCROLL : magasin avec beaucoup de colonnes ── */
+.history__tablewrap {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  max-height: none !important;
+}
+.history__tablewrap .data-table {
+  min-width: max-content;
+}
+/* Permet au scroll vertical de la page de fonctionner */
+.cnt, .content {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+/* Permet au scroll page entière */
+.app, .shell, body {
+  overflow-y: auto !important;
+}
+/* Sticky header table - garde la visibilité */
+.data-table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10;
+  background: var(--bg-3) !important;
+}
+
+/* ── FIX BOUTONS NON-CLIQUABLES : forcer les filtres/selects au-dessus ── */
+.filter__input,
+select.filter__input,
+button.btn,
+button.tbtn,
+button.topbar__btn,
+.sidebar__link,
+.sb-link {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto !important;
+}
+
+/* Selects natifs dropdown — assure que les options soient cliquables */
+select option {
+  background: var(--bg-1);
+  color: var(--text-primary);
+}
+
+/* Élément de fond ne doit pas bloquer les clics */
+body::before, body::after {
+  pointer-events: none !important;
 }
