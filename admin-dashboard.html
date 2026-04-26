@@ -1505,6 +1505,7 @@
       </div>
       <div class="modal__body">
         <div id="password-error" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:.65rem .875rem;font-size:.82rem;color:var(--danger-500);margin-bottom:.875rem"></div>
+        <form id="form-password-change" autocomplete="off" onsubmit="return false;">
         <div class="field">
           <label class="field__label">Mot de passe actuel</label>
           <div style="position:relative">
@@ -1536,6 +1537,7 @@
           </div>
           <div style="font-size:.72rem;color:var(--text-muted)" id="pass-strength-label"></div>
         </div>
+      </form>
       </div>
       <div class="modal__footer">
         <button class="btn btn--ghost" id="btn-password-cancel" type="button">Annuler</button>
