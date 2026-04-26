@@ -2678,7 +2678,9 @@ body::before, body::after {
 #view-magasin {
   padding: 1.5rem 2rem 3rem;
   max-width: 100%;
-  display: block !important;
+}
+#view-magasin:not([hidden]) {
+  display: block;
 }
 
 /* ── Header avec actions ── */
@@ -3016,8 +3018,8 @@ label:has(#pc-merge-toggle) {
 }
 
 /* Vue magasin - forcer affichage en bloc vertical */
-#view-magasin {
-  display: block !important;
+#view-magasin:not([hidden]) {
+  display: block;
   width: 100%;
   height: auto;
   overflow: visible;
@@ -3042,4 +3044,18 @@ label:has(#pc-merge-toggle) {
   table-layout: auto !important;
   width: 100% !important;
   min-width: 800px;
+}
+
+
+/* ╔══════════════════════════════════════════════════════════════════════╗
+   ║  CRITIQUE : RESPECTER L'ATTRIBUT HTML 'hidden'                       ║
+   ║  Le router utilise `el.hidden = true` pour cacher les vues.          ║
+   ║  Aucun CSS ne doit écraser cette règle native.                       ║
+   ╚══════════════════════════════════════════════════════════════════════╝ */
+[hidden] {
+  display: none !important;
+}
+section[data-view][hidden],
+[data-view][hidden] {
+  display: none !important;
 }
