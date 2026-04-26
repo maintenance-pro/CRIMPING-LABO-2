@@ -3935,19 +3935,47 @@
     document.querySelectorAll('input[type="password"]').forEach(input => {
       input.setAttribute('autocomplete', 'new-password');
     });
-        // ── FIX warnings DOM : envelopper les password fields dans des forms ──
+    // ── FIX warnings DOM : envelopper les password fields dans des forms avec username caché ──
     document.querySelectorAll('input[type="password"]').forEach(input => {
-      // Si déjà dans un form, on skip
-      if (input.closest('form')) return;
-      // Sinon, on l'enveloppe dans un mini form invisible
-      const wrapper = document.createElement('form');
-      wrapper.setAttribute('autocomplete', 'off');
-      wrapper.setAttribute('onsubmit', 'return false;');
-      wrapper.style.display = 'contents';
-      const parent = input.parentNode;
-      parent.insertBefore(wrapper, input);
-      wrapper.appendChild(input);
+      // Si déjà dans un form qui contient un username, on skip
+      const existingForm = input.closest('form');
+      if (existingForm && existingForm.querySelector('input[type="text"][name="username"], input[autocomplete="username"]')) return;
+
+      let formWrapper = existingForm;
+      if (!formWrapper) {
+        // Créer un form transparent autour du password
+        formWrapper = document.createElement('form');
+        formWrapper.setAttribute('autocomplete', 'off');
+        formWrapper.setAttribute('onsubmit', 'return false;');
+        formWrapper.style.display = 'contents';
+        const parent = input.parentNode;
+        parent.insertBefore(formWrapper, input);
+        formWrapper.appendChild(input);
+      }
+
+      // Ajouter un username caché pour les bonnes pratiques d'accessibilité
+      if (!formWrapper.querySelector('input[autocomplete="username"]')) {
+        const username = document.createElement('input');
+        username.type = 'text';
+        username.name = 'username';
+        username.autocomplete = 'username';
+        username.setAttribute('aria-hidden', 'true');
+        username.tabIndex = -1;
+        username.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none';
+        // Préfixer avec l'email user si dispo, sinon vide
+        if (state && state.user && state.user.email) {
+          username.value = state.user.email;
+        }
+        formWrapper.insertBefore(username, formWrapper.firstChild);
+      }
     });
+
+    // ── FIX CRITIQUE : Forcer le respect de [hidden] sur les sections de vue ──
+    // Au cas où le CSS n'est pas uploadé, on force display:none via JS
+    const hiddenStyle = document.createElement('style');
+    hiddenStyle.id = 'leoni-hidden-fix';
+    hiddenStyle.textContent = '[hidden]{display:none !important}section[data-view][hidden]{display:none !important}';
+    document.head.appendChild(hiddenStyle);
 
     Shortcuts.init();
     ConnMonitor.init();
