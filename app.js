@@ -2891,8 +2891,8 @@
 
         // Sort by 'nom' (Référence) — items with same Nom stay together
         data = data.slice().sort((a, b) => {
-          const na = (a.nom || '').toString().trim();
-          const nb = (b.nom || '').toString().trim();
+          let na = (a.nom || '').toString().trim();
+          let nb = (b.nom || '').toString().trim();
           // Empty values go to the bottom
           if (!na && nb) return 1;
           if (na && !nb) return -1;
