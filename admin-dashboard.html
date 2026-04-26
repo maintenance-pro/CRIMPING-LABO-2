@@ -1031,21 +1031,25 @@
             <span id="pc-merge-info" style="font-size:.72rem;color:var(--text-muted)"></span>
           </div>
 
-          <!-- Search + filters row -->
-          <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
-            <input class="filter__input" id="pc-search" placeholder="🔍 Rechercher une référence (ex: 37 2 0765 20 0) · emplacement · fournisseur…" style="flex:1;min-width:280px;height:42px;font-size:.9rem;font-family:var(--font-mono);font-weight:500"/>
-            <select class="filter__input" id="pc-empl-filter" style="min-width:140px;height:38px"><option value="">Tous emplacements</option></select>
-            <select class="filter__input" id="pc-stock-filter" style="min-width:160px;height:38px"><option value="">Tous N° Stock</option></select>
-            <select class="filter__input" id="pc-four-filter" style="min-width:130px;height:38px"><option value="">Tous fournisseurs</option></select>
-            <select class="filter__input" id="pc-type-filter" style="min-width:140px;height:38px"><option value="">Tous types</option></select>
-            <select class="filter__input" id="pc-etat-filter" style="min-width:130px;height:38px">
-              <option value="">Tous états</option>
+          <!-- Search bar dédiée -->
+          <input class="filter__input" id="pc-search" placeholder="🔍 Rechercher une référence (ex: 37 2 0765 20 0) · emplacement · fournisseur…"/>
+
+          <!-- Filtres en grille 5 colonnes -->
+          <div class="pc-filters-grid">
+            <select class="filter__input" id="pc-empl-filter"><option value="">📍 Tous emplacements</option></select>
+            <select class="filter__input" id="pc-stock-filter"><option value="">📦 Tous N° Stock</option></select>
+            <select class="filter__input" id="pc-four-filter"><option value="">🏭 Tous fournisseurs</option></select>
+            <select class="filter__input" id="pc-type-filter"><option value="">🔧 Tous types</option></select>
+            <select class="filter__input" id="pc-etat-filter">
+              <option value="">📊 Tous états</option>
               <option value="__alert">⚠ Alertes stock</option>
               <option value="__zero">🔴 Rupture (qty=0)</option>
               <option value="__ok">✅ Stock OK</option>
             </select>
-            <span style="font-size:.74rem;color:var(--text-muted);font-family:var(--font-mono)" id="pc-sct">—</span>
           </div>
+
+          <!-- Compteur résultats -->
+          <div><span id="pc-sct">—</span></div>
 
           <!-- Emplacements quick cards -->
           <div id="pc-empl-cards" style="display:flex;flex-wrap:wrap;gap:.45rem"></div>

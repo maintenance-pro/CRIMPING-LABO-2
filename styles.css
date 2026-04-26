@@ -2667,3 +2667,379 @@ select option {
 body::before, body::after {
   pointer-events: none !important;
 }
+
+
+/* ╔══════════════════════════════════════════════════════════════════════╗
+   ║  MAGASIN PRO — Style professionnel + facile à utiliser              ║
+   ║  Layout responsive · Tableau lisible · Filtres horizontaux           ║
+   ╚══════════════════════════════════════════════════════════════════════╝ */
+
+/* ── Container principal de la vue ── */
+#view-magasin {
+  padding: 1.5rem 2rem 3rem;
+  max-width: 100%;
+  display: block !important;
+}
+
+/* ── Header avec actions ── */
+#view-magasin .history__header {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-base);
+}
+#view-magasin .history__title {
+  font-size: 1.5rem !important;
+  margin: 0 0 .25rem 0;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+/* ── Bandeau "fichier actif" ── */
+#pc-inj-bar {
+  margin: 0 0 1.25rem;
+  padding: .65rem 1rem !important;
+  border-radius: 8px;
+  font-size: .82rem;
+}
+
+/* ── KPI Grid — 4 colonnes égales, jamais cassées ── */
+#view-magasin .hub__kpis {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 1rem;
+  margin-bottom: 1.5rem !important;
+}
+#view-magasin .kpi {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: .75rem;
+  padding: 1rem 1.2rem !important;
+  background: var(--bg-2);
+  border: 1px solid var(--border-base);
+  border-radius: 12px;
+  transition: transform .15s, border-color .15s;
+}
+#view-magasin .kpi:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-500);
+}
+#view-magasin .kpi__icon {
+  font-size: 1.6rem;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 212, 255, .08);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+#view-magasin .kpi__body { flex: 1; min-width: 0; }
+#view-magasin .kpi__label {
+  font-size: .68rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: .25rem;
+}
+#view-magasin .kpi__value {
+  font-size: 1.75rem !important;
+  font-weight: 800;
+  font-family: var(--font-display);
+  color: var(--text-primary);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+#view-magasin .kpi__delta {
+  font-size: .7rem !important;
+  color: var(--text-muted);
+  margin-top: .2rem;
+}
+
+/* ── Historique des injections (panel) ── */
+#pc-history-block {
+  margin-bottom: 1.25rem;
+  background: var(--bg-2);
+  border: 1px solid var(--border-base);
+  border-radius: 10px;
+  overflow: hidden;
+}
+#pc-history-block summary {
+  list-style: none;
+  cursor: pointer;
+  padding: .8rem 1.1rem !important;
+  font-weight: 600;
+  font-size: .85rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  transition: background .15s;
+}
+#pc-history-block summary:hover { background: rgba(0, 212, 255, .04); }
+#pc-history-block summary::-webkit-details-marker { display: none; }
+#pc-history-block[open] summary { border-bottom: 1px solid var(--border-base); }
+#pc-history-count {
+  margin-left: auto;
+  font-size: .72rem !important;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ── Toggle fusion ── */
+#pc-merge-toggle + span,
+label:has(#pc-merge-toggle) {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .82rem;
+  cursor: pointer;
+}
+
+/* ── Barre de recherche dédiée ── */
+#pc-search {
+  width: 100% !important;
+  flex: none !important;
+  height: 44px !important;
+  padding: 0 1rem !important;
+  background: var(--bg-2) !important;
+  border: 1px solid var(--border-base) !important;
+  border-radius: 10px !important;
+  color: var(--text-primary) !important;
+  font-size: .9rem !important;
+  font-family: var(--font-mono) !important;
+  transition: border-color .15s, box-shadow .15s;
+}
+#pc-search:focus {
+  border-color: var(--accent-500) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, .15);
+}
+
+/* ── Filtres en GRILLE 5 colonnes (force horizontal) ── */
+.pc-filters-grid {
+  display: grid !important;
+  grid-template-columns: repeat(5, 1fr);
+  gap: .6rem;
+  margin: .5rem 0 1rem;
+}
+.pc-filters-grid select.filter__input {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 40px !important;
+  padding: 0 .8rem !important;
+  background: var(--bg-2) !important;
+  border: 1px solid var(--border-base) !important;
+  border-radius: 8px !important;
+  color: var(--text-primary) !important;
+  font-size: .8rem !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='%2300d4ff' d='M3 5l3 3 3-3z'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right .65rem center !important;
+  cursor: pointer;
+}
+.pc-filters-grid select:hover { border-color: var(--accent-500) !important; }
+.pc-filters-grid select:focus {
+  outline: none !important;
+  border-color: var(--accent-500) !important;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, .15);
+}
+
+/* ── Compteur résultats ── */
+#pc-sct {
+  display: inline-block;
+  padding: .35rem .8rem;
+  background: rgba(0, 212, 255, .08);
+  border: 1px solid rgba(0, 212, 255, .2);
+  border-radius: 20px;
+  font-size: .75rem !important;
+  color: var(--accent-500) !important;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* ── Cartes emplacements ── */
+#pc-empl-cards {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-bottom: 1rem;
+}
+#pc-empl-cards button {
+  padding: .35rem .75rem;
+  background: var(--bg-2);
+  border: 1px solid var(--border-base);
+  border-radius: 16px;
+  color: var(--text-secondary);
+  font-size: .72rem;
+  cursor: pointer;
+  transition: all .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+}
+#pc-empl-cards button:hover {
+  border-color: var(--accent-500);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+/* ── Table magasin — propre + scrollable ── */
+#pc-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-2);
+}
+#pc-table thead th {
+  position: sticky !important;
+  top: 0;
+  z-index: 5;
+  padding: .85rem 1rem !important;
+  background: var(--bg-3) !important;
+  color: var(--accent-500) !important;
+  font-size: .68rem !important;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 2px solid var(--accent-500);
+  font-family: var(--font-display);
+}
+#pc-table tbody tr {
+  border-bottom: 1px solid var(--border-soft);
+  transition: background .12s;
+}
+#pc-table tbody tr:hover {
+  background: rgba(0, 212, 255, .04);
+}
+#pc-table tbody td {
+  padding: .65rem 1rem !important;
+  font-size: .82rem;
+  color: var(--text-primary);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+#pc-table tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, .12);
+}
+
+/* ── Empty state propre ── */
+#pc-empty {
+  text-align: center;
+  padding: 3rem 1.5rem !important;
+  background: var(--bg-2);
+  border: 1px dashed var(--border-base);
+  border-radius: 12px;
+  margin: 1rem 0;
+}
+
+/* ── RESPONSIVE TABLETTE ── */
+@media (max-width: 1280px) {
+  #view-magasin .hub__kpis { grid-template-columns: repeat(2, 1fr) !important; }
+  .pc-filters-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  #view-magasin { padding: 1rem 1.25rem 2rem; }
+  #view-magasin .hub__kpis { grid-template-columns: 1fr !important; }
+  .pc-filters-grid { grid-template-columns: 1fr; }
+  #view-magasin .history__title { font-size: 1.2rem !important; }
+}
+
+/* ── ANNULE l'ancien override qui cassait le layout ── */
+#view-magasin > * {
+  display: block;
+}
+#view-magasin .history__header,
+#view-magasin .hub__kpis,
+#view-magasin #pc-empl-cards,
+#view-magasin .pc-filters-grid {
+  display: flex;
+}
+#view-magasin .hub__kpis,
+#view-magasin .pc-filters-grid { display: grid; }
+
+
+/* ╔══════════════════════════════════════════════════════════════════════╗
+   ║  FORCE LAYOUT FIX — Garantit que rien ne casse                       ║
+   ╚══════════════════════════════════════════════════════════════════════╝ */
+
+/* Force la table à être toujours visible avec scroll */
+#pc-tbody {
+  display: table-row-group !important;
+}
+#pc-tbody tr {
+  display: table-row !important;
+}
+#pc-tbody td {
+  display: table-cell !important;
+}
+#pc-thead {
+  display: table-header-group !important;
+}
+#pc-thead tr {
+  display: table-row !important;
+}
+#pc-thead th {
+  display: table-cell !important;
+}
+
+/* Container de table - forcer scroll */
+#view-magasin .history__tablewrap {
+  width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  max-height: none !important;
+  background: var(--bg-2);
+  border: 1px solid var(--border-base);
+  border-radius: 12px;
+  margin-top: 1rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Empêche les selects natifs de casser la grille */
+.pc-filters-grid > select {
+  display: block !important;
+  flex: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+/* Vue magasin - forcer affichage en bloc vertical */
+#view-magasin {
+  display: block !important;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+#view-magasin section,
+#view-magasin > div,
+#view-magasin > article {
+  width: 100%;
+  display: block;
+}
+
+/* Container shell ne doit JAMAIS bloquer */
+.shell, .app, main, .cnt {
+  height: auto !important;
+  min-height: 100vh;
+  overflow-y: auto !important;
+  overflow-x: visible !important;
+}
+
+/* Table : auto layout pour bien gérer les colonnes */
+#pc-table {
+  table-layout: auto !important;
+  width: 100% !important;
+  min-width: 800px;
+}
