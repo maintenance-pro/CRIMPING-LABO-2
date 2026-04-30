@@ -47,7 +47,7 @@
 
         <div class="login__row">
           <label class="login__remember">
-            <input type="checkbox" id="login-remember" name="remember" />
+            <input type="checkbox" id="login-remember" name="remember" / autocomplete="off">
             <span>Se souvenir de moi</span>
           </label>
           <a class="login__forgot" href="#" id="link-forgot">Mot de passe oublié&nbsp;?</a>
@@ -92,7 +92,7 @@
       </a>
 
       <div class="topbar__search">
-        <input class="topbar__search-input" id="global-search" type="search" placeholder="Rechercher un bon, un outil, un technicien…" />
+        <input class="topbar__search-input" id="global-search" type="search" placeholder="Rechercher un bon, un outil, un technicien…" / autocomplete="off">
       </div>
 
       <div class="topbar__actions">
@@ -360,18 +360,18 @@
             <div class="intervention__grid intervention__grid--3">
               <div class="field">
                 <label class="field__label" for="int-tool-search">Référence outil</label>
-                <input class="field__input" id="int-tool-search" name="toolSearch" type="text" list="datalist-tools" placeholder="Ex: 2158S" required />
+                <input class="field__input" id="int-tool-search" name="toolSearch" type="text" list="datalist-tools" placeholder="Ex: 2158S" required / autocomplete="off">
                 <datalist id="datalist-tools"></datalist>
               </div>
 
               <div class="field">
                 <label class="field__label" for="int-outil-id">OUTIL ID</label>
-                <input class="field__input" id="int-outil-id" name="outilId" type="text" placeholder="WZ2158*-4s" required />
+                <input class="field__input" id="int-outil-id" name="outilId" type="text" placeholder="WZ2158*-4s" required / autocomplete="off">
               </div>
 
               <div class="field">
                 <label class="field__label" for="int-fabricant">Fabricant</label>
-                <input class="field__input" id="int-fabricant" name="fabricant" type="text" readonly />
+                <input class="field__input" id="int-fabricant" name="fabricant" type="text" readonly / autocomplete="off">
               </div>
             </div>
 
@@ -419,7 +419,7 @@
                 </label>
                 <input class="field__input" id="crimp-tech-name" name="crimpTechName"
                   type="text" placeholder="Ex: Ahmed Benali"
-                  style="background:rgba(255,255,255,.07);font-weight:500" />
+                  style="background:rgba(255,255,255,.07);font-weight:500" / autocomplete="off">
               </div>
               <div class="field" style="margin-bottom:0">
                 <label class="field__label" for="crimp-tech-mat">
@@ -427,19 +427,19 @@
                 </label>
                 <input class="field__input" id="crimp-tech-mat" name="crimpTechMatricule"
                   type="text" placeholder="Ex: LN-C-001"
-                  style="background:rgba(255,255,255,.07);font-family:var(--font-mono)" />
+                  style="background:rgba(255,255,255,.07);font-family:var(--font-mono)" / autocomplete="off">
               </div>
             </div>
 
             <div class="intervention__grid intervention__grid--3">
               <div class="field">
                 <label class="field__label" for="int-date">Date intervention</label>
-                <input class="field__input" id="int-date" name="date" type="date" required />
+                <input class="field__input" id="int-date" name="date" type="date" required / autocomplete="off">
               </div>
 
               <div class="field">
                 <label class="field__label" for="int-cycles">Cycles compteur</label>
-                <input class="field__input" id="int-cycles" name="cycles" type="number" min="0" inputmode="numeric" required />
+                <input class="field__input" id="int-cycles" name="cycles" type="number" min="0" inputmode="numeric" required / autocomplete="off">
                 <button class="field__addon" type="button" id="btn-photo-cycles" title="Prendre photo du compteur">📷</button>
               </div>
 
@@ -455,14 +455,14 @@
             </div>
 
             <div class="field field--full">
-              <label class="field__label">Pièces changées</label>
+              <label class="field__label" aria-label="Pièces changées">Pièces changées</label>
               <div class="checkbox-group" id="pieces-group">
-                <label class="checkbox"><input type="checkbox" name="piece" value="pAr" /><span>P-AR · Poinçon Arrière</span></label>
-                <label class="checkbox"><input type="checkbox" name="piece" value="pAv" /><span>P-AV · Poinçon Avant</span></label>
-                <label class="checkbox"><input type="checkbox" name="piece" value="eAr" /><span>E-AR · Enclume Arrière</span></label>
-                <label class="checkbox"><input type="checkbox" name="piece" value="eAv" /><span>E-AV · Enclume Avant</span></label>
-                <label class="checkbox"><input type="checkbox" name="piece" value="ejector" /><span>Ejector</span></label>
-                <label class="checkbox"><input type="checkbox" name="piece" value="couteauBanda" /><span>Couteau / Banda</span></label>
+                <label class="checkbox"><input type="checkbox" name="piece" value="pAr" / autocomplete="off"><span>P-AR · Poinçon Arrière</span></label>
+                <label class="checkbox"><input type="checkbox" name="piece" value="pAv" / autocomplete="off"><span>P-AV · Poinçon Avant</span></label>
+                <label class="checkbox"><input type="checkbox" name="piece" value="eAr" / autocomplete="off"><span>E-AR · Enclume Arrière</span></label>
+                <label class="checkbox"><input type="checkbox" name="piece" value="eAv" / autocomplete="off"><span>E-AV · Enclume Avant</span></label>
+                <label class="checkbox"><input type="checkbox" name="piece" value="ejector" / autocomplete="off"><span>Ejector</span></label>
+                <label class="checkbox"><input type="checkbox" name="piece" value="couteauBanda" / autocomplete="off"><span>Couteau / Banda</span></label>
               </div>
             </div>
 
@@ -480,7 +480,7 @@
               </label>
               <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
                 <input class="field__input" id="int-duration" name="duration" type="number" min="1" max="9999"
-                  placeholder="Ex: 45" style="flex:1;min-width:140px;max-width:200px"/>
+                  placeholder="Ex: 45" style="flex:1;min-width:140px;max-width:200px"/ autocomplete="off">
                 <span style="color:var(--text-muted);font-size:.85rem;font-family:var(--font-mono)" id="int-duration-display">—</span>
                 <button type="button" class="btn btn--secondary" id="btn-save-duration" style="padding:.5rem 1rem;font-size:.8rem">
                   💾 Enregistrer le temps
@@ -491,16 +491,16 @@
             </div>
 
             <div class="field field--full">
-              <label class="field__label">Photo compteur (optionnelle)</label>
+              <label class="field__label" aria-label="Photo compteur (optionnelle)">Photo compteur (optionnelle)</label>
               <div class="upload" id="upload-cycles">
-                <input type="file" id="file-cycles" accept="image/*" capture="environment" hidden />
+                <input type="file" id="file-cycles" accept="image/*" capture="environment" hidden / autocomplete="off">
                 <button class="upload__btn" type="button" data-target="file-cycles">📷 Ajouter une photo</button>
                 <div class="upload__preview" id="preview-cycles"></div>
               </div>
             </div>
 
             <div class="field field--full">
-              <label class="field__label">Signature crimping</label>
+              <label class="field__label" aria-label="Signature crimping">Signature crimping</label>
               <div class="signature" id="sign-crimp">
                 <canvas class="signature__pad" id="sign-crimp-pad" width="600" height="160"></canvas>
                 <div class="signature__actions">
@@ -529,7 +529,7 @@
                   </label>
                   <input class="field__input" id="labo-tech-name" name="laboTechName"
                     type="text" placeholder="Ex: Fatima Zahra"
-                    style="background:rgba(255,255,255,.07);font-weight:500" />
+                    style="background:rgba(255,255,255,.07);font-weight:500" / autocomplete="off">
                 </div>
                 <div class="field" style="margin-bottom:0">
                   <label class="field__label" for="labo-tech-mat">
@@ -537,7 +537,7 @@
                   </label>
                   <input class="field__input" id="labo-tech-mat" name="laboTechMatricule"
                     type="text" placeholder="Ex: LN-L-001"
-                    style="background:rgba(255,255,255,.07);font-family:var(--font-mono)" />
+                    style="background:rgba(255,255,255,.07);font-family:var(--font-mono)" / autocomplete="off">
                 </div>
               </div>
             </div>
@@ -548,15 +548,15 @@
               <div class="intervention__grid intervention__grid--3">
                 <div class="field">
                   <label class="field__label" for="lab-ref-connexion">Réf. connexion</label>
-                  <input class="field__input" id="lab-ref-connexion" name="refConnexion" type="text" />
+                  <input class="field__input" id="lab-ref-connexion" name="refConnexion" type="text" / autocomplete="off">
                 </div>
                 <div class="field">
                   <label class="field__label" for="lab-section-cable">Section câble</label>
-                  <input class="field__input" id="lab-section-cable" name="sectionCable" type="text" placeholder="Ex: 0,35 IR" />
+                  <input class="field__input" id="lab-section-cable" name="sectionCable" type="text" placeholder="Ex: 0,35 IR" / autocomplete="off">
                 </div>
                 <div class="field">
                   <label class="field__label" for="lab-indice">Indice paramétrique</label>
-                  <input class="field__input" id="lab-indice" name="indiceParametrique" type="text" />
+                  <input class="field__input" id="lab-indice" name="indiceParametrique" type="text" / autocomplete="off">
                 </div>
               </div>
             </div>
@@ -567,11 +567,11 @@
               <div class="intervention__grid intervention__grid--2">
                 <div class="field">
                   <label class="field__label" for="lab-largeur-ame">Largeur âme</label>
-                  <input class="field__input" id="lab-largeur-ame" name="largeurAme" type="number" step="0.001" />
+                  <input class="field__input" id="lab-largeur-ame" name="largeurAme" type="number" step="0.001" / autocomplete="off">
                 </div>
                 <div class="field">
                   <label class="field__label" for="lab-largeur-isolant">Largeur isolant</label>
-                  <input class="field__input" id="lab-largeur-isolant" name="largeurIsolant" type="number" step="0.001" />
+                  <input class="field__input" id="lab-largeur-isolant" name="largeurIsolant" type="number" step="0.001" / autocomplete="off">
                 </div>
               </div>
 
@@ -586,24 +586,24 @@
                 </thead>
                 <tbody>
                   <tr><th scope="row">1</th>
-                    <td><input class="measure-table__input" name="hi1" type="number" step="0.001" /></td>
-                    <td><input class="measure-table__input" name="ef1" type="number" step="0.01" /></td>
+                    <td><input class="measure-table__input" name="hi1" type="number" step="0.001" / autocomplete="off"></td>
+                    <td><input class="measure-table__input" name="ef1" type="number" step="0.01" / autocomplete="off"></td>
                   </tr>
                   <tr><th scope="row">2</th>
-                    <td><input class="measure-table__input" name="hi2" type="number" step="0.001" /></td>
-                    <td><input class="measure-table__input" name="ef2" type="number" step="0.01" /></td>
+                    <td><input class="measure-table__input" name="hi2" type="number" step="0.001" / autocomplete="off"></td>
+                    <td><input class="measure-table__input" name="ef2" type="number" step="0.01" / autocomplete="off"></td>
                   </tr>
                   <tr><th scope="row">3</th>
-                    <td><input class="measure-table__input" name="hi3" type="number" step="0.001" /></td>
-                    <td><input class="measure-table__input" name="ef3" type="number" step="0.01" /></td>
+                    <td><input class="measure-table__input" name="hi3" type="number" step="0.001" / autocomplete="off"></td>
+                    <td><input class="measure-table__input" name="ef3" type="number" step="0.01" / autocomplete="off"></td>
                   </tr>
                   <tr><th scope="row">4</th>
-                    <td><input class="measure-table__input" name="hi4" type="number" step="0.001" /></td>
-                    <td><input class="measure-table__input" name="ef4" type="number" step="0.01" /></td>
+                    <td><input class="measure-table__input" name="hi4" type="number" step="0.001" / autocomplete="off"></td>
+                    <td><input class="measure-table__input" name="ef4" type="number" step="0.01" / autocomplete="off"></td>
                   </tr>
                   <tr><th scope="row">5</th>
-                    <td><input class="measure-table__input" name="hi5" type="number" step="0.001" /></td>
-                    <td><input class="measure-table__input" name="ef5" type="number" step="0.01" /></td>
+                    <td><input class="measure-table__input" name="hi5" type="number" step="0.001" / autocomplete="off"></td>
+                    <td><input class="measure-table__input" name="ef5" type="number" step="0.01" / autocomplete="off"></td>
                   </tr>
                 </tbody>
               </table>
@@ -614,25 +614,25 @@
               <h3 class="intervention__sub-title">Capabilité <span class="badge badge--auto">Calcul auto</span></h3>
               <div class="intervention__grid intervention__grid--4">
                 <div class="field field--readonly">
-                  <label class="field__label">Hauteur âme moy.</label>
+                  <label class="field__label" aria-label="Hauteur âme moy.">Hauteur âme moy.</label>
                   <output class="field__output" id="capa-ame-moy">—</output>
                 </div>
                 <div class="field field--readonly">
-                  <label class="field__label">Cm âme</label>
+                  <label class="field__label" aria-label="Cm âme">Cm âme</label>
                   <output class="field__output" id="capa-cm">—</output>
                 </div>
                 <div class="field field--readonly">
-                  <label class="field__label">Cmk âme</label>
+                  <label class="field__label" aria-label="Cmk âme">Cmk âme</label>
                   <output class="field__output" id="capa-cmk">—</output>
                 </div>
                 <div class="field field--readonly">
-                  <label class="field__label">Cm effort</label>
+                  <label class="field__label" aria-label="Cm effort">Cm effort</label>
                   <output class="field__output" id="capa-cm-effort">—</output>
                 </div>
               </div>
               <div class="field">
                 <label class="field__label" for="lab-chute-tension">Chute tension (mV)</label>
-                <input class="field__input" id="lab-chute-tension" name="chuteTension" type="number" step="0.01" />
+                <input class="field__input" id="lab-chute-tension" name="chuteTension" type="number" step="0.01" / autocomplete="off">
               </div>
             </div>
 
@@ -640,9 +640,9 @@
             <div class="intervention__subsection">
               <h3 class="intervention__sub-title">Conformités</h3>
               <div class="checkbox-group checkbox-group--lab">
-                <label class="checkbox"><input type="checkbox" name="conf" value="chanfrein" /><span>Conformité chanfrein</span></label>
-                <label class="checkbox"><input type="checkbox" name="conf" value="temoinCoupe" /><span>Conformité témoin coupe</span></label>
-                <label class="checkbox"><input type="checkbox" name="conf" value="flexion" /><span>Conformité flexion</span></label>
+                <label class="checkbox"><input type="checkbox" name="conf" value="chanfrein" / autocomplete="off"><span>Conformité chanfrein</span></label>
+                <label class="checkbox"><input type="checkbox" name="conf" value="temoinCoupe" / autocomplete="off"><span>Conformité témoin coupe</span></label>
+                <label class="checkbox"><input type="checkbox" name="conf" value="flexion" / autocomplete="off"><span>Conformité flexion</span></label>
               </div>
             </div>
 
@@ -650,7 +650,7 @@
             <div class="intervention__subsection">
               <h3 class="intervention__sub-title">Coupe métallographique</h3>
               <div class="upload" id="upload-coupe">
-                <input type="file" id="file-coupe" accept="application/pdf,image/*" hidden />
+                <input type="file" id="file-coupe" accept="application/pdf,image/*" hidden / autocomplete="off">
                 <button class="upload__btn" type="button" data-target="file-coupe">📎 Joindre PDF / image</button>
                 <div class="upload__preview" id="preview-coupe"></div>
                 <a class="upload__link" id="link-coupe" href="#" hidden target="_blank" rel="noopener">Voir le fichier</a>
@@ -670,7 +670,7 @@
               </div>
 
               <div class="field field--full">
-                <label class="field__label">Signature labo</label>
+                <label class="field__label" aria-label="Signature labo">Signature labo</label>
                 <div class="signature" id="sign-lab">
                   <canvas class="signature__pad" id="sign-lab-pad" width="600" height="160"></canvas>
                   <div class="signature__actions">
@@ -726,17 +726,17 @@
         <div class="history__filters" id="history-filters">
           <div class="filter">
             <label class="filter__label" for="filter-tool">Outil</label>
-            <input class="filter__input" id="filter-tool" type="text" list="datalist-tools" placeholder="Tous les outils" />
+            <input class="filter__input" id="filter-tool" type="text" list="datalist-tools" placeholder="Tous les outils" / autocomplete="off">
           </div>
 
           <div class="filter">
             <label class="filter__label" for="filter-from">Du</label>
-            <input class="filter__input" id="filter-from" type="date" />
+            <input class="filter__input" id="filter-from" type="date" / autocomplete="off">
           </div>
 
           <div class="filter">
             <label class="filter__label" for="filter-to">Au</label>
-            <input class="filter__input" id="filter-to" type="date" />
+            <input class="filter__input" id="filter-to" type="date" / autocomplete="off">
           </div>
 
           <div class="filter">
@@ -762,7 +762,7 @@
 
           <div class="filter">
             <label class="filter__label" for="filter-tech">Technicien</label>
-            <input class="filter__input" id="filter-tech" type="text" />
+            <input class="filter__input" id="filter-tech" type="text" / autocomplete="off">
           </div>
 
           <div class="filter filter--actions">
@@ -776,7 +776,7 @@
           <table class="data-table" id="history-table">
             <thead>
               <tr>
-                <th><input type="checkbox" id="check-all" /></th>
+                <th><input type="checkbox" id="check-all" / autocomplete="off"></th>
                 <th data-sort="numBon">N° Bon</th>
                 <th data-sort="outilId">Outil</th>
                 <th data-sort="date">Date</th>
@@ -838,7 +838,7 @@
         <header class="catalog__header">
           <h1 class="catalog__title">Catalogue outils</h1>
           <div class="catalog__actions">
-            <input class="catalog__search" id="catalog-search" type="search" placeholder="Rechercher un outil…" />
+            <input class="catalog__search" id="catalog-search" type="search" placeholder="Rechercher un outil…" / autocomplete="off">
             <button class="btn btn--secondary" id="btn-catalog-import">📥 Importer Excel</button>
             <button class="btn btn--secondary" id="btn-catalog-export">📤 Exporter Excel</button>
             <button class="btn btn--primary" id="btn-catalog-add" data-requires-role="responsable,super_admin,admin">＋ Nouvel outil</button>
@@ -942,7 +942,7 @@
           <div style="display:flex;gap:.5rem;flex-wrap:wrap" id="pc-actions">
             <label class="btn btn--primary" data-requires-role="admin,super_admin,magasinier" style="cursor:pointer;position:relative;overflow:hidden">
               📂 Importer Excel
-              <input type="file" accept=".xlsx,.xls" id="pc-xl-input" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:1"/>
+              <input type="file" accept=".xlsx,.xls" id="pc-xl-input" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:1"/ autocomplete="off">
             </label>
             <button class="btn btn--secondary" id="pc-clr-btn" data-requires-role="admin,super_admin,magasinier" style="display:none">✕ Effacer stock</button>
             <button class="btn btn--secondary" id="pc-refresh-btn">↻ Actualiser</button>
@@ -1015,7 +1015,7 @@
           </p>
           <label class="btn btn--primary" data-requires-role="admin,super_admin,magasinier" style="cursor:pointer;position:relative;overflow:hidden;display:inline-flex">
             📂 Charger le fichier stock
-            <input type="file" accept=".xlsx,.xls" id="pc-xl-input-empty" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:1"/>
+            <input type="file" accept=".xlsx,.xls" id="pc-xl-input-empty" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:1"/ autocomplete="off">
           </label>
         </div>
 
@@ -1025,14 +1025,14 @@
           <!-- Filtres bar -->
           <div style="background:var(--glass);border:1px solid var(--border-base);border-radius:9px;padding:.7rem 1rem;display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
             <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.78rem;font-weight:600;color:var(--text-secondary)">
-              <input type="checkbox" id="pc-merge-toggle" style="accent-color:var(--accent-500);width:16px;height:16px"/>
+              <input type="checkbox" id="pc-merge-toggle" style="accent-color:var(--accent-500);width:16px;height:16px"/ autocomplete="off">
               <span>🔗 Fusionner par <strong style="color:var(--accent-500)">Nom (référence)</strong></span>
             </label>
             <span id="pc-merge-info" style="font-size:.72rem;color:var(--text-muted)"></span>
           </div>
 
           <!-- Search bar dédiée -->
-          <input class="filter__input" id="pc-search" placeholder="🔍 Rechercher une référence (ex: 37 2 0765 20 0) · emplacement · fournisseur…"/>
+          <input class="filter__input" id="pc-search" placeholder="🔍 Rechercher une référence (ex: 37 2 0765 20 0) · emplacement · fournisseur…"/ autocomplete="off">
 
           <!-- Filtres en grille 5 colonnes -->
           <div class="pc-filters-grid">
@@ -1247,15 +1247,15 @@
       </header>
       <form class="modal__body" id="form-tool">
         <div class="intervention__grid intervention__grid--2">
-          <div class="field"><label>Réf outil</label><input name="refOutil" required /></div>
-          <div class="field"><label>OUTIL ID</label><input name="outilId" required /></div>
-          <div class="field"><label>Fabricant</label><input name="fabricant" /></div>
-          <div class="field"><label>Réf fabricant</label><input name="refFabricant" /></div>
-          <div class="field"><label>P-AR</label><input name="pAr" /></div>
-          <div class="field"><label>P-AV</label><input name="pAv" /></div>
-          <div class="field"><label>E-AR</label><input name="eAr" /></div>
-          <div class="field"><label>E-AV</label><input name="eAv" /></div>
-          <div class="field"><label>Fréquence cycle</label><input name="frequenceCycle" type="number" /></div>
+          <div class="field"><label aria-label="Réf outil">Réf outil</label><input name="refOutil" required / autocomplete="off"></div>
+          <div class="field"><label aria-label="OUTIL ID">OUTIL ID</label><input name="outilId" required / autocomplete="off"></div>
+          <div class="field"><label aria-label="Fabricant">Fabricant</label><input name="fabricant" / autocomplete="off"></div>
+          <div class="field"><label aria-label="Réf fabricant">Réf fabricant</label><input name="refFabricant" / autocomplete="off"></div>
+          <div class="field"><label aria-label="P-AR">P-AR</label><input name="pAr" / autocomplete="off"></div>
+          <div class="field"><label aria-label="P-AV">P-AV</label><input name="pAv" / autocomplete="off"></div>
+          <div class="field"><label aria-label="E-AR">E-AR</label><input name="eAr" / autocomplete="off"></div>
+          <div class="field"><label aria-label="E-AV">E-AV</label><input name="eAv" / autocomplete="off"></div>
+          <div class="field"><label aria-label="Fréquence cycle">Fréquence cycle</label><input name="frequenceCycle" type="number" / autocomplete="off"></div>
         </div>
       </form>
       <footer class="modal__footer">
@@ -1274,12 +1274,11 @@
         <button class="modal__close" data-close>×</button>
       </header>
       <form class="modal__body" id="form-user">
-        <div class="field"><label class="field__label">Nom complet</label><input class="field__input" name="displayName" required placeholder="Ex: Ahmed Benali" /></div>
-        <div class="field"><label class="field__label">Matricule</label><input class="field__input" name="matricule" placeholder="Ex: LN-C-003" /></div>
-        <div class="field"><label class="field__label">Email</label><input class="field__input" name="email" type="email" required placeholder="Ex: ahmed@leoni.com" /></div>
+        <div class="field"><label class="field__label" for="displayName">Nom complet</label><input class="field__input" name="displayName" required placeholder="Ex: Ahmed Benali" / autocomplete="off"></div>
+        <div class="field"><label class="field__label" for="matricule">Matricule</label><input class="field__input" name="matricule" placeholder="Ex: LN-C-003" / autocomplete="off"></div>
+        <div class="field"><label class="field__label" for="email">Email</label><input class="field__input" name="email" type="email" required placeholder="Ex: ahmed@leoni.com" / autocomplete="off"></div>
         <div class="field">
-          <label class="field__label">Rôle</label>
-          <select class="field__input" name="role" required>
+          <label class="field__label" for="role">Rôle</label><select class="field__input" name="role" required>
             <option value="crimp">🟢 Technicien Crimping</option>
             <option value="labo">🔵 Technicien Laboratoire</option>
             <option value="magasinier">📦 Magasinier</option>
@@ -1288,8 +1287,7 @@
           </select>
         </div>
         <div class="field">
-            <label class="field__label">Mot de passe initial</label>
-            <input class="field__input" name="password" type="text" required placeholder="Min. 8 caractères" minlength="8" />
+            <label class="field__label" for="password">Mot de passe initial</label><input class="field__input" name="password" type="text" required placeholder="Min. 8 caractères" minlength="8" / autocomplete="off">
             <span class="field__counter" style="color:var(--warn-500);font-size:.7rem">
               ⚠️ Notez ce mot de passe — il ne sera plus visible après création (sécurité).
               Communiquez-le en personne à l'utilisateur.
@@ -1318,46 +1316,37 @@
       <div class="modal__body">
         <div class="intervention__grid intervention__grid--2">
           <div class="field">
-            <label class="field__label">Référence *</label>
-            <input class="field__input" id="stock-ref" type="text" placeholder="Ex: P-WZ-2158-001" required/>
+            <label class="field__label" for="stock-ref">Référence *</label><input class="field__input" id="stock-ref" type="text" placeholder="Ex: P-WZ-2158-001" required/ autocomplete="off">
           </div>
           <div class="field">
-            <label class="field__label">Catégorie</label>
-            <input class="field__input" id="stock-cat" type="text" placeholder="Ex: Poinçon, Enclume, Lame" list="stock-cat-list"/>
+            <label class="field__label" for="stock-cat">Catégorie</label><input class="field__input" id="stock-cat" type="text" placeholder="Ex: Poinçon, Enclume, Lame" list="stock-cat-list"/ autocomplete="off">
             <datalist id="stock-cat-list"></datalist>
           </div>
         </div>
         <div class="field">
-          <label class="field__label">Désignation *</label>
-          <input class="field__input" id="stock-desig" type="text" placeholder="Description de la pièce" required/>
+          <label class="field__label" for="stock-desig">Désignation *</label><input class="field__input" id="stock-desig" type="text" placeholder="Description de la pièce" required/ autocomplete="off">
         </div>
         <div class="intervention__grid intervention__grid--2">
           <div class="field">
-            <label class="field__label">Fournisseur</label>
-            <input class="field__input" id="stock-supplier" type="text" placeholder="Ex: WEZAG"/>
+            <label class="field__label" for="stock-supplier">Fournisseur</label><input class="field__input" id="stock-supplier" type="text" placeholder="Ex: WEZAG"/ autocomplete="off">
           </div>
           <div class="field">
-            <label class="field__label">Réf. fournisseur</label>
-            <input class="field__input" id="stock-supplier-ref" type="text"/>
+            <label class="field__label" for="stock-supplier-ref">Réf. fournisseur</label><input class="field__input" id="stock-supplier-ref" type="text"/ autocomplete="off">
           </div>
         </div>
         <div class="intervention__grid intervention__grid--3">
           <div class="field">
-            <label class="field__label">Quantité actuelle *</label>
-            <input class="field__input" id="stock-qty" type="number" min="0" required/>
+            <label class="field__label" for="stock-qty">Quantité actuelle *</label><input class="field__input" id="stock-qty" type="number" min="0" required/ autocomplete="off">
           </div>
           <div class="field">
-            <label class="field__label">Seuil minimum *</label>
-            <input class="field__input" id="stock-min" type="number" min="0" placeholder="5" required/>
+            <label class="field__label" for="stock-min">Seuil minimum *</label><input class="field__input" id="stock-min" type="number" min="0" placeholder="5" required/ autocomplete="off">
           </div>
           <div class="field">
-            <label class="field__label">Prix unit. (DH)</label>
-            <input class="field__input" id="stock-price" type="number" step="0.01" min="0"/>
+            <label class="field__label" for="stock-price">Prix unit. (DH)</label><input class="field__input" id="stock-price" type="number" step="0.01" min="0"/ autocomplete="off">
           </div>
         </div>
         <div class="field">
-          <label class="field__label">Emplacement</label>
-          <input class="field__input" id="stock-location" type="text" placeholder="Ex: Étagère A3-12"/>
+          <label class="field__label" for="stock-location">Emplacement</label><input class="field__input" id="stock-location" type="text" placeholder="Ex: Étagère A3-12"/ autocomplete="off">
         </div>
       </div>
       <div class="modal__footer">
@@ -1389,7 +1378,7 @@
           <div style="font-size:2.5rem;margin-bottom:.5rem">📂</div>
           <div style="font-weight:600;color:var(--text-primary);margin-bottom:.25rem">Cliquez ou glissez votre fichier ici</div>
           <div style="color:var(--text-muted);font-size:.78rem">Format accepté : .xlsx</div>
-          <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none"/>
+          <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none"/ autocomplete="off">
         </div>
         <div id="import-progress" style="display:none;margin-top:1rem">
           <div style="background:var(--bg-2);border-radius:6px;height:8px;overflow:hidden">
@@ -1471,16 +1460,13 @@
         </div>
         <!-- Champs modifiables -->
         <div class="field">
-          <label class="field__label">Nom affiché</label>
-          <input class="field__input" id="profile-displayname" type="text" placeholder="Votre nom complet"/>
+          <label class="field__label" for="profile-displayname">Nom affiché</label><input class="field__input" id="profile-displayname" type="text" placeholder="Votre nom complet"/ autocomplete="off">
         </div>
         <div class="field">
-          <label class="field__label">Matricule</label>
-          <input class="field__input" id="profile-matricule" type="text" placeholder="Ex: LN-A-001"/>
+          <label class="field__label" for="profile-matricule">Matricule</label><input class="field__input" id="profile-matricule" type="text" placeholder="Ex: LN-A-001"/ autocomplete="off">
         </div>
         <div class="field">
-          <label class="field__label">Email (lecture seule)</label>
-          <input class="field__input" id="profile-email" type="email" readonly style="opacity:.6;cursor:not-allowed"/>
+          <label class="field__label" for="profile-email">Email (lecture seule)</label><input class="field__input" id="profile-email" type="email" readonly style="opacity:.6;cursor:not-allowed"/ autocomplete="off">
         </div>
         <div style="font-size:.78rem;color:var(--text-muted);margin-top:-.5rem;margin-bottom:.875rem">
           ℹ️ Dernière connexion : <span id="profile-lastlogin">—</span>
@@ -1507,23 +1493,23 @@
         <div id="password-error" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:.65rem .875rem;font-size:.82rem;color:var(--danger-500);margin-bottom:.875rem"></div>
         <form id="form-password-change" autocomplete="off" onsubmit="return false;">
         <div class="field">
-          <label class="field__label">Mot de passe actuel</label>
+          <label class="field__label" aria-label="Mot de passe actuel">Mot de passe actuel</label>
           <div style="position:relative">
-            <input class="field__input" id="pass-current" type="password" placeholder="Votre mot de passe actuel" style="padding-right:2.5rem"/>
+            <input class="field__input" id="pass-current" type="password" placeholder="Votre mot de passe actuel" style="padding-right:2.5rem"/ autocomplete="off">
             <button type="button" onclick="togglePassVis('pass-current',this)" style="position:absolute;right:.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.9rem">👁</button>
           </div>
         </div>
         <div class="field">
-          <label class="field__label">Nouveau mot de passe</label>
+          <label class="field__label" aria-label="Nouveau mot de passe">Nouveau mot de passe</label>
           <div style="position:relative">
-            <input class="field__input" id="pass-new" type="password" placeholder="Minimum 8 caractères" style="padding-right:2.5rem"/>
+            <input class="field__input" id="pass-new" type="password" placeholder="Minimum 8 caractères" style="padding-right:2.5rem"/ autocomplete="off">
             <button type="button" onclick="togglePassVis('pass-new',this)" style="position:absolute;right:.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.9rem">👁</button>
           </div>
         </div>
         <div class="field">
-          <label class="field__label">Confirmer le nouveau mot de passe</label>
+          <label class="field__label" aria-label="Confirmer le nouveau mot de passe">Confirmer le nouveau mot de passe</label>
           <div style="position:relative">
-            <input class="field__input" id="pass-confirm" type="password" placeholder="Répétez le nouveau mot de passe" style="padding-right:2.5rem"/>
+            <input class="field__input" id="pass-confirm" type="password" placeholder="Répétez le nouveau mot de passe" style="padding-right:2.5rem"/ autocomplete="off">
             <button type="button" onclick="togglePassVis('pass-confirm',this)" style="position:absolute;right:.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.9rem">👁</button>
           </div>
         </div>
