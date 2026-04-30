@@ -3060,3 +3060,60 @@ section[data-view][hidden],
 [data-view][hidden] {
   display: none !important;
 }
+
+
+/* ╔══════════════════════════════════════════════════════════════════════╗
+   ║  LOGIN PIN/EMAIL — Onglets de connexion                              ║
+   ╚══════════════════════════════════════════════════════════════════════╝ */
+.login__tabs {
+  display: flex;
+  gap: .35rem;
+  margin: 0 0 1.5rem;
+  padding: .35rem;
+  background: rgba(0, 212, 255, .04);
+  border: 1px solid var(--border-base);
+  border-radius: 12px;
+}
+.login__tab {
+  flex: 1;
+  padding: .75rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+  font-family: inherit;
+}
+.login__tab:hover {
+  color: var(--text-secondary);
+}
+.login__tab--active {
+  background: var(--accent-500);
+  color: #000;
+  box-shadow: 0 0 16px rgba(0, 212, 255, .3);
+}
+
+/* Animation des inputs */
+#pin-matricule,
+#pin-code {
+  transition: border-color .15s, box-shadow .15s, transform .1s;
+}
+#pin-code:focus {
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, .15);
+}
+
+/* Animation lors de PIN incorrect */
+@keyframes pinShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+.login__form--error #pin-code,
+.login__form--error #pin-matricule {
+  animation: pinShake .4s ease;
+  border-color: var(--danger-500) !important;
+}

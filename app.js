@@ -384,14 +384,113 @@
      ========================================================================== */
   const auth = {
     init() {
-      $('#form-login').addEventListener('submit', this.handleLogin.bind(this));
-      $('#btn-toggle-pass').addEventListener('click', () => {
+      // ── Connexion par EMAIL/MDP (admin) ──
+      $('#form-login')?.addEventListener('submit', this.handleLogin.bind(this));
+      $('#btn-toggle-pass')?.addEventListener('click', () => {
         const inp = $('#login-password');
         inp.type = inp.type === 'password' ? 'text' : 'password';
       });
-      // Anonymous login button
+
+      // ── Connexion par PIN (techniciens) ──
+      $('#form-pin')?.addEventListener('submit', this.handlePinLogin.bind(this));
+
+      // ── Switch entre les onglets PIN / Email ──
+      $('#tab-pin')?.addEventListener('click', () => this.switchTab('pin'));
+      $('#tab-email')?.addEventListener('click', () => this.switchTab('email'));
+
+      // Auto-uppercase + auto-focus on matricule input
+      $('#pin-matricule')?.addEventListener('input', e => {
+        e.target.value = e.target.value.toUpperCase();
+      });
+      // Auto-submit quand le PIN atteint 4 chiffres
+      $('#pin-code')?.addEventListener('input', e => {
+        e.target.value = e.target.value.replace(/[^0-9]/g, ''); // chiffres uniquement
+        if (e.target.value.length === 4) {
+          // Petit délai pour que l'utilisateur voie le 4ème chiffre
+          setTimeout(() => $('#form-pin').requestSubmit(), 150);
+        }
+      });
+
+      // Connexion anonyme (encore disponible mais cachée)
       $('#btn-anon-login')?.addEventListener('click', this.handleAnonLogin.bind(this));
+
       fbAuth.onAuthStateChanged(this.handleAuthChange.bind(this));
+
+      // Focus auto sur le matricule au chargement
+      setTimeout(() => $('#pin-matricule')?.focus(), 200);
+    },
+
+    /* ── Switcher entre les 2 onglets ── */
+    switchTab(tab) {
+      const isPin = (tab === 'pin');
+      $('#tab-pin')?.classList.toggle('login__tab--active', isPin);
+      $('#tab-email')?.classList.toggle('login__tab--active', !isPin);
+      $('#tab-pin')?.setAttribute('aria-selected', String(isPin));
+      $('#tab-email')?.setAttribute('aria-selected', String(!isPin));
+      $('#form-pin').hidden   = !isPin;
+      $('#form-login').hidden = isPin;
+      // Focus le premier champ
+      setTimeout(() => {
+        if (isPin) $('#pin-matricule')?.focus();
+        else       $('#login-email')?.focus();
+      }, 100);
+    },
+
+    /* ── Connexion par PIN ── */
+    async handlePinLogin(e) {
+      e.preventDefault();
+      const matricule = $('#pin-matricule').value.trim().toUpperCase();
+      const pin = $('#pin-code').value.trim();
+      const errEl = $('#login-error-pin');
+      const formEl = $('#form-pin');
+      errEl.hidden = true;
+      formEl.classList.remove('login__form--error');
+
+      if (!matricule || pin.length !== 4) {
+        errEl.textContent = 'Matricule et PIN à 4 chiffres requis';
+        errEl.hidden = false;
+        formEl.classList.add('login__form--error');
+        return;
+      }
+
+      ui.showLoader('Connexion en cours…');
+      try {
+        // 1. Chercher l'utilisateur dans la base par matricule
+        const usersSnap = await fbDb.ref('users').once('value');
+        const users = usersSnap.val() || {};
+        const userEntry = Object.values(users).find(u =>
+          u.matricule && u.matricule.toUpperCase() === matricule
+        );
+
+        if (!userEntry) {
+          throw new Error('Matricule introuvable');
+        }
+        if (userEntry.active === false) {
+          throw new Error('Compte désactivé. Contactez votre administrateur.');
+        }
+        if (!userEntry.pin) {
+          throw new Error('Aucun PIN défini pour cet utilisateur. Demandez à votre admin.');
+        }
+        if (String(userEntry.pin) !== pin) {
+          throw new Error('Code PIN incorrect');
+        }
+
+        // 2. Connexion via email/password (qu'on récupère du compte)
+        if (!userEntry.email || !userEntry.password) {
+          throw new Error('Profil incomplet. Contactez votre administrateur.');
+        }
+
+        await fbAuth.signInWithEmailAndPassword(userEntry.email, userEntry.password);
+        // Le handleAuthChange prend le relais
+      } catch (err) {
+        ui.hideLoader();
+        errEl.textContent = '❌ ' + err.message;
+        errEl.hidden = false;
+        formEl.classList.add('login__form--error');
+        // Vider le PIN pour retape rapide
+        $('#pin-code').value = '';
+        $('#pin-code').focus();
+      }
     },
 
     async handleLogin(e) {
@@ -2162,6 +2261,7 @@
           if (action === 'edit')          this.openEditModal(uid);
           if (action === 'reset-pass')    this.sendPasswordReset(email);
           if (action === 'set-pass')      this.setPasswordDirect(uid, email, btn.dataset.name);
+          if (action === 'set-pin')       this.setPin(uid, btn.dataset.name, btn.dataset.pin);
           if (action === 'toggle-active') this.toggleActive(uid, active);
           if (action === 'delete-user')   this.deleteUser(uid, btn.dataset.name);
           // toggle-pass supprimé pour des raisons de sécurité — voir setPasswordDirect()
@@ -2242,6 +2342,8 @@
                   data-action="edit" data-uid="${ui.escape(u.uid || '')}">✏️ Modifier</button>
                 <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem;color:var(--accent-500)"
                   data-action="set-pass" data-uid="${ui.escape(u.uid || '')}" data-email="${ui.escape(u.email || '')}" data-name="${ui.escape(u.displayName || u.email || '')}">🔑 Changer MDP</button>
+                <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem;color:#00d4ff"
+                  data-action="set-pin" data-uid="${ui.escape(u.uid || '')}" data-name="${ui.escape(u.displayName || u.email || '')}" data-pin="${ui.escape(u.pin || '')}">🔢 ${u.pin ? 'PIN: ' + u.pin : 'Définir PIN'}</button>
                 <button class="btn btn--ghost" style="font-size:.75rem;padding:.28rem .6rem;color:${isActive ? 'var(--danger-500)' : 'var(--success-500)'}"
                   data-action="toggle-active" data-uid="${ui.escape(u.uid || '')}" data-active="${isActive}">
                   ${isActive ? '⛔ Désactiver' : '✅ Activer'}
@@ -2252,6 +2354,54 @@
             </td>
           </tr>`;
         }).join('');
+      },
+
+      /* ── Définir / modifier le code PIN ── */
+      async setPin(uid, name, currentPin) {
+        if (state.role !== 'admin' && state.role !== 'super_admin') {
+          return ui.toast('Permission refusée', 'danger');
+        }
+        const newPin = prompt(
+          `🔢 Définir le code PIN pour :\n${name}\n\n` +
+          `${currentPin ? 'PIN actuel : ' + currentPin + '\n\n' : ''}` +
+          `Entrez 4 chiffres (ou laissez vide pour supprimer le PIN) :`,
+          currentPin || ''
+        );
+        if (newPin === null) return; // annulé
+
+        // Validation : vide OU 4 chiffres
+        const trimmed = (newPin || '').trim();
+        if (trimmed && !/^\d{4}$/.test(trimmed)) {
+          return ui.toast('Le PIN doit faire exactement 4 chiffres', 'warn');
+        }
+
+        try {
+          if (trimmed) {
+            // Vérifier que ce PIN n'est pas déjà utilisé par un autre user
+            const allUsers = this._allUsers || {};
+            const conflict = Object.values(allUsers).find(u =>
+              u.uid !== uid && u.pin === trimmed
+            );
+            if (conflict) {
+              return ui.toast(`⚠️ Ce PIN est déjà utilisé par ${conflict.displayName}`, 'danger');
+            }
+            await fbDb.ref('users/' + uid + '/pin').set(trimmed);
+            ui.toast(`PIN défini pour ${name} : ${trimmed} ✅`, 'success');
+          } else {
+            await fbDb.ref('users/' + uid + '/pin').remove();
+            ui.toast(`PIN supprimé pour ${name}`, 'info');
+          }
+          // Audit
+          await fbDb.ref('auditLog').push({
+            timestamp: Date.now(), uid: state.user.uid,
+            userName: state.profile?.displayName || '',
+            action: 'user.setPin',
+            entity: 'users/' + uid,
+            meta: { targetName: name, action: trimmed ? 'set' : 'remove' }
+          });
+        } catch (e) {
+          ui.toast('Erreur : ' + e.message, 'danger');
+        }
       },
 
       /* ── Changer mot de passe directement (super admin) ── */
@@ -2481,6 +2631,11 @@
             return ui.toast('Mot de passe trop court (min 8 caractères)', 'warn');
           if (!data.email.includes('@'))
             return ui.toast('Email invalide', 'warn');
+          // ── Validation PIN (optionnel mais si fourni doit être 4 chiffres) ──
+          if (data.pin && !/^\d{4}$/.test(data.pin))
+            return ui.toast('Le PIN doit faire exactement 4 chiffres', 'warn');
+          if (data.pin && !data.matricule)
+            return ui.toast('Matricule obligatoire pour utiliser un PIN', 'warn');
 
           const btn = $('#btn-user-save');
           btn.disabled = true;
@@ -2492,11 +2647,15 @@
 
             // 2. Créer le profil dans la RTDB — SANS le mot de passe en clair
             //    SÉCURITÉ : seul Firebase Auth connaît le mdp (hashé bcrypt)
+            // Profil utilisateur — Note: password stocké pour permettre login PIN
+            // (Firebase Auth nécessite l'email/password pour signer, donc on doit l'avoir)
             await fbDb.ref('users/' + cred.user.uid).set({
               uid               : cred.user.uid,
               displayName       : data.displayName,
               matricule         : data.matricule || '',
               email             : data.email,
+              password          : data.password,        // Nécessaire pour le login PIN (auth via email/mdp en backend)
+              pin               : data.pin || null,     // Code PIN pour connexion rapide
               role              : data.role,
               active            : true,
               createdAt         : Date.now(),
@@ -2504,7 +2663,6 @@
               lastLoginAt       : null,
               passwordChangedAt : Date.now(),
               passwordChangedBy : state.profile?.displayName || 'Création initiale'
-              // password supprimé — JAMAIS stocké en clair
             });
 
             // 3. Audit log

@@ -33,21 +33,65 @@
         <p class="login__subtitle">Coordination Crimping &times; Laboratoire</p>
       </header>
 
-      <form class="login__form" id="form-login" autocomplete="on" novalidate>
+      <!-- ═══════════ NOUVEAU LOGIN : Onglets PIN / Email ═══════════ -->
+      <div class="login__tabs" role="tablist">
+        <button type="button" class="login__tab login__tab--active" id="tab-pin" role="tab" aria-selected="true">
+          🔢 Code PIN
+        </button>
+        <button type="button" class="login__tab" id="tab-email" role="tab" aria-selected="false">
+          🔐 Email / Mot de passe
+        </button>
+      </div>
+
+      <!-- ── Onglet PIN (par défaut) ── -->
+      <form class="login__form" id="form-pin" autocomplete="off" novalidate>
+        <p style="color:var(--text-muted);font-size:.82rem;text-align:center;margin:0 0 1.25rem">
+          Tapez votre matricule puis votre code PIN
+        </p>
+
         <div class="login__field">
-          <label class="login__label" for="login-email">Adresse e-mail ou matricule</label>
-          <input class="login__input" id="login-email" name="email" type="text" required autocomplete="username" />
+          <label class="login__label" for="pin-matricule">Matricule</label>
+          <input class="login__input" id="pin-matricule" name="matricule" type="text"
+                 required autocomplete="off" placeholder="Ex: LN-C-001" autocapitalize="characters"/>
+        </div>
+
+        <div class="login__field">
+          <label class="login__label" for="pin-code">Code PIN (4 chiffres)</label>
+          <input class="login__input" id="pin-code" name="pin" type="password"
+                 required autocomplete="off" inputmode="numeric" pattern="[0-9]{4}"
+                 maxlength="4" placeholder="••••" style="text-align:center;letter-spacing:.5em;font-size:1.4rem;font-family:var(--font-mono)"/>
+        </div>
+
+        <button class="login__submit" type="submit" id="btn-login-pin">
+          🚀 Connexion rapide
+        </button>
+        <p class="login__error" id="login-error-pin" hidden></p>
+
+        <p style="text-align:center;margin-top:1rem;font-size:.75rem;color:var(--text-muted)">
+          Pas de PIN ? Demandez à votre administrateur
+        </p>
+      </form>
+
+      <!-- ── Onglet Email/Mdp (admin uniquement) ── -->
+      <form class="login__form" id="form-login" autocomplete="on" novalidate hidden>
+        <p style="color:var(--text-muted);font-size:.82rem;text-align:center;margin:0 0 1.25rem">
+          🔐 Connexion administrateur
+        </p>
+
+        <div class="login__field">
+          <label class="login__label" for="login-email">Adresse e-mail</label>
+          <input class="login__input" id="login-email" name="email" type="email" required autocomplete="username"/>
         </div>
 
         <div class="login__field">
           <label class="login__label" for="login-password">Mot de passe</label>
-          <input class="login__input" id="login-password" name="password" type="password" required autocomplete="current-password" />
+          <input class="login__input" id="login-password" name="password" type="password" required autocomplete="current-password"/>
           <button class="login__toggle-pass" type="button" id="btn-toggle-pass" aria-label="Afficher le mot de passe">👁</button>
         </div>
 
         <div class="login__row">
           <label class="login__remember">
-            <input type="checkbox" id="login-remember" name="remember" / autocomplete="off">
+            <input type="checkbox" id="login-remember" name="remember" autocomplete="off"/>
             <span>Se souvenir de moi</span>
           </label>
           <a class="login__forgot" href="#" id="link-forgot">Mot de passe oublié&nbsp;?</a>
@@ -55,17 +99,6 @@
 
         <button class="login__submit" type="submit" id="btn-login">Se connecter</button>
         <p class="login__error" id="login-error" hidden></p>
-
-        <!-- Séparateur + Connexion anonyme -->
-        <div style="display:flex;align-items:center;gap:.6rem;margin:1rem 0 .75rem">
-          <div style="flex:1;height:1px;background:var(--border-base)"></div>
-          <span style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em">ou</span>
-          <div style="flex:1;height:1px;background:var(--border-base)"></div>
-        </div>
-        <button type="button" class="login__submit" id="btn-anon-login"
-          style="background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);font-weight:500">
-          👁 Connexion invité (lecture seule)
-        </button>
       </form>
 
       <footer class="login__footer">
