@@ -4058,18 +4058,54 @@ Erreur Firebase : ${e.message}`;
     document.querySelectorAll('input[type="password"]').forEach(input => {
       input.setAttribute('autocomplete', 'new-password');
     });
-    // ── FIX accessibility: associer chaque <label> à son input voisin ──
-    document.querySelectorAll('.field').forEach(field => {
-      const label = field.querySelector('label.field__label');
-      const input = field.querySelector('input, select, textarea');
-      if (label && input && !label.htmlFor && !label.contains(input)) {
-        // Si l'input n'a pas d'ID, on en génère un
-        if (!input.id) {
-          input.id = 'field-' + Math.random().toString(36).slice(2, 9);
+    // ── FIX accessibility: associer TOUS les <label> à leur input ──
+    // Cette fonction couvre TOUS les cas possibles
+    function fixLabels() {
+      document.querySelectorAll('label').forEach(label => {
+        // Skip si déjà associé
+        if (label.htmlFor) return;
+        // Skip si le label contient déjà l'input
+        if (label.querySelector('input, select, textarea')) return;
+
+        // Stratégie 1 : input frère immédiat
+        let input = label.nextElementSibling;
+        if (!input || !['INPUT','SELECT','TEXTAREA'].includes(input.tagName)) {
+          // Stratégie 2 : input dans le parent
+          input = label.parentElement?.querySelector('input, select, textarea');
         }
-        label.htmlFor = input.id;
-      }
+        if (!input || !['INPUT','SELECT','TEXTAREA'].includes(input.tagName)) {
+          // Stratégie 3 : input suivant dans le DOM
+          let cursor = label.parentElement;
+          while (cursor && !input) {
+            input = cursor.querySelector('input, select, textarea');
+            cursor = cursor.nextElementSibling;
+          }
+        }
+
+        if (input) {
+          // Générer un ID si nécessaire
+          if (!input.id) {
+            input.id = 'auto-' + Math.random().toString(36).slice(2, 9);
+          }
+          label.htmlFor = input.id;
+        } else {
+          // Aucun input trouvé : ajouter un aria-label pour l'accessibilité
+          if (!label.getAttribute('aria-label')) {
+            label.setAttribute('aria-label', label.textContent.trim());
+          }
+        }
+      });
+    }
+
+    // Exécuter immédiatement
+    fixLabels();
+    // Ré-exécuter après chaque ouverture de modal ou changement de vue
+    const observer = new MutationObserver(() => {
+      // Throttle : pas plus d'une fois toutes les 200ms
+      clearTimeout(window.__labelFixTimer);
+      window.__labelFixTimer = setTimeout(fixLabels, 200);
     });
+    observer.observe(document.body, { childList: true, subtree: true });
 
         // ── FIX warnings DOM : envelopper les password fields dans des forms avec username caché ──
     document.querySelectorAll('input[type="password"]').forEach(input => {
