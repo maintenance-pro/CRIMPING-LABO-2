@@ -1566,13 +1566,36 @@
   </div>
 
 
-  <!-- ── Service Worker pour mode hors-ligne (terrain) ── -->
+  <!-- ── Service Worker v4 : force le rechargement des anciens caches ── -->
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(reg => console.log('[LEONI] Service Worker actif — Mode hors-ligne dispo'))
-          .catch(err => console.log('[LEONI] SW non disponible:', err.message));
+      window.addEventListener('load', async () => {
+        try {
+          // 1. Unregister tous les anciens SW (force la prise du nouveau)
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const reg of regs) {
+            const scriptURL = reg.active?.scriptURL || '';
+            if (!scriptURL.includes('sw.js') || !scriptURL.endsWith('sw.js')) continue;
+          }
+
+          // 2. Vider tous les anciens caches
+          const cacheNames = await caches.keys();
+          for (const name of cacheNames) {
+            if (!name.startsWith('leoni-v4')) {
+              await caches.delete(name);
+              console.log('[LEONI] Ancien cache supprimé:', name);
+            }
+          }
+
+          // 3. Enregistrer le nouveau SW
+          const reg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+          console.log('[LEONI] Service Worker v4 actif — Mode hors-ligne dispo');
+
+          // 4. Vérifier les mises à jour toutes les heures
+          setInterval(() => reg.update(), 3600000);
+        } catch(err) {
+          console.log('[LEONI] SW non disponible:', err.message);
+        }
       });
     }
   </script>
