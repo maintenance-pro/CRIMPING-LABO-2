@@ -1300,11 +1300,17 @@
           router.go('queue');
           return;
         }
-        // Pré-remplir le technicien crimping avec le profil connecté
+        // Pré-remplir UNIQUEMENT si le user est un technicien crimping (pas admin/responsable)
+        // Sinon le champ reste vide pour que le technicien y inscrive son vrai nom
         if ($('#crimp-tech-name') && state.profile) {
-          if ((state.role === 'crimp' || state.role === 'crimping') && !$('#crimp-tech-name').value) {
+          const isRealCrimper = (state.role === 'crimp' || state.role === 'crimping');
+          if (isRealCrimper && !$('#crimp-tech-name').value) {
             $('#crimp-tech-name').value = state.profile.displayName || '';
             $('#crimp-tech-mat').value  = state.profile.matricule   || '';
+          }
+          // Si admin/responsable, vider le champ pour forcer la saisie manuelle
+          if (!isRealCrimper && state.role !== 'super_admin' && !state.profile._allowAnyName) {
+            // Garder ce qui est déjà tapé, sinon vide
           }
         }
         // Pré-remplir le technicien labo avec le profil connecté
@@ -1522,9 +1528,10 @@
       collectCrimpingData() {
         const pieces = {};
         $$('input[name="piece"]').forEach(cb => { pieces[cb.value] = cb.checked; });
-        // Technicien crimping : champs manuels OU profil connecté
-        const crimpName = $('#crimp-tech-name')?.value.trim() || state.profile?.displayName || '';
-        const crimpMat  = $('#crimp-tech-mat')?.value.trim()  || state.profile?.matricule   || '';
+        // ⚠️ IMPORTANT : Le nom du technicien doit être saisi manuellement
+        // Pas de fallback sur le profil connecté (sinon admin/responsable apparaît partout)
+        const crimpName = $('#crimp-tech-name')?.value.trim() || '';
+        const crimpMat  = $('#crimp-tech-mat')?.value.trim()  || '';
         return {
           tool: {
             toolId: this.currentToolKey || '',
@@ -1584,6 +1591,12 @@
           if (!data.tool.refOutil || !data.tool.outilId) {
             ui.hideLoader();
             return ui.toast('Référence outil obligatoire', 'warn');
+          }
+          // ⚠️ Validation : nom du technicien crimping obligatoire à la SOUMISSION
+          if (mode === 'submit' && !data.technicienNom) {
+            ui.hideLoader();
+            $('#crimp-tech-name')?.focus();
+            return ui.toast('⚠️ Veuillez renseigner le nom du technicien crimping', 'warn');
           }
           let reg = state.currentInterventionId;
           if (!reg) {
