@@ -2728,41 +2728,109 @@
       },
 
       async syncToFirebase() {
+        const N = this.pieces.length;
+        console.log(`[Magasin] 📤 Début sync Firebase — ${N} pièces`);
+        ui.toast(`📤 Synchronisation de ${N} pièces vers Firebase…`, 'info');
+
         try {
-          // 1. Sauvegarder les données stock complètes
-          await fbDb.ref('stockPieces').set({
-            pieces: this.pieces,
-            file: this.piecesFile,
+          // ── 1. Test de connectivité Firebase ──
+          const testRef = fbDb.ref('.info/connected');
+          const connSnap = await testRef.once('value');
+          console.log('[Magasin] Connexion Firebase :', connSnap.val() ? '✅ OK' : '❌ DÉCONNECTÉ');
+          if (!connSnap.val()) {
+            ui.toast('❌ Pas de connexion à Firebase — Vérifiez votre internet', 'danger');
+            return;
+          }
+
+          // ── 2. Test des permissions (lecture) ──
+          try {
+            await fbDb.ref('stockPieces').limitToFirst(1).once('value');
+            console.log('[Magasin] Lecture Firebase ✅ autorisée');
+          } catch(readErr) {
+            console.error('[Magasin] ❌ Lecture refusée :', readErr.code, readErr.message);
+            ui.toast(`❌ Firebase Rules : lecture refusée (${readErr.code})`, 'danger');
+            throw readErr;
+          }
+
+          // ── 3. Sauvegarder le fichier (métadonnées) ──
+          console.log('[Magasin] Étape 1/4 : sauvegarde métadonnées…');
+          await fbDb.ref('stockPieces/file').set({
+            name: this.piecesFile?.name || 'sans-nom',
+            rows: N,
+            sheet: this.piecesFile?.sheet || '',
+            date: this.piecesFile?.date || '',
             updatedAt: Date.now(),
             updatedBy: state.profile?.displayName || state.user?.email || 'system',
             updatedByUid: state.user?.uid || ''
           });
 
-          // 2. Ajouter à l'historique des imports
+          // ── 4. Sauvegarder les pièces par CHUNKS (200 par fois) pour éviter timeout ──
+          console.log('[Magasin] Étape 2/4 : sauvegarde pièces par chunks…');
+          const CHUNK = 200;
+          await fbDb.ref('stockPieces/pieces').remove(); // clean avant
+          for (let i = 0; i < N; i += CHUNK) {
+            const slice = this.pieces.slice(i, i + CHUNK);
+            const updates = {};
+            slice.forEach((piece, idx) => {
+              updates[`stockPieces/pieces/${i + idx}`] = piece;
+            });
+            await fbDb.ref().update(updates);
+            const pct = Math.round(((i + CHUNK) / N) * 100);
+            console.log(`[Magasin]   → ${Math.min(i + CHUNK, N)}/${N} (${Math.min(pct, 100)}%)`);
+          }
+
+          // ── 5. Ajouter à l'historique des imports ──
+          console.log('[Magasin] Étape 3/4 : historique des imports…');
           await fbDb.ref('stockImportHistory').push({
             timestamp: Date.now(),
             userId: state.user?.uid || '',
             userName: state.profile?.displayName || state.user?.email || 'inconnu',
             userEmail: state.user?.email || '',
             fileName: this.piecesFile?.name || '',
-            rows: this.pieces.length,
+            rows: N,
             sheet: this.piecesFile?.sheet || '',
             date: this.piecesFile?.date || ''
           });
 
-          // 3. Audit log
+          // ── 6. Audit log ──
+          console.log('[Magasin] Étape 4/4 : audit log…');
           await fbDb.ref('auditLog').push({
-            timestamp: Date.now(), uid: state.user.uid,
+            timestamp: Date.now(),
+            uid: state.user?.uid || '',
             userName: state.profile?.displayName || '',
             action: 'stock.import',
             entity: 'stockPieces',
-            meta: { rows: this.pieces.length, file: this.piecesFile?.name }
+            meta: { rows: N, file: this.piecesFile?.name }
           });
 
-          ui.toast('✅ Stock synchronisé sur Firebase — visible sur tous les appareils', 'success');
+          console.log('[Magasin] ✅ Sync TERMINÉ avec succès');
+          ui.toast(`✅ ${N} pièces synchronisées sur Firebase !`, 'success');
+
         } catch(e) {
-          console.error('[Magasin] Firebase sync failed:', e.message);
-          ui.toast('⚠️ Sauvegarde Firebase refusée — vos données restent en local. Vérifiez les règles Firebase', 'warn');
+          console.error('[Magasin] ❌ ERREUR sync Firebase:', e);
+          console.error('  Code:', e.code);
+          console.error('  Message:', e.message);
+          console.error('  Détails:', e);
+
+          // Diagnostic clair selon le code d'erreur
+          let diagnostic = '';
+          if (e.code === 'PERMISSION_DENIED') {
+            diagnostic = `❌ FIREBASE RULES BLOQUE L\'ÉCRITURE !
+
+Action requise :
+1. Console Firebase → Realtime Database → Rules
+2. Copier les rules du fichier database.rules.json
+3. Cliquer "Publier"
+
+Erreur Firebase : ${e.message}`;
+          } else if (e.code === 'NETWORK_ERROR') {
+            diagnostic = `❌ Pas de connexion internet`;
+          } else {
+            diagnostic = `❌ Erreur Firebase : ${e.code || 'inconnue'}\n${e.message}`;
+          }
+
+          alert(diagnostic);
+          ui.toast(`❌ Sauvegarde refusée — Voir console (F12)`, 'danger');
         }
       },
 
@@ -3912,6 +3980,61 @@
     }
   };
 
+
+  /* ╔══════════════════════════════════════════════════════════════════════╗
+     ║  DIAGNOSTIC FIREBASE — Helper pour Bilal                             ║
+     ║  Utilisation : window.diagnoseLEONI()                                ║
+     ╚══════════════════════════════════════════════════════════════════════╝ */
+  window.diagnoseLEONI = async function() {
+    console.log('═══════════════════════════════════════════');
+    console.log('🔍 DIAGNOSTIC LEONI — Firebase + App');
+    console.log('═══════════════════════════════════════════');
+
+    const checks = [];
+
+    // 1. Firebase connecté ?
+    try {
+      const conn = await fbDb.ref('.info/connected').once('value');
+      checks.push(['Firebase connecté', conn.val() ? '✅' : '❌']);
+    } catch(e) { checks.push(['Firebase connecté', '❌ ' + e.message]); }
+
+    // 2. User authentifié ?
+    checks.push(['User authentifié', fbAuth.currentUser ? '✅ ' + fbAuth.currentUser.email : '❌']);
+    checks.push(['Rôle utilisateur', state.role || 'inconnu']);
+
+    // 3. Test lecture stockPieces
+    try {
+      await fbDb.ref('stockPieces').limitToFirst(1).once('value');
+      checks.push(['Lecture stockPieces', '✅']);
+    } catch(e) { checks.push(['Lecture stockPieces', '❌ ' + e.code + ' — ' + e.message]); }
+
+    // 4. Test écriture stockPieces (via .info)
+    try {
+      await fbDb.ref('stockPieces/_test').set({ ts: Date.now() });
+      await fbDb.ref('stockPieces/_test').remove();
+      checks.push(['Écriture stockPieces', '✅']);
+    } catch(e) { checks.push(['Écriture stockPieces', '❌ ' + e.code + ' — ' + e.message]); }
+
+    // 5. Test écriture stockImportHistory
+    try {
+      const ref = fbDb.ref('stockImportHistory').push();
+      await ref.set({ test: true, ts: Date.now() });
+      await ref.remove();
+      checks.push(['Écriture stockImportHistory', '✅']);
+    } catch(e) { checks.push(['Écriture stockImportHistory', '❌ ' + e.code + ' — ' + e.message]); }
+
+    // 6. Données actuelles
+    checks.push(['Pièces en mémoire', views.magasin?.pieces?.length || 0]);
+    checks.push(['Pièces dans localStorage',
+      JSON.parse(localStorage.getItem('leoni-stock-pieces') || '{}').pieces?.length || 0]);
+
+    console.table(checks.reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {}));
+    console.log('═══════════════════════════════════════════');
+    console.log('Si vous voyez des ❌ : copier-coller ce diagnostic à votre développeur');
+
+    return checks;
+  };
+
   /* ==========================================================================
      15. BOOTSTRAP
      ========================================================================== */
@@ -3935,7 +4058,20 @@
     document.querySelectorAll('input[type="password"]').forEach(input => {
       input.setAttribute('autocomplete', 'new-password');
     });
-    // ── FIX warnings DOM : envelopper les password fields dans des forms avec username caché ──
+    // ── FIX accessibility: associer chaque <label> à son input voisin ──
+    document.querySelectorAll('.field').forEach(field => {
+      const label = field.querySelector('label.field__label');
+      const input = field.querySelector('input, select, textarea');
+      if (label && input && !label.htmlFor && !label.contains(input)) {
+        // Si l'input n'a pas d'ID, on en génère un
+        if (!input.id) {
+          input.id = 'field-' + Math.random().toString(36).slice(2, 9);
+        }
+        label.htmlFor = input.id;
+      }
+    });
+
+        // ── FIX warnings DOM : envelopper les password fields dans des forms avec username caché ──
     document.querySelectorAll('input[type="password"]').forEach(input => {
       // Si déjà dans un form qui contient un username, on skip
       const existingForm = input.closest('form');
@@ -3980,6 +4116,7 @@
     Shortcuts.init();
     ConnMonitor.init();
     console.log('[LEONI] Raccourcis : Alt+H Hub · Alt+N Nouveau · Alt+M Magasin · Alt+P Performance');
+    console.log('[LEONI] 💡 En cas de problème Firebase, tapez : diagnoseLEONI()');
 
     // Stats period change triggers re-render
     const statsPeriod = document.getElementById('stats-period');
