@@ -2,24 +2,7 @@
   "rules": {
     ".read": "auth != null",
     ".write": "auth != null",
-    "users": {
-      ".read": "auth != null",
-      "$uid": {
-        ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'super_admin')",
-        "password": {
-          ".validate": "false"
-        },
-        "email": {
-          ".validate": "newData.isString() && newData.val().contains('@')"
-        },
-        "role": {
-          ".validate": "newData.val() === 'admin' || newData.val() === 'super_admin' || newData.val() === 'crimp' || newData.val() === 'crimping' || newData.val() === 'labo' || newData.val() === 'magasinier' || newData.val() === 'responsable' || newData.val() === 'guest'"
-        }
-      }
-    },
     "interventions": {
-      ".read": "auth != null",
-      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() != 'guest'",
       ".indexOn": [
         "numBon",
         "status",
@@ -27,48 +10,24 @@
         "updatedAt"
       ]
     },
-    "tools": {
-      ".read": "auth != null",
-      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'super_admin' || root.child('users').child(auth.uid).child('role').val() == 'magasinier')"
-    },
-    "stockPieces": {
-      ".read": "auth != null",
-      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'super_admin' || root.child('users').child(auth.uid).child('role').val() == 'magasinier')"
-    },
     "stockImportHistory": {
-      ".read": "auth != null",
-      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'super_admin' || root.child('users').child(auth.uid).child('role').val() == 'magasinier')",
       ".indexOn": [
         "timestamp"
       ]
     },
-    "stock": {
-      ".read": "auth != null",
-      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'super_admin' || root.child('users').child(auth.uid).child('role').val() == 'magasinier')"
-    },
     "stockMovements": {
-      ".read": "auth != null",
-      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() != 'guest'",
       ".indexOn": [
         "timestamp",
         "stockId"
       ]
     },
     "auditLog": {
-      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'super_admin')",
-      ".write": "auth != null",
       ".indexOn": [
         "timestamp",
         "uid"
       ]
     },
-    "counters": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
     "notifications": {
-      ".read": "auth != null",
-      ".write": "auth != null",
       ".indexOn": [
         "timestamp",
         "read",
@@ -81,6 +40,10 @@
           "createdAt"
         ]
       }
+    },
+    "loginIndex": {
+      ".read": true,
+      ".write": "auth != null"
     }
   }
 }

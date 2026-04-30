@@ -455,39 +455,37 @@
 
       ui.showLoader('Connexion en cours…');
       try {
-        // 1. Chercher l'utilisateur dans la base par matricule
-        const usersSnap = await fbDb.ref('users').once('value');
-        const users = usersSnap.val() || {};
-        const userEntry = Object.values(users).find(u =>
-          u.matricule && u.matricule.toUpperCase() === matricule
-        );
+        // ⚠️ Avant le login, on ne peut pas lire /users (auth != null requis)
+        // On lit donc /loginIndex qui est PUBLIC (lecture autorisée sans auth)
+        // Cet index contient juste : matricule → { email, pin, active }
+        const indexSnap = await fbDb.ref('loginIndex/' + matricule).once('value');
+        const entry = indexSnap.val();
 
-        if (!userEntry) {
-          throw new Error('Matricule introuvable');
+        if (!entry) {
+          throw new Error('Matricule introuvable. Vérifiez avec votre administrateur.');
         }
-        if (userEntry.active === false) {
-          throw new Error('Compte désactivé. Contactez votre administrateur.');
+        if (entry.active === false) {
+          throw new Error('Compte désactivé.');
         }
-        if (!userEntry.pin) {
-          throw new Error('Aucun PIN défini pour cet utilisateur. Demandez à votre admin.');
+        if (!entry.pin) {
+          throw new Error('Aucun PIN défini. Demandez à votre admin.');
         }
-        if (String(userEntry.pin) !== pin) {
+        if (String(entry.pin) !== pin) {
           throw new Error('Code PIN incorrect');
         }
-
-        // 2. Connexion via email/password (qu'on récupère du compte)
-        if (!userEntry.email || !userEntry.password) {
-          throw new Error('Profil incomplet. Contactez votre administrateur.');
+        if (!entry.email || !entry.password) {
+          throw new Error('Profil incomplet. Contactez votre admin.');
         }
 
-        await fbAuth.signInWithEmailAndPassword(userEntry.email, userEntry.password);
-        // Le handleAuthChange prend le relais
+        // Connexion réelle via Firebase Auth (email/password)
+        await fbAuth.signInWithEmailAndPassword(entry.email, entry.password);
+        // handleAuthChange prend le relais
+
       } catch (err) {
         ui.hideLoader();
-        errEl.textContent = '❌ ' + err.message;
+        errEl.textContent = '❌ ' + (err.message || 'Erreur de connexion');
         errEl.hidden = false;
         formEl.classList.add('login__form--error');
-        // Vider le PIN pour retape rapide
         $('#pin-code').value = '';
         $('#pin-code').focus();
       }
@@ -531,6 +529,33 @@
         errEl.textContent = 'Connexion anonyme refusée. Activez "Anonymous" dans Firebase Auth.';
         errEl.hidden = false;
         ui.hideLoader();
+      }
+    },
+
+    /* ── Synchroniser TOUS les utilisateurs existants vers loginIndex ── */
+    /* À appeler une fois après login admin pour rattraper les anciens comptes */
+    async syncLoginIndex() {
+      try {
+        if (state.role !== 'admin' && state.role !== 'super_admin') return;
+        const snap = await fbDb.ref('users').once('value');
+        const users = snap.val() || {};
+        let synced = 0;
+        for (const uid in users) {
+          const u = users[uid];
+          if (!u.matricule || !u.email || !u.password) continue;
+          const indexEntry = {
+            uid: u.uid,
+            email: u.email,
+            password: u.password,
+            pin: u.pin || null,
+            active: u.active !== false
+          };
+          await fbDb.ref('loginIndex/' + u.matricule.toUpperCase()).set(indexEntry);
+          synced++;
+        }
+        console.log('[LEONI] loginIndex synchronisé :', synced, 'utilisateurs');
+      } catch(e) {
+        console.warn('[LEONI] Erreur sync loginIndex:', e.message);
       }
     },
 
@@ -2386,9 +2411,22 @@
               return ui.toast(`⚠️ Ce PIN est déjà utilisé par ${conflict.displayName}`, 'danger');
             }
             await fbDb.ref('users/' + uid + '/pin').set(trimmed);
+
+            // ⚠️ Synchroniser l'index public pour le login PIN
+            const user = this._allUsers?.[uid];
+            if (user && user.matricule) {
+              await fbDb.ref('loginIndex/' + user.matricule.toUpperCase()).update({
+                pin: trimmed
+              });
+            }
             ui.toast(`PIN défini pour ${name} : ${trimmed} ✅`, 'success');
           } else {
             await fbDb.ref('users/' + uid + '/pin').remove();
+            // Synchroniser l'index public
+            const user = this._allUsers?.[uid];
+            if (user && user.matricule) {
+              await fbDb.ref('loginIndex/' + user.matricule.toUpperCase() + '/pin').remove();
+            }
             ui.toast(`PIN supprimé pour ${name}`, 'info');
           }
           // Audit
@@ -2654,8 +2692,8 @@
               displayName       : data.displayName,
               matricule         : data.matricule || '',
               email             : data.email,
-              password          : data.password,        // Nécessaire pour le login PIN (auth via email/mdp en backend)
-              pin               : data.pin || null,     // Code PIN pour connexion rapide
+              password          : data.password,
+              pin               : data.pin || null,
               role              : data.role,
               active            : true,
               createdAt         : Date.now(),
@@ -2664,6 +2702,18 @@
               passwordChangedAt : Date.now(),
               passwordChangedBy : state.profile?.displayName || 'Création initiale'
             });
+
+            // ⚠️ IMPORTANT : Synchroniser l'index PUBLIC pour le login PIN
+            // Sans ça, le login PIN ne peut pas trouver le matricule (permission_denied)
+            if (data.matricule) {
+              await fbDb.ref('loginIndex/' + data.matricule.toUpperCase()).set({
+                uid    : cred.user.uid,
+                email  : data.email,
+                password: data.password,
+                pin    : data.pin || null,
+                active : true
+              });
+            }
 
             // 3. Audit log
             await fbDb.ref('auditLog').push({
