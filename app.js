@@ -4059,7 +4059,7 @@ Erreur Firebase : ${e.message}`;
       input.setAttribute('autocomplete', 'new-password');
     });
     // ── FIX accessibility: associer TOUS les <label> à leur input ──
-    // Cette fonction couvre TOUS les cas possibles
+    // Cette fonction couvre TOUS les cas possibles, même pour des labels dynamiques
     function fixLabels() {
       document.querySelectorAll('label').forEach(label => {
         // Skip si déjà associé
@@ -4067,43 +4067,86 @@ Erreur Firebase : ${e.message}`;
         // Skip si le label contient déjà l'input
         if (label.querySelector('input, select, textarea')) return;
 
-        // Stratégie 1 : input frère immédiat
-        let input = label.nextElementSibling;
-        if (!input || !['INPUT','SELECT','TEXTAREA'].includes(input.tagName)) {
-          // Stratégie 2 : input dans le parent
+        let input = null;
+
+        // Stratégie 1 : parcourir tous les frères suivants (et leurs descendants)
+        let sibling = label.nextElementSibling;
+        while (sibling && !input) {
+          if (['INPUT','SELECT','TEXTAREA'].includes(sibling.tagName)) {
+            input = sibling;
+          } else {
+            input = sibling.querySelector?.('input, select, textarea');
+          }
+          sibling = sibling.nextElementSibling;
+        }
+
+        // Stratégie 2 : input dans le même parent (avant le label aussi)
+        if (!input) {
           input = label.parentElement?.querySelector('input, select, textarea');
         }
-        if (!input || !['INPUT','SELECT','TEXTAREA'].includes(input.tagName)) {
-          // Stratégie 3 : input suivant dans le DOM
+
+        // Stratégie 3 : remonter dans les ancêtres
+        if (!input) {
           let cursor = label.parentElement;
           while (cursor && !input) {
             input = cursor.querySelector('input, select, textarea');
-            cursor = cursor.nextElementSibling;
+            if (!input) cursor = cursor.parentElement;
           }
         }
 
         if (input) {
-          // Générer un ID si nécessaire
           if (!input.id) {
             input.id = 'auto-' + Math.random().toString(36).slice(2, 9);
           }
           label.htmlFor = input.id;
         } else {
-          // Aucun input trouvé : ajouter un aria-label pour l'accessibilité
-          if (!label.getAttribute('aria-label')) {
-            label.setAttribute('aria-label', label.textContent.trim());
-          }
+          // Aucun input trouvé : convertir le label en span (élimine le warning)
+          // car un <label> sans input n'a pas de sens sémantique
+          const span = document.createElement('span');
+          // Copier les attributs (sauf for)
+          [...label.attributes].forEach(attr => {
+            if (attr.name !== 'for') span.setAttribute(attr.name, attr.value);
+          });
+          span.innerHTML = label.innerHTML;
+          label.parentNode.replaceChild(span, label);
         }
+      });
+    }
+
+    // ── FIX accessibility: ajouter autocomplete sur tous les inputs ──
+    function fixAutocomplete() {
+      document.querySelectorAll('input').forEach(input => {
+        if (input.hasAttribute('autocomplete')) return;
+        // Heuristique selon le type/nom
+        const type = (input.type || '').toLowerCase();
+        const name = (input.name || input.id || '').toLowerCase();
+        let auto = 'off'; // default
+        if (type === 'email' || name.includes('email'))           auto = 'email';
+        else if (type === 'password')                              auto = 'current-password';
+        else if (type === 'tel' || name.includes('phone'))         auto = 'tel';
+        else if (type === 'search' || name.includes('search'))     auto = 'off';
+        else if (name.includes('name') || name.includes('nom'))    auto = 'name';
+        else if (type === 'number')                                auto = 'off';
+        else if (type === 'date' || type === 'datetime-local')     auto = 'off';
+        input.setAttribute('autocomplete', auto);
+      });
+      // Aussi sur select et textarea
+      document.querySelectorAll('select, textarea').forEach(el => {
+        if (!el.hasAttribute('autocomplete')) el.setAttribute('autocomplete', 'off');
       });
     }
 
     // Exécuter immédiatement
     fixLabels();
+    fixAutocomplete();
     // Ré-exécuter après chaque ouverture de modal ou changement de vue
     const observer = new MutationObserver(() => {
       // Throttle : pas plus d'une fois toutes les 200ms
       clearTimeout(window.__labelFixTimer);
-      window.__labelFixTimer = setTimeout(fixLabels, 200);
+      window.__labelFixTimer = setTimeout(() => {
+        fixLabels();
+        fixAutocomplete();
+      }, 200);
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
